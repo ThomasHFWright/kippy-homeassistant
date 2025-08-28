@@ -1,0 +1,13 @@
+{
+  "title": "Kippy",
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    }
+  }
+}
