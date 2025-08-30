@@ -14,7 +14,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     session = aiohttp_client.async_get_clientsession(hass)
     api = KippyApi(session)
-    await api.login(entry.data[CONF_EMAIL], entry.data[CONF_PASSWORD])
+    email = entry.data.get(CONF_EMAIL)
+    password = entry.data.get(CONF_PASSWORD)
+    if not email or not password:
+        return False
+    await api.login(email, password)
     hass.data[DOMAIN][entry.entry_id] = {"api": api}
     return True
 
