@@ -6,7 +6,7 @@
         "title": "Kippy",
         "description": "Connect to your Kippy account",
         "data": {
-          "username": "Username",
+          "email": "Email",
           "password": "Password"
         }
       }
