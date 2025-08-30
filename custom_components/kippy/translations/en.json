@@ -1,6 +1,9 @@
 {
   "title": "Kippy",
   "config": {
+    "error": {
+      "cannot_connect": "Failed to connect"
+    },
     "step": {
       "user": {
         "title": "Kippy",
