@@ -23,24 +23,27 @@ async def async_setup_entry(
     for pet in base_coordinator.data.get("pets", []):
         entities.append(KippyUpdateFrequencyNumber(base_coordinator, pet))
         map_coord = map_coordinators[pet["petID"]]
-        entities.append(KippyIdleRefreshNumber(map_coord, pet))
-        entities.append(KippyLiveRefreshNumber(map_coord, pet))
+        entities.append(KippyIdleUpdateFrequencyNumber(map_coord, pet))
+        entities.append(KippyLiveUpdateFrequencyNumber(map_coord, pet))
     async_add_entities(entities)
 
 
 class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], NumberEntity):
-    """Number entity for update frequency."""
+    """Number entity for GPS automatic update frequency."""
 
     _attr_native_min_value = 1
     _attr_native_max_value = 24
     _attr_native_step = 1
+    _attr_native_unit_of_measurement = "h"
 
     def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Update Frequency" if pet_name else "Update Frequency"
+            f"{pet_name} GPS Automatic update frequency"
+            if pet_name
+            else "GPS Automatic update frequency"
         )
         self._attr_unique_id = f"{self._pet_id}_update_frequency"
         self._pet_data = pet
@@ -74,14 +77,14 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
         )
 
 
-class KippyIdleRefreshNumber(
+class KippyIdleUpdateFrequencyNumber(
     CoordinatorEntity[KippyMapDataUpdateCoordinator], NumberEntity
 ):
-    """Number entity for idle refresh time."""
+    """Number entity for idle update frequency."""
 
     _attr_native_min_value = 1
     _attr_native_step = 1
-    _attr_native_unit_of_measurement = "s"
+    _attr_native_unit_of_measurement = "min"
 
     def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
         super().__init__(coordinator)
@@ -89,16 +92,16 @@ class KippyIdleRefreshNumber(
         self._pet_data = pet
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Idle refresh time" if pet_name else "Idle refresh time"
+            f"{pet_name} Idle update frequency" if pet_name else "Idle update frequency"
         )
         self._attr_unique_id = f"{self._pet_id}_idle_refresh_time"
 
     @property
     def native_value(self) -> float | None:
-        return float(self.coordinator.idle_refresh)
+        return float(self.coordinator.idle_refresh) / 60
 
     async def async_set_native_value(self, value: float) -> None:
-        await self.coordinator.async_set_idle_refresh(int(value))
+        await self.coordinator.async_set_idle_refresh(int(value * 60))
         self.async_write_ha_state()
 
     @property
@@ -114,10 +117,10 @@ class KippyIdleRefreshNumber(
         )
 
 
-class KippyLiveRefreshNumber(
+class KippyLiveUpdateFrequencyNumber(
     CoordinatorEntity[KippyMapDataUpdateCoordinator], NumberEntity
 ):
-    """Number entity for live refresh time."""
+    """Number entity for live update frequency."""
 
     _attr_native_min_value = 1
     _attr_native_step = 1
@@ -129,7 +132,7 @@ class KippyLiveRefreshNumber(
         self._pet_data = pet
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Live refresh time" if pet_name else "Live refresh time"
+            f"{pet_name} Live update frequency" if pet_name else "Live update frequency"
         )
         self._attr_unique_id = f"{self._pet_id}_live_refresh_time"
 
