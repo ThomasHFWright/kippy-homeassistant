@@ -86,7 +86,7 @@ class KippyLiveTrackingBinarySensor(
 
     @property
     def is_on(self) -> bool:
-        return bool(self.coordinator.data.get("operating_status") == 1)
+        return bool(int(self.coordinator.data.get("operating_status") or 0) == 1)
 
     @property
     def device_info(self) -> DeviceInfo:

@@ -47,6 +47,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Kippy config entry."""
-    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    hass.data[DOMAIN].pop(entry.entry_id)
-    return True
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        data = hass.data[DOMAIN].pop(entry.entry_id)
+        await data["coordinator"].async_config_entry_last_unload()
+        for coordinator in data["map_coordinators"].values():
+            await coordinator.async_config_entry_last_unload()
+    return unload_ok

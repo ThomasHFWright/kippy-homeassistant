@@ -98,7 +98,7 @@ class KippyIdleRefreshNumber(
         return float(self.coordinator.idle_refresh)
 
     async def async_set_native_value(self, value: float) -> None:
-        self.coordinator.set_idle_refresh(int(value))
+        await self.coordinator.async_set_idle_refresh(int(value))
         self.async_write_ha_state()
 
     @property
@@ -138,7 +138,7 @@ class KippyLiveRefreshNumber(
         return float(self.coordinator.live_refresh)
 
     async def async_set_native_value(self, value: float) -> None:
-        self.coordinator.set_live_refresh(int(value))
+        await self.coordinator.async_set_live_refresh(int(value))
         self.async_write_ha_state()
 
     @property
