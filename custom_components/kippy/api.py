@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import ssl
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientResponseError, ClientSession
 
 DEFAULT_LOGIN_URL = "https://prod.kippyapi.eu/v2/login.php"
+
+_LOGGER = logging.getLogger(__name__)
 
 class KippyApi:
     """Minimal Kippy API wrapper handling authentication."""
@@ -22,6 +26,15 @@ class KippyApi:
         self._token_expiry: Optional[datetime] = None
         self._email: Optional[str] = None
         self._password: Optional[str] = None
+
+        # Some Kippy servers use small Diffie-Hellman parameters which modern
+        # OpenSSL rejects by default. Lower the security level and enable
+        # legacy server connect to allow these connections.
+        ctx = ssl.create_default_context()
+        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+        if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
+            ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
+        self._ssl_context = ctx
 
     @property
     def token(self) -> Optional[str]:
@@ -65,11 +78,32 @@ class KippyApi:
             "User-Agent": "kippy-ha/0.1 (+aiohttp)",
         }
 
-        async with self._session.post(
-            self._login_url, data=json.dumps(payload), headers=headers
-        ) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
+        try:
+            async with self._session.post(
+                self._login_url,
+                data=json.dumps(payload),
+                headers=headers,
+                ssl=self._ssl_context,
+            ) as resp:
+                resp_text = await resp.text()
+                try:
+                    resp.raise_for_status()
+                except ClientResponseError as err:
+                    _LOGGER.debug(
+                        "Login failed: status=%s request=%s response=%s",
+                        err.status,
+                        payload,
+                        resp_text,
+                    )
+                    raise
+                data = json.loads(resp_text)
+        except ClientError as err:
+            _LOGGER.debug(
+                "Error communicating with Kippy API: request=%s error=%s",
+                payload,
+                err,
+            )
+            raise
 
         self._auth = data
         self._email = email
