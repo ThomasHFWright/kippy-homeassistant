@@ -13,6 +13,12 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 DEFAULT_HOST = "https://prod.kippyapi.eu"
 LOGIN_PATH = "/v2/login.php"
 GET_PETS_PATH = "/v2/GetPetKippyList.php"
+KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
+
+LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
+    "2": "GPS",
+    "3": "Wifi",
+}
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -258,3 +264,47 @@ class KippyApi:
         }
         data = await self._post_with_refresh(GET_PETS_PATH, payload, headers)
         return data.get("data", [])
+
+    async def kippymap_action(
+        self,
+        kippy_id: int,
+        do_sms: bool = True,
+        app_action: int | None = None,
+        geofence_id: int | None = None,
+    ) -> Dict[str, Any]:
+        """Perform a kippymap action for a specific device."""
+
+        await self.ensure_login()
+
+        if not self._auth:
+            raise RuntimeError("No authentication data available")
+
+        payload: Dict[str, Any] = {
+            "app_code": self._app_code,
+            "app_verification_code": self._app_verification_code,
+            "app_identity": "evo",
+            "kippy_id": kippy_id,
+            "do_sms": int(do_sms),
+        }
+        if self._token:
+            payload["auth_token"] = self._token
+        if app_action is not None:
+            payload["app_action"] = app_action
+        if geofence_id is not None:
+            payload["geofence_id"] = geofence_id
+
+        headers = {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Accept": "application/json, */*;q=0.8",
+            "User-Agent": "kippy-ha/0.1 (+aiohttp)",
+        }
+
+        data = await self._post_with_refresh(KIPPYMAP_ACTION_PATH, payload, headers)
+
+        tech = data.get("localization_tecnology")
+        if tech is not None:
+            data["localization_technology"] = LOCALIZATION_TECHNOLOGY_MAP.get(
+                str(tech), str(tech)
+            )
+
+        return data
