@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, OPERATING_STATUS_LIVE
 from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
 
 
@@ -86,7 +86,9 @@ class KippyLiveTrackingBinarySensor(
 
     @property
     def is_on(self) -> bool:
-        return bool(self.coordinator.data.get("operating_status") == 1)
+        return bool(
+            self.coordinator.data.get("operating_status") == OPERATING_STATUS_LIVE
+        )
 
     @property
     def device_info(self) -> DeviceInfo:

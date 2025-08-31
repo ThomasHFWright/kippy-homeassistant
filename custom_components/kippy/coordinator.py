@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import KippyApi
-from .const import DOMAIN
+from .const import DOMAIN, OPERATING_STATUS_LIVE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             operating_status = int(operating_status)
         except (TypeError, ValueError):
             operating_status = None
-        if operating_status == 1:
+        if operating_status == OPERATING_STATUS_LIVE:
             self.update_interval = timedelta(seconds=self.live_refresh)
         else:
             self.update_interval = timedelta(seconds=self.idle_refresh)
@@ -80,7 +80,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                 operating_status = int(operating_status)
             except (TypeError, ValueError):
                 operating_status = None
-            if operating_status != 1:
+            if operating_status != OPERATING_STATUS_LIVE:
                 self.update_interval = timedelta(seconds=self.idle_refresh)
 
     async def async_set_live_refresh(self, value: int) -> None:
@@ -92,5 +92,5 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                 operating_status = int(operating_status)
             except (TypeError, ValueError):
                 operating_status = None
-            if operating_status == 1:
+            if operating_status == OPERATING_STATUS_LIVE:
                 self.update_interval = timedelta(seconds=self.live_refresh)
