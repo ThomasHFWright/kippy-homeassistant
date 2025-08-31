@@ -26,6 +26,7 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
     """Number entity for update frequency."""
 
     _attr_native_min_value = 1
+    _attr_native_max_value = 24
     _attr_native_step = 1
 
     def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:

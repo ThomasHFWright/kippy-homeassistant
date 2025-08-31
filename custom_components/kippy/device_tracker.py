@@ -50,11 +50,11 @@ class KippyPetTracker(CoordinatorEntity[KippyDataUpdateCoordinator], TrackerEnti
             except ValueError:
                 pass
 
-        kind = attrs.get("petKind")
-        if kind == 4:
-            attrs["petKind"] = "dog"
-        elif kind == 3:
-            attrs["petKind"] = "cat"
+        pet_kind = attrs.pop("petKind", None)
+        if pet_kind == 4:
+            attrs["petType"] = "dog"
+        elif pet_kind == 3:
+            attrs["petType"] = "cat"
 
         return attrs
 

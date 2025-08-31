@@ -21,7 +21,7 @@ async def async_setup_entry(
     entities: list[SensorEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyExpiredDaysSensor(coordinator, pet))
-        entities.append(KippyPetKindSensor(coordinator, pet))
+        entities.append(KippyPetTypeSensor(coordinator, pet))
     async_add_entities(entities)
 
 
@@ -76,14 +76,14 @@ class KippyExpiredDaysSensor(_KippyBaseEntity, SensorEntity):
         return abs(days) if days < 0 else "Expired"
 
 
-class KippyPetKindSensor(_KippyBaseEntity, SensorEntity):
+class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):
     """Sensor for pet type."""
 
     def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
-        self._attr_name = f"{pet_name} Kind" if pet_name else "Pet Kind"
-        self._attr_unique_id = f"{self._pet_id}_kind"
+        self._attr_name = f"{pet_name} Type" if pet_name else "Pet Type"
+        self._attr_unique_id = f"{self._pet_id}_type"
 
     @property
     def native_value(self) -> str | None:
