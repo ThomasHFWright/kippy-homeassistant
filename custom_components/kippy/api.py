@@ -1,6 +1,7 @@
 """Simple API client for Kippy."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -25,7 +26,12 @@ _LOGGER = logging.getLogger(__name__)
 class KippyApi:
     """Minimal Kippy API wrapper handling authentication."""
 
-    def __init__(self, session: ClientSession, host: str = DEFAULT_HOST) -> None:
+    def __init__(
+        self,
+        session: ClientSession,
+        host: str = DEFAULT_HOST,
+        ssl_context: Optional[ssl.SSLContext] = None,
+    ) -> None:
         """Initialize the API client."""
         self._session = session
         self._host = host.rstrip("/")
@@ -37,14 +43,19 @@ class KippyApi:
         self._app_code: Optional[str] = None
         self._app_verification_code: Optional[str] = None
 
-        # Some Kippy servers use small Diffie-Hellman parameters which modern
-        # OpenSSL rejects by default. Lower the security level and enable
-        # legacy server connect to allow these connections.
-        ctx = ssl.create_default_context()
+        self._ssl_context = ssl_context
+
+    @classmethod
+    async def async_create(
+        cls, session: ClientSession, host: str = DEFAULT_HOST
+    ) -> "KippyApi":
+        """Create an instance of the API client with an SSL context."""
+        loop = asyncio.get_running_loop()
+        ctx = await loop.run_in_executor(None, ssl.create_default_context)
         ctx.set_ciphers("DEFAULT@SECLEVEL=1")
         if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
             ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
-        self._ssl_context = ctx
+        return cls(session, host, ctx)
 
     def _url(self, path: str) -> str:
         """Construct a full URL for a given API path."""

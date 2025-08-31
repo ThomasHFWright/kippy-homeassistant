@@ -25,7 +25,7 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             session = aiohttp_client.async_get_clientsession(self.hass)
-            api = KippyApi(session)
+            api = await KippyApi.async_create(session)
             try:
                 await api.login(user_input[CONF_EMAIL], user_input[CONF_PASSWORD])
             except ClientResponseError as err:
