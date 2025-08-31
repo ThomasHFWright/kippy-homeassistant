@@ -10,17 +10,18 @@ from typing import Any, Dict, Optional
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
-DEFAULT_LOGIN_URL = "https://prod.kippyapi.eu/v2/login.php"
+DEFAULT_HOST = "https://prod.kippyapi.eu"
+LOGIN_PATH = "/v2/login.php"
 
 _LOGGER = logging.getLogger(__name__)
 
 class KippyApi:
     """Minimal Kippy API wrapper handling authentication."""
 
-    def __init__(self, session: ClientSession, login_url: str = DEFAULT_LOGIN_URL) -> None:
+    def __init__(self, session: ClientSession, host: str = DEFAULT_HOST) -> None:
         """Initialize the API client."""
         self._session = session
-        self._login_url = login_url
+        self._host = host.rstrip("/")
         self._auth: Optional[Dict[str, Any]] = None
         self._token: Optional[str] = None
         self._token_expiry: Optional[datetime] = None
@@ -35,6 +36,10 @@ class KippyApi:
         if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
             ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
         self._ssl_context = ctx
+
+    def _url(self, path: str) -> str:
+        """Construct a full URL for a given API path."""
+        return f"{self._host}{path}"
 
     @property
     def token(self) -> Optional[str]:
@@ -80,7 +85,7 @@ class KippyApi:
 
         try:
             async with self._session.post(
-                self._login_url,
+                self._url(LOGIN_PATH),
                 data=json.dumps(payload),
                 headers=headers,
                 ssl=self._ssl_context,
