@@ -15,12 +15,12 @@ from .coordinator import KippyDataUpdateCoordinator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities) -> None:
     """Set up Kippy device trackers."""
-    api = hass.data[DOMAIN][entry.entry_id]["api"]
-    coordinator = KippyDataUpdateCoordinator(hass, api)
-    await coordinator.async_config_entry_first_refresh()
-    hass.data[DOMAIN][entry.entry_id]["coordinator"] = coordinator
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    entities = [KippyPetTracker(coordinator, pet) for pet in coordinator.data.get("pets", [])]
+    entities = [
+        KippyPetTracker(coordinator, pet)
+        for pet in coordinator.data.get("pets", [])
+    ]
     async_add_entities(entities)
 
 
