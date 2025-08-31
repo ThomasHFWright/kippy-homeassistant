@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, PET_KIND_TO_TYPE
 from .coordinator import KippyDataUpdateCoordinator
 
 
@@ -88,9 +88,5 @@ class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         kind = self._pet_data.get("petKind")
-        if kind == 4:
-            return "dog"
-        if kind == 3:
-            return "cat"
-        return None
+        return PET_KIND_TO_TYPE.get(str(kind))
 

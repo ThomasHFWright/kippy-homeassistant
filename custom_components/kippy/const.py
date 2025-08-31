@@ -10,3 +10,9 @@ PLATFORMS: list[str] = [
     "switch",
     "binary_sensor",
 ]
+
+# Mapping of ``petKind`` codes returned by the API to a human readable type.
+PET_KIND_TO_TYPE: dict[str, str] = {
+    "4": "Dog",
+    "3": "Cat",
+}
