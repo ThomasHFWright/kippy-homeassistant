@@ -97,6 +97,21 @@ class KippyApi:
                     )
                     raise
                 data = json.loads(resp_text)
+                return_code = data.get("return")
+                if return_code not in (0, "0"):
+                    _LOGGER.debug(
+                        "Login failed: return=%s request=%s response=%s",
+                        return_code,
+                        payload,
+                        resp_text,
+                    )
+                    raise ClientResponseError(
+                        resp.request_info,
+                        resp.history,
+                        status=401,
+                        message=resp_text,
+                        headers=resp.headers,
+                    )
         except ClientError as err:
             _LOGGER.debug(
                 "Error communicating with Kippy API: request=%s error=%s",
