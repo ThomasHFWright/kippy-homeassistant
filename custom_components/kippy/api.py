@@ -161,6 +161,80 @@ class KippyApi:
             raise RuntimeError("No stored credentials; call login() first")
         await self.login(self._email, self._password)
 
+    async def _post_with_refresh(
+        self, path: str, payload: Dict[str, Any], headers: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """POST to the API and refresh login on authentication errors."""
+
+        for attempt in range(2):
+            try:
+                async with self._session.post(
+                    self._url(path),
+                    data=json.dumps(payload),
+                    headers=headers,
+                    ssl=self._ssl_context,
+                ) as resp:
+                    resp_text = await resp.text()
+                    try:
+                        resp.raise_for_status()
+                    except ClientResponseError as err:
+                        _LOGGER.debug(
+                            "%s failed: status=%s request=%s response=%s",
+                            path,
+                            err.status,
+                            payload,
+                            resp_text,
+                        )
+                        if err.status == 401 and attempt == 0:
+                            await self.login(self._email, self._password, force=True)
+                            payload.update(
+                                {
+                                    "app_code": self._app_code,
+                                    "app_verification_code": self._app_verification_code,
+                                    "auth_token": self._token,
+                                }
+                            )
+                            continue
+                        raise
+
+                    data = json.loads(resp_text)
+                    return_code = data.get("return")
+                    if return_code not in (0, "0"):
+                        _LOGGER.debug(
+                            "%s failed: return=%s request=%s response=%s",
+                            path,
+                            return_code,
+                            payload,
+                            resp_text,
+                        )
+                        if str(return_code) == "6" and attempt == 0:
+                            await self.login(self._email, self._password, force=True)
+                            payload.update(
+                                {
+                                    "app_code": self._app_code,
+                                    "app_verification_code": self._app_verification_code,
+                                    "auth_token": self._token,
+                                }
+                            )
+                            continue
+                        raise ClientResponseError(
+                            resp.request_info,
+                            resp.history,
+                            status=401,
+                            message=resp_text,
+                            headers=resp.headers,
+                        )
+                    return data
+            except ClientError as err:
+                _LOGGER.debug(
+                    "Error communicating with Kippy API: request=%s error=%s",
+                    payload,
+                    err,
+                )
+                raise
+
+        raise RuntimeError("Unexpected authentication failure")
+
     async def get_pet_kippy_list(self) -> list[dict[str, Any]]:
         """Retrieve the list of pets associated with the account."""
         await self.ensure_login()
@@ -173,6 +247,7 @@ class KippyApi:
             "app_verification_code": self._app_verification_code,
             "app_identity": "evo",
             "app_sub_identity": "1",
+            "auth_token": self._token,
         }
 
         headers = {
@@ -180,47 +255,5 @@ class KippyApi:
             "Accept": "application/json, */*;q=0.8",
             "User-Agent": "kippy-ha/0.1 (+aiohttp)",
         }
-
-        try:
-            async with self._session.post(
-                self._url(GET_PETS_PATH),
-                data=json.dumps(payload),
-                headers=headers,
-                ssl=self._ssl_context,
-            ) as resp:
-                resp_text = await resp.text()
-                try:
-                    resp.raise_for_status()
-                except ClientResponseError as err:
-                    _LOGGER.debug(
-                        "GetPetKippyList failed: status=%s request=%s response=%s",
-                        err.status,
-                        payload,
-                        resp_text,
-                    )
-                    raise
-                data = json.loads(resp_text)
-                return_code = data.get("return")
-                if return_code not in (0, "0"):
-                    _LOGGER.debug(
-                        "GetPetKippyList failed: return=%s request=%s response=%s",
-                        return_code,
-                        payload,
-                        resp_text,
-                    )
-                    raise ClientResponseError(
-                        resp.request_info,
-                        resp.history,
-                        status=401,
-                        message=resp_text,
-                        headers=resp.headers,
-                    )
-        except ClientError as err:
-            _LOGGER.debug(
-                "Error communicating with Kippy API: request=%s error=%s",
-                payload,
-                err,
-            )
-            raise
-
+        data = await self._post_with_refresh(GET_PETS_PATH, payload, headers)
         return data.get("data", [])
