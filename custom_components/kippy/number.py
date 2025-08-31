@@ -7,6 +7,8 @@ from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+
+from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -68,13 +70,7 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
     def device_info(self) -> DeviceInfo:
         pet_name = self._pet_data.get("petName")
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._pet_id)},
-            name=name,
-            manufacturer="Kippy",
-            model=self._pet_data.get("kippyType"),
-            sw_version=self._pet_data.get("kippyFirmware"),
-        )
+        return build_device_info(self._pet_id, self._pet_data, name)
 
 
 class KippyIdleUpdateFrequencyNumber(
@@ -110,13 +106,7 @@ class KippyIdleUpdateFrequencyNumber(
     def device_info(self) -> DeviceInfo:
         pet_name = self._pet_data.get("petName")
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._pet_id)},
-            name=name,
-            manufacturer="Kippy",
-            model=self._pet_data.get("kippyType"),
-            sw_version=self._pet_data.get("kippyFirmware"),
-        )
+        return build_device_info(self._pet_id, self._pet_data, name)
 
 
 class KippyLiveUpdateFrequencyNumber(
@@ -152,11 +142,5 @@ class KippyLiveUpdateFrequencyNumber(
     def device_info(self) -> DeviceInfo:
         pet_name = self._pet_data.get("petName")
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._pet_id)},
-            name=name,
-            manufacturer="Kippy",
-            model=self._pet_data.get("kippyType"),
-            sw_version=self._pet_data.get("kippyFirmware"),
-        )
+        return build_device_info(self._pet_id, self._pet_data, name)
 

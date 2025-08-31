@@ -7,6 +7,8 @@ from homeassistant.components.device_tracker import TrackerEntity, SourceType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+
+from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, PET_KIND_TO_TYPE
@@ -79,13 +81,7 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information for this pet."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._pet_id)},
-            name=self._attr_name,
-            manufacturer="Kippy",
-            model=self._pet_data.get("kippyType"),
-            sw_version=self._pet_data.get("kippyFirmware"),
-        )
+        return build_device_info(self._pet_id, self._pet_data, self._attr_name)
 
     def _handle_coordinator_update(self) -> None:  # pragma: no cover - simple passthrough
         super()._handle_coordinator_update()

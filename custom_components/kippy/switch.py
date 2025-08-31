@@ -7,6 +7,8 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+
+from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, OPERATING_STATUS_LIVE
@@ -67,13 +69,7 @@ class KippyEnergySavingSwitch(
     def device_info(self) -> DeviceInfo:
         pet_name = self._pet_data.get("petName")
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._pet_id)},
-            name=name,
-            manufacturer="Kippy",
-            model=self._pet_data.get("kippyType"),
-            sw_version=self._pet_data.get("kippyFirmware"),
-        )
+        return build_device_info(self._pet_id, self._pet_data, name)
 
 
 class KippyLiveTrackingSwitch(
@@ -92,6 +88,7 @@ class KippyLiveTrackingSwitch(
         )
         self._attr_unique_id = f"{self._pet_id}_toggle_live_tracking"
         self._pet_name = pet_name
+        self._pet_data = pet
         self._attr_translation_key = "toggle_live_tracking"
 
     @property
@@ -117,9 +114,5 @@ class KippyLiveTrackingSwitch(
     @property
     def device_info(self) -> DeviceInfo:
         name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._pet_id)},
-            name=name,
-            manufacturer="Kippy",
-        )
+        return build_device_info(self._pet_id, self._pet_data, name)
 

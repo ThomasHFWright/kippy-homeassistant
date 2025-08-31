@@ -6,7 +6,6 @@ import voluptuous as vol
 from aiohttp import ClientError, ClientResponseError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
