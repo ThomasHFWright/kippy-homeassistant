@@ -41,9 +41,9 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} GPS Automatic update frequency"
+            f"{pet_name} GPS Automatic update frequency (hours)"
             if pet_name
-            else "GPS Automatic update frequency"
+            else "GPS Automatic update frequency (hours)"
         )
         self._attr_unique_id = f"{self._pet_id}_update_frequency"
         self._pet_data = pet
@@ -92,7 +92,9 @@ class KippyIdleUpdateFrequencyNumber(
         self._pet_data = pet
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Idle update frequency" if pet_name else "Idle update frequency"
+            f"{pet_name} Idle update frequency (minutes)"
+            if pet_name
+            else "Idle update frequency (minutes)"
         )
         self._attr_unique_id = f"{self._pet_id}_idle_refresh_time"
 
@@ -132,7 +134,9 @@ class KippyLiveUpdateFrequencyNumber(
         self._pet_data = pet
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Live update frequency" if pet_name else "Live update frequency"
+            f"{pet_name} Live update frequency (seconds)"
+            if pet_name
+            else "Live update frequency (seconds)"
         )
         self._attr_unique_id = f"{self._pet_id}_live_refresh_time"
 
