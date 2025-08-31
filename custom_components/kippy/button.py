@@ -7,6 +7,8 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+
+from .helpers import build_device_info
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -44,6 +46,7 @@ class KippyPressButton(
         self._attr_name = f"{pet_name} Press" if pet_name else "Press"
         self._attr_unique_id = f"{self._pet_id}_press"
         self._pet_name = pet_name
+        self._pet_data = pet
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_translation_key = "press"
 
@@ -54,8 +57,4 @@ class KippyPressButton(
     @property
     def device_info(self) -> DeviceInfo:
         name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._pet_id)},
-            name=name,
-            manufacturer="Kippy",
-        )
+        return build_device_info(self._pet_id, self._pet_data, name)
