@@ -11,6 +11,11 @@ PLATFORMS: list[str] = [
     "binary_sensor",
 ]
 
+# Mapping of operating status codes returned by the API.
+OPERATING_STATUS_IDLE = 1
+OPERATING_STATUS_LIVE = 5
+OPERATING_STATUS_POWER_SAVING = 18
+
 # Mapping of ``petKind`` codes returned by the API to a human readable type.
 PET_KIND_TO_TYPE: dict[str, str] = {
     "4": "Dog",
