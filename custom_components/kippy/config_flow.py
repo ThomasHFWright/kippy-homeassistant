@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import voluptuous as vol
+from aiohttp import ClientError, ClientResponseError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
@@ -24,8 +25,15 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             api = KippyApi(session)
             try:
                 await api.login(user_input[CONF_EMAIL], user_input[CONF_PASSWORD])
-            except Exception:
+            except ClientResponseError as err:
+                if err.status in (401, 403):
+                    errors["base"] = "invalid_auth"
+                else:
+                    errors["base"] = "cannot_connect"
+            except ClientError:
                 errors["base"] = "cannot_connect"
+            except Exception:
+                errors["base"] = "unknown"
             else:
                 return self.async_create_entry(title=user_input[CONF_EMAIL], data=user_input)
 

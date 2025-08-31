@@ -2,7 +2,8 @@
   "title": "Kippy",
   "config": {
     "error": {
-      "cannot_connect": "Failed to connect"
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication"
     },
     "step": {
       "user": {
