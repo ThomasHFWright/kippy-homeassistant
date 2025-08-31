@@ -48,7 +48,7 @@ class KippyPressButton(
         self._attr_translation_key = "press"
 
     async def async_press(self) -> None:
-        data = await self.coordinator.api.kippymap_action(self._pet_id)
+        data = await self.coordinator.api.kippymap_action(self.coordinator.kippy_id)
         self.coordinator.async_set_updated_data(data)
 
     @property
