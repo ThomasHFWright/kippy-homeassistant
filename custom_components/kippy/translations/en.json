@@ -15,5 +15,16 @@
         }
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "firmware_upgrade_available": {
+        "name": "Firmware Upgrade available",
+        "state": {
+          "on": "Yes",
+          "off": "No"
+        }
+      }
+    }
   }
 }
