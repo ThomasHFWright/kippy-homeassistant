@@ -200,7 +200,7 @@ class KippyApi:
                     except json.JSONDecodeError:
                         data = None
 
-                    if resp.status == 401 and data:
+                    if resp.status == 401 and isinstance(data, dict):
                         return_code = data.get("return")
                         if str(return_code).lower() in ("true", "1"):
                             return data
