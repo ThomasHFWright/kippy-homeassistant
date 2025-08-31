@@ -25,11 +25,20 @@
           "off": "No"
         }
       },
-      "live_tracking": {
-        "name": "Live tracking",
+      "operating_status": {
+        "name": "Operating status",
         "state": {
           "on": "Live",
           "off": "Idle"
+        }
+      }
+    },
+    "switch": {
+      "toggle_live_tracking": {
+        "name": "Toggle live tracking",
+        "state": {
+          "on": "On",
+          "off": "Off"
         }
       }
     }
