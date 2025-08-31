@@ -2,6 +2,8 @@
 
 A Home Assistant HACS integration for Kippy pet trackers.
 
+Device trackers created by this integration are prefixed with `Kippy` and your pet's name (for example, `Kippy Tilly`).
+
 ## Installation
 
 1. Copy `custom_components/kippy` to your Home Assistant `custom_components` directory or install via HACS.

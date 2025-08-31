@@ -31,7 +31,8 @@ class KippyPetTracker(CoordinatorEntity[KippyDataUpdateCoordinator], TrackerEnti
         """Initialize the tracker entity."""
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
-        self._attr_name = pet.get("petName")
+        pet_name = pet.get("petName")
+        self._attr_name = f"Kippy {pet_name}" if pet_name else "Kippy"
         self._attr_unique_id = pet["petID"]
         self._pet_data = pet
 
@@ -71,5 +72,7 @@ class KippyPetTracker(CoordinatorEntity[KippyDataUpdateCoordinator], TrackerEnti
         for pet in self.coordinator.data.get("pets", []):
             if pet.get("petID") == self._pet_id:
                 self._pet_data = pet
+                pet_name = pet.get("petName")
+                self._attr_name = f"Kippy {pet_name}" if pet_name else "Kippy"
                 break
         super()._handle_coordinator_update()
