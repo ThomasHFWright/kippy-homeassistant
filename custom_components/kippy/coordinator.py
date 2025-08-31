@@ -1,11 +1,15 @@
 """Coordinator for Kippy data updates."""
 from __future__ import annotations
 
+import logging
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import KippyApi
 from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 class KippyDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the Kippy API."""
@@ -15,7 +19,7 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         self.api = api
         super().__init__(
             hass,
-            hass.logger,
+            _LOGGER,
             name=DOMAIN,
             # Fetching the pet list does not need to happen on a schedule.
             # The coordinator will only update when explicitly requested.
