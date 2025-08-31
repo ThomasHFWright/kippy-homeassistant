@@ -121,6 +121,8 @@ class KippyApi:
                 ssl=self._ssl_context,
             ) as resp:
                 resp_text = await resp.text()
+                if _LOGGER.isEnabledFor(logging.DEBUG):
+                    _LOGGER.debug("Login response: %s", resp_text)
                 try:
                     resp.raise_for_status()
                 except ClientResponseError as err:
@@ -192,6 +194,8 @@ class KippyApi:
                     ssl=self._ssl_context,
                 ) as resp:
                     resp_text = await resp.text()
+                    if _LOGGER.isEnabledFor(logging.DEBUG):
+                        _LOGGER.debug("%s response: %s", path, resp_text)
                     # Try to decode the response even on HTTP errors as some
                     # endpoints (e.g. ``kippymap_action``) incorrectly return a
                     # 401 status code while still providing valid data.
