@@ -66,9 +66,9 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         except (TypeError, ValueError):
             operating_status = None
         if operating_status == 1:
-            await self.async_set_update_interval(timedelta(seconds=self.live_refresh))
+            self.async_set_update_interval(timedelta(seconds=self.live_refresh))
         else:
-            await self.async_set_update_interval(timedelta(seconds=self.idle_refresh))
+            self.async_set_update_interval(timedelta(seconds=self.idle_refresh))
         return data
 
     async def async_set_idle_refresh(self, value: int) -> None:
@@ -81,7 +81,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             except (TypeError, ValueError):
                 operating_status = None
             if operating_status != 1:
-                await self.async_set_update_interval(
+                self.async_set_update_interval(
                     timedelta(seconds=self.idle_refresh)
                 )
 
@@ -95,6 +95,6 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             except (TypeError, ValueError):
                 operating_status = None
             if operating_status == 1:
-                await self.async_set_update_interval(
+                self.async_set_update_interval(
                     timedelta(seconds=self.live_refresh)
                 )
