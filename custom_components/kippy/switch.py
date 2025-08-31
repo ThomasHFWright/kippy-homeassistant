@@ -102,14 +102,14 @@ class KippyLiveTrackingSwitch(
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         data = await self.coordinator.api.kippymap_action(
-            self._pet_id, app_action=1
+            self.coordinator.kippy_id, app_action=1
         )
         self.coordinator.async_set_updated_data(data)
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         data = await self.coordinator.api.kippymap_action(
-            self._pet_id, app_action=1
+            self.coordinator.kippy_id, app_action=1
         )
         self.coordinator.async_set_updated_data(data)
         self.async_write_ha_state()
