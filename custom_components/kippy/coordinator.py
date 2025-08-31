@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 
+from datetime import timedelta
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -30,3 +32,49 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch data from the API endpoint."""
         # ``get_pet_kippy_list`` internally ensures a valid login session.
         return {"pets": await self.api.get_pet_kippy_list()}
+
+
+class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
+    """Coordinator for periodic ``kippymap_action`` calls."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: KippyApi,
+        kippy_id: int,
+        idle_refresh: int = 300,
+        live_refresh: int = 10,
+    ) -> None:
+        """Initialize the map coordinator."""
+        self.api = api
+        self.kippy_id = kippy_id
+        self.idle_refresh = idle_refresh
+        self.live_refresh = live_refresh
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_{kippy_id}_map",
+            update_interval=timedelta(seconds=self.idle_refresh),
+        )
+
+    async def _async_update_data(self):
+        """Fetch location data and adjust the refresh interval."""
+        data = await self.api.kippymap_action(self.kippy_id)
+        operating_status = data.get("operating_status")
+        if operating_status == 1:
+            self.update_interval = timedelta(seconds=self.live_refresh)
+        else:
+            self.update_interval = timedelta(seconds=self.idle_refresh)
+        return data
+
+    def set_idle_refresh(self, value: int) -> None:
+        """Update idle refresh value and interval when idle."""
+        self.idle_refresh = value
+        if self.data and self.data.get("operating_status") != 1:
+            self.update_interval = timedelta(seconds=self.idle_refresh)
+
+    def set_live_refresh(self, value: int) -> None:
+        """Update live refresh value and interval when live."""
+        self.live_refresh = value
+        if self.data and self.data.get("operating_status") == 1:
+            self.update_interval = timedelta(seconds=self.live_refresh)
