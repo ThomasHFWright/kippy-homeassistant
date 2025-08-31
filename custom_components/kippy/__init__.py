@@ -4,10 +4,12 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
 from .const import DOMAIN, PLATFORMS
+from .coordinator import KippyDataUpdateCoordinator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Kippy from a config entry."""
@@ -18,8 +20,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     password = entry.data.get(CONF_PASSWORD)
     if not email or not password:
         return False
-    await api.login(email, password)
-    hass.data[DOMAIN][entry.entry_id] = {"api": api}
+
+    try:
+        await api.login(email, password)
+        coordinator = KippyDataUpdateCoordinator(hass, api)
+        await coordinator.async_config_entry_first_refresh()
+    except Exception as err:  # noqa: BLE001
+        raise ConfigEntryNotReady from err
+
+    hass.data[DOMAIN][entry.entry_id] = {"api": api, "coordinator": coordinator}
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
