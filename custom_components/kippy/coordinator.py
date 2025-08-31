@@ -61,20 +61,40 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch location data and adjust the refresh interval."""
         data = await self.api.kippymap_action(self.kippy_id)
         operating_status = data.get("operating_status")
+        try:
+            operating_status = int(operating_status)
+        except (TypeError, ValueError):
+            operating_status = None
         if operating_status == 1:
-            self.update_interval = timedelta(seconds=self.live_refresh)
+            self.async_set_update_interval(timedelta(seconds=self.live_refresh))
         else:
-            self.update_interval = timedelta(seconds=self.idle_refresh)
+            self.async_set_update_interval(timedelta(seconds=self.idle_refresh))
         return data
 
-    def set_idle_refresh(self, value: int) -> None:
+    async def async_set_idle_refresh(self, value: int) -> None:
         """Update idle refresh value and interval when idle."""
         self.idle_refresh = value
-        if self.data and self.data.get("operating_status") != 1:
-            self.update_interval = timedelta(seconds=self.idle_refresh)
+        if self.data:
+            operating_status = self.data.get("operating_status")
+            try:
+                operating_status = int(operating_status)
+            except (TypeError, ValueError):
+                operating_status = None
+            if operating_status != 1:
+                self.async_set_update_interval(
+                    timedelta(seconds=self.idle_refresh)
+                )
 
-    def set_live_refresh(self, value: int) -> None:
+    async def async_set_live_refresh(self, value: int) -> None:
         """Update live refresh value and interval when live."""
         self.live_refresh = value
-        if self.data and self.data.get("operating_status") == 1:
-            self.update_interval = timedelta(seconds=self.live_refresh)
+        if self.data:
+            operating_status = self.data.get("operating_status")
+            try:
+                operating_status = int(operating_status)
+            except (TypeError, ValueError):
+                operating_status = None
+            if operating_status == 1:
+                self.async_set_update_interval(
+                    timedelta(seconds=self.live_refresh)
+                )
