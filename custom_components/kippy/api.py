@@ -301,10 +301,12 @@ class KippyApi:
 
         data = await self._post_with_refresh(KIPPYMAP_ACTION_PATH, payload, headers)
 
-        tech = data.get("localization_tecnology")
+        payload = data.get("data", {})
+
+        tech = payload.get("localization_tecnology")
         if tech is not None:
-            data["localization_technology"] = LOCALIZATION_TECHNOLOGY_MAP.get(
+            payload["localization_technology"] = LOCALIZATION_TECHNOLOGY_MAP.get(
                 str(tech), str(tech)
             )
 
-        return data
+        return payload
