@@ -27,4 +27,4 @@ class KippyExampleSensor(SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return self.coordinator.data.get("example")
+        return len(self.coordinator.data.get("pets", []))
