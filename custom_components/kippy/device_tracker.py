@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, PET_KIND_TO_TYPE
 from .coordinator import KippyDataUpdateCoordinator
 
 
@@ -51,10 +51,9 @@ class KippyPetTracker(CoordinatorEntity[KippyDataUpdateCoordinator], TrackerEnti
                 pass
 
         pet_kind = attrs.pop("petKind", None)
-        if pet_kind == 4:
-            attrs["petType"] = "dog"
-        elif pet_kind == 3:
-            attrs["petType"] = "cat"
+        pet_type = PET_KIND_TO_TYPE.get(str(pet_kind))
+        if pet_type:
+            attrs["petType"] = pet_type
 
         return attrs
 
