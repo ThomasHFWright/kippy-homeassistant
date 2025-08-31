@@ -25,4 +25,4 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Fetch data from API endpoint."""
         await self.api.ensure_login()
-        return await self.api.get_pet_kippy_list()
+        return {"pets": await self.api.get_pet_kippy_list()}
