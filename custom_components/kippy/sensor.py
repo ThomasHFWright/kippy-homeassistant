@@ -7,10 +7,10 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-
-from .helpers import build_device_info
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .helpers import build_device_info
 from .const import DOMAIN, PET_KIND_TO_TYPE
 from .coordinator import KippyDataUpdateCoordinator
 
@@ -24,6 +24,8 @@ async def async_setup_entry(
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyExpiredDaysSensor(coordinator, pet))
         entities.append(KippyPetTypeSensor(coordinator, pet))
+        entities.append(KippyIDSensor(coordinator, pet))
+        entities.append(KippyIMEISensor(coordinator, pet))
     async_add_entities(entities)
 
 
@@ -85,4 +87,34 @@ class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):
     def native_value(self) -> str | None:
         kind = self._pet_data.get("petKind")
         return PET_KIND_TO_TYPE.get(str(kind))
+
+
+class KippyIDSensor(_KippyBaseEntity, SensorEntity):
+    """Diagnostic sensor for the Kippy device ID."""
+
+    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} Kippy ID" if pet_name else "Kippy ID"
+        self._attr_unique_id = f"{self._pet_id}_kippy_id"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> Any:
+        return self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
+
+
+class KippyIMEISensor(_KippyBaseEntity, SensorEntity):
+    """Diagnostic sensor for the device IMEI."""
+
+    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} IMEI" if pet_name else "IMEI"
+        self._attr_unique_id = f"{self._pet_id}_imei"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> Any:
+        return self._pet_data.get("kippyIMEI")
 
