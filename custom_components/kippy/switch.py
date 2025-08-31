@@ -9,8 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import KippyDataUpdateCoordinator
+from .const import DOMAIN, OPERATING_STATUS_LIVE
+from .coordinator import (
+    KippyDataUpdateCoordinator,
+    KippyMapDataUpdateCoordinator,
+)
 
 
 async def async_setup_entry(
@@ -18,9 +21,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up Kippy switch entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[SwitchEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyEnergySavingSwitch(coordinator, pet))
+        entities.append(KippyLiveTrackingSwitch(map_coordinators[pet["petID"]], pet))
     async_add_entities(entities)
 
 
@@ -68,5 +73,53 @@ class KippyEnergySavingSwitch(
             manufacturer="Kippy",
             model=self._pet_data.get("kippyType"),
             sw_version=self._pet_data.get("kippyFirmware"),
+        )
+
+
+class KippyLiveTrackingSwitch(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], SwitchEntity
+):
+    """Switch to toggle live tracking."""
+
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Toggle live tracking" if pet_name else "Toggle live tracking"
+        )
+        self._attr_unique_id = f"{self._pet_id}_toggle_live_tracking"
+        self._pet_name = pet_name
+        self._attr_translation_key = "toggle_live_tracking"
+
+    @property
+    def is_on(self) -> bool:
+        return bool(
+            self.coordinator.data.get("operating_status") == OPERATING_STATUS_LIVE
+        )
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        data = await self.coordinator.api.kippymap_action(
+            self._pet_id, app_action=1
+        )
+        self.coordinator.async_set_updated_data(data)
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        data = await self.coordinator.api.kippymap_action(
+            self._pet_id, app_action=1
+        )
+        self.coordinator.async_set_updated_data(data)
+        self.async_write_ha_state()
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._pet_id)},
+            name=name,
+            manufacturer="Kippy",
         )
 

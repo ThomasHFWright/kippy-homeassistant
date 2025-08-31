@@ -22,7 +22,9 @@ async def async_setup_entry(
     entities: list[BinarySensorEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyFirmwareUpgradeAvailableBinarySensor(coordinator, pet))
-        entities.append(KippyLiveTrackingBinarySensor(map_coordinators[pet["petID"]], pet))
+        entities.append(
+            KippyOperatingStatusBinarySensor(map_coordinators[pet["petID"]], pet)
+        )
     async_add_entities(entities)
 
 
@@ -66,10 +68,10 @@ class KippyFirmwareUpgradeAvailableBinarySensor(
         )
 
 
-class KippyLiveTrackingBinarySensor(
+class KippyOperatingStatusBinarySensor(
     CoordinatorEntity[KippyMapDataUpdateCoordinator], BinarySensorEntity
 ):
-    """Binary sensor indicating live tracking status."""
+    """Binary sensor indicating operating status."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -78,11 +80,11 @@ class KippyLiveTrackingBinarySensor(
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Live tracking" if pet_name else "Live tracking"
+            f"{pet_name} Operating status" if pet_name else "Operating status"
         )
         self._attr_unique_id = f"{self._pet_id}_live_tracking"
         self._pet_name = pet_name
-        self._attr_translation_key = "live_tracking"
+        self._attr_translation_key = "operating_status"
 
     @property
     def is_on(self) -> bool:
