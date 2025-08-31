@@ -1,6 +1,7 @@
 """Config flow for the Kippy integration."""
 from __future__ import annotations
 
+import logging
 import voluptuous as vol
 from aiohttp import ClientError, ClientResponseError
 from homeassistant import config_entries
@@ -10,6 +11,8 @@ from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
 from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Kippy."""
@@ -29,8 +32,14 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if err.status in (401, 403):
                     errors["base"] = "invalid_auth"
                 else:
+                    _LOGGER.debug(
+                        "Unexpected response during login: status=%s message=%s",
+                        err.status,
+                        err.message,
+                    )
                     errors["base"] = "cannot_connect"
-            except ClientError:
+            except ClientError as err:
+                _LOGGER.debug("Error communicating with Kippy API: %s", err)
                 errors["base"] = "cannot_connect"
             except Exception:
                 errors["base"] = "unknown"
