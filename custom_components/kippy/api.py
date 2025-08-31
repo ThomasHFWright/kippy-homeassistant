@@ -192,6 +192,18 @@ class KippyApi:
                     ssl=self._ssl_context,
                 ) as resp:
                     resp_text = await resp.text()
+                    # Try to decode the response even on HTTP errors as some
+                    # endpoints (e.g. ``kippymap_action``) incorrectly return a
+                    # 401 status code while still providing valid data.
+                    try:
+                        data = json.loads(resp_text)
+                    except json.JSONDecodeError:
+                        data = None
+
+                    if resp.status == 401 and data:
+                        return_code = data.get("return")
+                        if str(return_code).lower() in ("true", "1"):
+                            return data
                     try:
                         resp.raise_for_status()
                     except ClientResponseError as err:
@@ -214,9 +226,10 @@ class KippyApi:
                             continue
                         raise
 
-                    data = json.loads(resp_text)
+                    if data is None:
+                        data = json.loads(resp_text)
                     return_code = data.get("return")
-                    if return_code not in (0, "0"):
+                    if return_code not in (0, "0", True, "true"):
                         _LOGGER.debug(
                             "%s failed: return=%s request=%s response=%s",
                             path,
