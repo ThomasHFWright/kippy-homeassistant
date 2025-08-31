@@ -12,6 +12,7 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 
 DEFAULT_HOST = "https://prod.kippyapi.eu"
 LOGIN_PATH = "/v2/login.php"
+GET_PETS_PATH = "/v2/GetPetKippyList.php"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -145,3 +146,67 @@ class KippyApi:
         if self._email is None or self._password is None:
             raise RuntimeError("No stored credentials; call login() first")
         await self.login(self._email, self._password)
+
+    async def get_pet_kippy_list(self) -> list[dict[str, Any]]:
+        """Retrieve the list of pets associated with the account."""
+        await self.ensure_login()
+
+        if not self._auth:
+            raise RuntimeError("No authentication data available")
+
+        payload = {
+            "app_code": self._auth.get("app_code"),
+            "app_verification_code": self._auth.get("app_verification_code"),
+            "app_identity": "evo",
+            "app_sub_identity": "1",
+        }
+
+        headers = {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Accept": "application/json, */*;q=0.8",
+            "User-Agent": "kippy-ha/0.1 (+aiohttp)",
+        }
+
+        try:
+            async with self._session.post(
+                self._url(GET_PETS_PATH),
+                data=json.dumps(payload),
+                headers=headers,
+                ssl=self._ssl_context,
+            ) as resp:
+                resp_text = await resp.text()
+                try:
+                    resp.raise_for_status()
+                except ClientResponseError as err:
+                    _LOGGER.debug(
+                        "GetPetKippyList failed: status=%s request=%s response=%s",
+                        err.status,
+                        payload,
+                        resp_text,
+                    )
+                    raise
+                data = json.loads(resp_text)
+                return_code = data.get("return")
+                if return_code not in (0, "0"):
+                    _LOGGER.debug(
+                        "GetPetKippyList failed: return=%s request=%s response=%s",
+                        return_code,
+                        payload,
+                        resp_text,
+                    )
+                    raise ClientResponseError(
+                        resp.request_info,
+                        resp.history,
+                        status=401,
+                        message=resp_text,
+                        headers=resp.headers,
+                    )
+        except ClientError as err:
+            _LOGGER.debug(
+                "Error communicating with Kippy API: request=%s error=%s",
+                payload,
+                err,
+            )
+            raise
+
+        return data.get("data", [])
