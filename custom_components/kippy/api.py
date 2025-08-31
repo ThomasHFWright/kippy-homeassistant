@@ -187,13 +187,13 @@ class KippyApi:
                         )
                         if err.status == 401 and attempt == 0:
                             await self.login(self._email, self._password, force=True)
-                            payload.update(
-                                {
-                                    "app_code": self._app_code,
-                                    "app_verification_code": self._app_verification_code,
-                                    "auth_token": self._token,
-                                }
-                            )
+                            retry_payload = {
+                                "app_code": self._app_code,
+                                "app_verification_code": self._app_verification_code,
+                            }
+                            if self._token is not None:
+                                retry_payload["auth_token"] = self._token
+                            payload.update(retry_payload)
                             continue
                         raise
 
@@ -209,13 +209,13 @@ class KippyApi:
                         )
                         if str(return_code) == "6" and attempt == 0:
                             await self.login(self._email, self._password, force=True)
-                            payload.update(
-                                {
-                                    "app_code": self._app_code,
-                                    "app_verification_code": self._app_verification_code,
-                                    "auth_token": self._token,
-                                }
-                            )
+                            retry_payload = {
+                                "app_code": self._app_code,
+                                "app_verification_code": self._app_verification_code,
+                            }
+                            if self._token is not None:
+                                retry_payload["auth_token"] = self._token
+                            payload.update(retry_payload)
                             continue
                         raise ClientResponseError(
                             resp.request_info,
@@ -246,9 +246,10 @@ class KippyApi:
             "app_code": self._app_code,
             "app_verification_code": self._app_verification_code,
             "app_identity": "evo",
-            "app_sub_identity": "1",
-            "auth_token": self._token,
+            "app_sub_identity": "evo",
         }
+        if self._token:
+            payload["auth_token"] = self._token
 
         headers = {
             "Content-Type": "text/plain; charset=utf-8",
