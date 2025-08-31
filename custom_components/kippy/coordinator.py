@@ -1,8 +1,6 @@
 """Coordinator for Kippy data updates."""
 from __future__ import annotations
 
-from datetime import timedelta
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -19,10 +17,12 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             hass.logger,
             name=DOMAIN,
-            update_interval=timedelta(minutes=1),
+            # Fetching the pet list does not need to happen on a schedule.
+            # The coordinator will only update when explicitly requested.
+            update_interval=None,
         )
 
     async def _async_update_data(self):
-        """Fetch data from API endpoint."""
-        await self.api.ensure_login()
+        """Fetch data from the API endpoint."""
+        # ``get_pet_kippy_list`` internally ensures a valid login session.
         return {"pets": await self.api.get_pet_kippy_list()}
