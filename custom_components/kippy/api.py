@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import ssl
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
@@ -25,6 +26,15 @@ class KippyApi:
         self._token_expiry: Optional[datetime] = None
         self._email: Optional[str] = None
         self._password: Optional[str] = None
+
+        # Some Kippy servers use small Diffie-Hellman parameters which modern
+        # OpenSSL rejects by default. Lower the security level and enable
+        # legacy server connect to allow these connections.
+        ctx = ssl.create_default_context()
+        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+        if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
+            ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
+        self._ssl_context = ctx
 
     @property
     def token(self) -> Optional[str]:
@@ -70,7 +80,10 @@ class KippyApi:
 
         try:
             async with self._session.post(
-                self._login_url, data=json.dumps(payload), headers=headers
+                self._login_url,
+                data=json.dumps(payload),
+                headers=headers,
+                ssl=self._ssl_context,
             ) as resp:
                 resp_text = await resp.text()
                 try:
