@@ -8,7 +8,7 @@ from .const import DOMAIN
 
 
 def build_device_info(pet_id: int | str, pet: dict[str, Any], name: str) -> DeviceInfo:
-    """Create a DeviceInfo object for a Kippy pet."""
+    """Create a DeviceInfo object for a Kippy pet with IDs and IMEI."""
     identifiers: set[tuple[str, str]] = {(DOMAIN, str(pet_id))}
     connections: set[tuple[str, str]] = set()
 
