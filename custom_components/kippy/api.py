@@ -13,7 +13,7 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 DEFAULT_HOST = "https://prod.kippyapi.eu"
 LOGIN_PATH = "/v2/login.php"
 GET_PETS_PATH = "/v2/GetPetKippyList.php"
-KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
+KIPPYMAP_ACTION_PATH = "/t/v2/kippymap_action.php"
 
 LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
     "2": "GPS",

@@ -1,6 +1,8 @@
 """Binary sensors for Kippy pets."""
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -8,7 +10,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import KippyDataUpdateCoordinator
+from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
 
 
 async def async_setup_entry(
@@ -16,9 +18,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up Kippy binary sensors."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[BinarySensorEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyFirmwareUpgradeAvailableBinarySensor(coordinator, pet))
+        entities.append(KippyLiveTrackingBinarySensor(map_coordinators[pet["petID"]], pet))
     async_add_entities(entities)
 
 
@@ -59,5 +63,37 @@ class KippyFirmwareUpgradeAvailableBinarySensor(
             manufacturer="Kippy",
             model=self._pet_data.get("kippyType"),
             sw_version=self._pet_data.get("kippyFirmware"),
+        )
+
+
+class KippyLiveTrackingBinarySensor(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], BinarySensorEntity
+):
+    """Binary sensor indicating live tracking status."""
+
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Live tracking" if pet_name else "Live tracking"
+        )
+        self._attr_unique_id = f"{self._pet_id}_live_tracking"
+        self._pet_name = pet_name
+        self._attr_translation_key = "live_tracking"
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.coordinator.data.get("operating_status") == 1)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._pet_id)},
+            name=name,
+            manufacturer="Kippy",
         )
 
