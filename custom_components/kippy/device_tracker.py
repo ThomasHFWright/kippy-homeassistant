@@ -39,7 +39,24 @@ class KippyPetTracker(CoordinatorEntity[KippyDataUpdateCoordinator], TrackerEnti
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the attributes provided by the API."""
-        return self._pet_data
+        attrs = dict(self._pet_data)
+        expired_days = attrs.get("expired_days")
+        if isinstance(expired_days, (int, str)):
+            try:
+                expired_days = int(expired_days)
+                attrs["expired_days"] = (
+                    abs(expired_days) if expired_days < 0 else "Expired"
+                )
+            except ValueError:
+                pass
+
+        kind = attrs.get("petKind")
+        if kind == 4:
+            attrs["petKind"] = "dog"
+        elif kind == 3:
+            attrs["petKind"] = "cat"
+
+        return attrs
 
     @property
     def source_type(self) -> SourceType:
