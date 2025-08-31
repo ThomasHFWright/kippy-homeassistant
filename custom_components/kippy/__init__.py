@@ -15,7 +15,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Kippy from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     session = aiohttp_client.async_get_clientsession(hass)
-    api = KippyApi(session)
+    api = await KippyApi.async_create(session)
     email = entry.data.get(CONF_EMAIL)
     password = entry.data.get(CONF_PASSWORD)
     if not email or not password:
