@@ -28,6 +28,8 @@ class KippyApi:
         self._token_expiry: Optional[datetime] = None
         self._email: Optional[str] = None
         self._password: Optional[str] = None
+        self._app_code: Optional[str] = None
+        self._app_verification_code: Optional[str] = None
 
         # Some Kippy servers use small Diffie-Hellman parameters which modern
         # OpenSSL rejects by default. Lower the security level and enable
@@ -46,6 +48,16 @@ class KippyApi:
     def token(self) -> Optional[str]:
         """Return the cached session token if available."""
         return self._token
+
+    @property
+    def app_code(self) -> Optional[str]:
+        """Return the app code from the login response."""
+        return self._app_code
+
+    @property
+    def app_verification_code(self) -> Optional[str]:
+        """Return the app verification code from the login response."""
+        return self._app_verification_code
 
     async def login(self, email: str, password: str, force: bool = False) -> Dict[str, Any]:
         """Login to the Kippy API and cache the session.
@@ -129,6 +141,8 @@ class KippyApi:
         self._auth = data
         self._email = email
         self._password = password
+        self._app_code = data.get("app_code")
+        self._app_verification_code = data.get("app_verification_code")
         self._token = data.get("token") or data.get("login_token") or data.get("auth_token")
         expires_in = data.get("token_expires_in") or data.get("expires_in")
         expire_at = data.get("token_expires_at") or data.get("expire_at")
@@ -155,8 +169,8 @@ class KippyApi:
             raise RuntimeError("No authentication data available")
 
         payload = {
-            "app_code": self._auth.get("app_code"),
-            "app_verification_code": self._auth.get("app_verification_code"),
+            "app_code": self._app_code,
+            "app_verification_code": self._app_verification_code,
             "app_identity": "evo",
             "app_sub_identity": "1",
         }
