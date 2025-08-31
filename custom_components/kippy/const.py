@@ -9,6 +9,7 @@ PLATFORMS: list[str] = [
     "number",
     "switch",
     "binary_sensor",
+    "button",
 ]
 
 # Mapping of operating status codes returned by the API.

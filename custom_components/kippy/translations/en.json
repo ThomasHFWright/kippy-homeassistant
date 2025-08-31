@@ -41,6 +41,11 @@
           "off": "Off"
         }
       }
+    },
+    "button": {
+      "press": {
+        "name": "Press"
+      }
     }
   }
 }
