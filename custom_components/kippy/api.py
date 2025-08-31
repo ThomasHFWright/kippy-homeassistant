@@ -114,6 +114,8 @@ class KippyApi:
         }
 
         try:
+            if _LOGGER.isEnabledFor(logging.DEBUG):
+                _LOGGER.debug("Login request: %s", payload)
             async with self._session.post(
                 self._url(LOGIN_PATH),
                 data=json.dumps(payload),
@@ -187,6 +189,8 @@ class KippyApi:
 
         for attempt in range(2):
             try:
+                if _LOGGER.isEnabledFor(logging.DEBUG):
+                    _LOGGER.debug("%s request: %s", path, payload)
                 async with self._session.post(
                     self._url(path),
                     data=json.dumps(payload),
