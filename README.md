@@ -3,6 +3,7 @@
 A Home Assistant HACS integration for Kippy pet trackers.
 
 Device trackers created by this integration are prefixed with `Kippy` and your pet's name (for example, `Kippy Tilly`).
+If the Kippy service provides a profile picture for your pet, it will be shown on the device tracker.
 
 ## Installation
 
