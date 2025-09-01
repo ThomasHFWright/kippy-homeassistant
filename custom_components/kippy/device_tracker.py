@@ -79,6 +79,18 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
         return float(lon) if lon is not None else None
 
     @property
+    def location_accuracy(self) -> float | None:
+        """Return accuracy radius if available."""
+        acc = self.coordinator.data.get("gps_accuracy") if self.coordinator.data else None
+        return float(acc) if acc is not None else None
+
+    @property
+    def altitude(self) -> float | None:
+        """Return altitude if available."""
+        alt = self.coordinator.data.get("gps_altitude") if self.coordinator.data else None
+        return float(alt) if alt is not None else None
+
+    @property
     def device_info(self) -> DeviceInfo:
         """Return device information for this pet."""
         return build_device_info(self._pet_id, self._pet_data, self._attr_name)

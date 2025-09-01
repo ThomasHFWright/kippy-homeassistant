@@ -335,6 +335,20 @@ class KippyApi:
 
         payload = data.get("data", {})
 
+        # Extract primary GPS location details
+        lat = payload.pop("lat", None)
+        if lat is not None:
+            payload["gps_latitude"] = lat
+        lng = payload.pop("lng", None)
+        if lng is not None:
+            payload["gps_longitude"] = lng
+        radius = payload.pop("radius", None)
+        if radius is not None:
+            payload["gps_accuracy"] = radius
+        altitude = payload.pop("altitude", None)
+        if altitude is not None:
+            payload["gps_altitude"] = altitude
+
         tech = payload.get("localization_tecnology")
         if tech is not None:
             payload["localization_technology"] = LOCALIZATION_TECHNOLOGY_MAP.get(
