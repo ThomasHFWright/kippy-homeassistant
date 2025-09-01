@@ -44,6 +44,24 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
         """Return the attributes provided by the API."""
         attrs = dict(self._pet_data)
         attrs.update(self.coordinator.data or {})
+
+        # Align attribute names with Home Assistant's device tracker expectations
+        if "batteryLevel" in attrs and "battery" not in attrs:
+            attrs["battery"] = attrs.pop("batteryLevel")
+
+        gps_lat = attrs.pop("gps_latitude", None)
+        if gps_lat is not None:
+            attrs["latitude"] = gps_lat
+        gps_lon = attrs.pop("gps_longitude", None)
+        if gps_lon is not None:
+            attrs["longitude"] = gps_lon
+        gps_acc = attrs.pop("gps_accuracy", None)
+        if gps_acc is not None:
+            attrs["gps_accuracy"] = gps_acc
+        gps_alt = attrs.pop("gps_altitude", None)
+        if gps_alt is not None:
+            attrs["altitude"] = gps_alt
+
         expired_days = attrs.get("expired_days")
         if isinstance(expired_days, (int, str)):
             try:
