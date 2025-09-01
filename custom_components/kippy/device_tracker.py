@@ -38,6 +38,7 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
         self._attr_name = f"Kippy {pet_name}" if pet_name else "Kippy"
         self._attr_unique_id = pet["petID"]
         self._pet_data = dict(pet)
+        self._attr_entity_picture = pet.get("imageCloudURL")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -61,6 +62,11 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
         gps_alt = attrs.pop("gps_altitude", None)
         if gps_alt is not None:
             attrs["altitude"] = gps_alt
+
+        picture = attrs.pop("imageCloudURL", None)
+        if picture:
+            attrs["picture"] = picture
+            self._attr_entity_picture = picture
 
         expired_days = attrs.get("expired_days")
         if isinstance(expired_days, (int, str)):
