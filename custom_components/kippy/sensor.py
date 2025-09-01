@@ -3,7 +3,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
+from homeassistant.const import PERCENTAGE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -26,6 +31,7 @@ async def async_setup_entry(
         entities.append(KippyPetTypeSensor(coordinator, pet))
         entities.append(KippyIDSensor(coordinator, pet))
         entities.append(KippyIMEISensor(coordinator, pet))
+        entities.append(KippyBatterySensor(coordinator, pet))
     async_add_entities(entities)
 
 
@@ -117,4 +123,25 @@ class KippyIMEISensor(_KippyBaseEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         return self._pet_data.get("kippyIMEI")
+
+
+class KippyBatterySensor(_KippyBaseEntity, SensorEntity):
+    """Sensor for device battery level."""
+
+    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} Battery Level" if pet_name else "Battery Level"
+        self._attr_unique_id = f"{self._pet_id}_battery"
+        self._attr_device_class = SensorDeviceClass.BATTERY
+        self._attr_native_unit_of_measurement = PERCENTAGE
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def native_value(self) -> Any:
+        val = self._pet_data.get("battery") or self._pet_data.get("batteryLevel")
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return None
 
