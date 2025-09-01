@@ -333,7 +333,10 @@ class KippyApi:
 
         data = await self._post_with_refresh(KIPPYMAP_ACTION_PATH, payload, headers)
 
-        payload = data.get("data", {})
+        payload = data.get("data")
+        if not isinstance(payload, dict):
+            payload = dict(data)
+        payload.pop("return", None)
 
         # Extract primary GPS location details
         lat = payload.pop("lat", None)
