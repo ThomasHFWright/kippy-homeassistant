@@ -7,6 +7,7 @@ from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity import EntityCategory
 
 from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -81,6 +82,7 @@ class KippyIdleUpdateFrequencyNumber(
     _attr_native_min_value = 1
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "min"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
         super().__init__(coordinator)
@@ -117,6 +119,7 @@ class KippyLiveUpdateFrequencyNumber(
     _attr_native_min_value = 1
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "s"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
         super().__init__(coordinator)
