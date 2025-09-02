@@ -40,6 +40,14 @@
           "on": "On",
           "off": "Off"
         }
+      },
+      "ignore_lbs_updates": {
+        "name": "Ignore LBS (Low accuracy) updates",
+        "state": {
+          "on": "On",
+          "off": "Off"
+        },
+        "help": "Ignore LBS (Location-based service) location updates which can cause the Kippy device to jump very far on a map with very low accuracy"
       }
     },
     "button": {

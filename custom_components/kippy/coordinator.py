@@ -9,7 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import KippyApi
-from .const import DOMAIN, OPERATING_STATUS_LIVE
+from .const import (
+    DOMAIN,
+    LOCALIZATION_TECHNOLOGY_LBS,
+    OPERATING_STATUS_LIVE,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +54,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.kippy_id = kippy_id
         self.idle_refresh = idle_refresh
         self.live_refresh = live_refresh
+        self.ignore_lbs = True
         super().__init__(
             hass,
             _LOGGER,
@@ -60,6 +65,31 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Fetch location data and adjust the refresh interval."""
         data = await self.api.kippymap_action(self.kippy_id)
+        if (
+            self.ignore_lbs
+            and data.get("localization_technology") == LOCALIZATION_TECHNOLOGY_LBS
+        ):
+            _LOGGER.debug("Ignoring LBS location update for %s", self.kippy_id)
+            if self.data:
+                for key in (
+                    "gps_latitude",
+                    "gps_longitude",
+                    "gps_accuracy",
+                    "gps_altitude",
+                ):
+                    if key in self.data:
+                        data[key] = self.data[key]
+                    else:
+                        data.pop(key, None)
+            else:
+                for key in (
+                    "gps_latitude",
+                    "gps_longitude",
+                    "gps_accuracy",
+                    "gps_altitude",
+                ):
+                    data.pop(key, None)
+
         operating_status = data.get("operating_status")
         try:
             operating_status = int(operating_status)
