@@ -17,6 +17,7 @@ DEFAULT_HOST = "https://prod.kippyapi.eu"
 LOGIN_PATH = "/v2/login.php"
 GET_PETS_PATH = "/v2/GetPetKippyList.php"
 KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
+GET_ACTIVITY_CATEGORIES_PATH = "/v2/vita/get_activities_cat.php"
 
 LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
     "1": LOCALIZATION_TECHNOLOGY_LBS,
@@ -362,3 +363,51 @@ class KippyApi:
             )
 
         return payload
+
+    async def get_activity_categories(
+        self,
+        pet_id: int,
+        from_date: str,
+        to_date: str,
+        time_division: int,
+        weeks: int,
+    ) -> Dict[str, Any]:
+        """Retrieve activity categories for a pet."""
+
+        await self.ensure_login()
+
+        if not self._auth:
+            raise RuntimeError("No authentication data available")
+
+        payload: Dict[str, Any] = {
+            "app_code": self._app_code,
+            "app_verification_code": self._app_verification_code,
+            "app_identity": "evo",
+            "id_pet": pet_id,
+            "from_date": from_date,
+            "to_date": to_date,
+            "time_division": time_division,
+            "weeks": weeks,
+        }
+        if self._token:
+            payload["auth_token"] = self._token
+
+        headers = {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Accept": "application/json, */*;q=0.8",
+            "User-Agent": "kippy-ha/0.1 (+aiohttp)",
+        }
+
+        data = await self._post_with_refresh(
+            GET_ACTIVITY_CATEGORIES_PATH, payload, headers
+        )
+
+        payload = data.get("data") if isinstance(data, dict) else data
+        if payload is None:
+            payload = {}
+
+        return {
+            "activities": payload.get("activities"),
+            "avg": payload.get("avg"),
+            "health": payload.get("health"),
+        }
