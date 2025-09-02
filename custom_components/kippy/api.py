@@ -17,6 +17,7 @@ GET_PETS_PATH = "/v2/GetPetKippyList.php"
 KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
 
 LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
+    "1": "LBS (Low accuracy)",
     "2": "GPS",
     "3": "Wifi",
 }
