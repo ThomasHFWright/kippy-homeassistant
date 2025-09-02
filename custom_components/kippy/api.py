@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 import ssl
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
@@ -392,14 +392,18 @@ class KippyApi:
         if not self._auth:
             raise RuntimeError("No authentication data available")
 
-        tz_offset = datetime.now().astimezone().utcoffset() or timedelta()
-        tz_hours = tz_offset.total_seconds() / 3600
-
         start = datetime.strptime(from_date, "%Y-%m-%d")
         end = datetime.strptime(to_date, "%Y-%m-%d")
 
-        from_ts = int((start - tz_offset).replace(tzinfo=timezone.utc).timestamp())
-        to_ts = int((end - tz_offset).replace(tzinfo=timezone.utc).timestamp())
+        local_tz = datetime.now().astimezone().tzinfo
+        start_local = start.replace(tzinfo=local_tz)
+        end_local = end.replace(tzinfo=local_tz)
+
+        tz_offset = start_local.utcoffset() or timedelta()
+        tz_hours = tz_offset.total_seconds() / 3600
+
+        from_ts = int(start_local.timestamp())
+        to_ts = int(end_local.timestamp())
 
         weeks_list: list[dict[str, str]] = []
         current = start
