@@ -253,7 +253,11 @@ class KippyApi:
                     if data is None:
                         data = json.loads(resp_text)
                     return_code = data.get("return")
-                    if return_code not in (0, "0", True, "true"):
+                    if return_code is None:
+                        return_code = data.get("Result")
+                    if return_code is None:
+                        return data
+                    if str(return_code).lower() not in {"0", "1", "true"}:
                         _LOGGER.debug(
                             "%s failed: return=%s request=%s response=%s",
                             path,
