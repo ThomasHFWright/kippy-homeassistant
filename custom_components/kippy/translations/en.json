@@ -53,6 +53,9 @@
     "button": {
       "press": {
         "name": "Press"
+      },
+      "refresh_activities": {
+        "name": "Refresh activities"
       }
     }
   }

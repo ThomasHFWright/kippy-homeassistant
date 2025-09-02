@@ -13,7 +13,11 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
+from .coordinator import (
+    KippyActivityCategoriesDataUpdateCoordinator,
+    KippyDataUpdateCoordinator,
+    KippyMapDataUpdateCoordinator,
+)
 
 
 async def async_setup_entry(
@@ -26,9 +30,13 @@ async def async_setup_entry(
     map_coordinators: dict[int, KippyMapDataUpdateCoordinator] = hass.data[DOMAIN][
         entry.entry_id
     ]["map_coordinators"]
+    activity_coordinator: KippyActivityCategoriesDataUpdateCoordinator = hass.data[
+        DOMAIN
+    ][entry.entry_id]["activity_coordinator"]
     entities: list[ButtonEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyPressButton(map_coordinators[pet["petID"]], pet))
+        entities.append(KippyActivityCategoriesButton(activity_coordinator, pet))
     async_add_entities(entities)
 
 
@@ -57,4 +65,33 @@ class KippyPressButton(
     @property
     def device_info(self) -> DeviceInfo:
         name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
+
+
+class KippyActivityCategoriesButton(ButtonEntity):
+    """Button to manually refresh activity categories."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        self.coordinator = coordinator
+        self._pet_id = pet["petID"]
+        self._pet_data = pet
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Refresh Activities" if pet_name else "Refresh Activities"
+        )
+        self._attr_unique_id = f"{self._pet_id}_refresh_activities"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_translation_key = "refresh_activities"
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_refresh_pet(self._pet_id)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)

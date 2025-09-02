@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -124,3 +125,58 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                 operating_status = None
             if operating_status == OPERATING_STATUS_LIVE:
                 self.update_interval = timedelta(seconds=self.live_refresh)
+
+
+class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
+    """Coordinator to fetch activity category information."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: KippyApi,
+        pet_ids: list[int],
+        update_hours: int = 6,
+    ) -> None:
+        """Initialize the activity categories coordinator."""
+        self.api = api
+        self.pet_ids = pet_ids
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_activities",
+            update_interval=timedelta(hours=update_hours),
+        )
+
+    async def _async_update_data(self) -> dict[int, dict[str, Any]]:
+        """Fetch activity categories for all configured pets."""
+        now = datetime.utcnow()
+        from_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        to_date = now.strftime("%Y-%m-%d")
+        data: dict[int, dict[str, Any]] = {}
+        for pet_id in self.pet_ids:
+            data[pet_id] = await self.api.get_activity_categories(
+                pet_id, from_date, to_date, 1, 1
+            )
+        return data
+
+    async def async_refresh_pet(self, pet_id: int) -> None:
+        """Manually refresh activity data for a single pet."""
+        now = datetime.utcnow()
+        from_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        to_date = now.strftime("%Y-%m-%d")
+        result = await self.api.get_activity_categories(pet_id, from_date, to_date, 1, 1)
+        new_data = dict(self.data or {})
+        new_data[pet_id] = result
+        self.async_set_updated_data(new_data)
+
+    def get_activities(self, pet_id: int):
+        """Return cached activities for the given pet."""
+        return (self.data or {}).get(pet_id, {}).get("activities")
+
+    def get_avg(self, pet_id: int):
+        """Return cached averages for the given pet."""
+        return (self.data or {}).get(pet_id, {}).get("avg")
+
+    def get_health(self, pet_id: int):
+        """Return cached health information for the given pet."""
+        return (self.data or {}).get(pet_id, {}).get("health")
