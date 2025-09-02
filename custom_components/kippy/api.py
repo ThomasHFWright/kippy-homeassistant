@@ -226,7 +226,7 @@ class KippyApi:
                                 "%s returned Result=113, treating as empty", path
                             )
                             return data
-                        if str(return_code) in ("0", "1") or str(return_code).lower() == "true":
+                        if str(return_code) == "0" or str(return_code).lower() == "true":
                             return data
                     try:
                         resp.raise_for_status()
@@ -257,7 +257,7 @@ class KippyApi:
                         return_code = data.get("Result")
                     if return_code is None:
                         return data
-                    if str(return_code).lower() not in {"0", "1", "true"}:
+                    if str(return_code).lower() not in {"0", "true"}:
                         _LOGGER.debug(
                             "%s failed: return=%s request=%s response=%s",
                             path,
