@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .helpers import build_device_info
 from .const import DOMAIN, PET_KIND_TO_TYPE
-from .coordinator import KippyDataUpdateCoordinator
+from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
 
 
 async def async_setup_entry(
@@ -25,13 +25,16 @@ async def async_setup_entry(
 ) -> None:
     """Set up Kippy sensors."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[SensorEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyExpiredDaysSensor(coordinator, pet))
         entities.append(KippyPetTypeSensor(coordinator, pet))
         entities.append(KippyIDSensor(coordinator, pet))
         entities.append(KippyIMEISensor(coordinator, pet))
-        entities.append(KippyBatterySensor(coordinator, pet))
+        map_coord = map_coordinators.get(pet["petID"])
+        if map_coord:
+            entities.append(KippyBatterySensor(map_coord, pet))
     async_add_entities(entities)
 
 
@@ -125,11 +128,13 @@ class KippyIMEISensor(_KippyBaseEntity, SensorEntity):
         return self._pet_data.get("kippyIMEI")
 
 
-class KippyBatterySensor(_KippyBaseEntity, SensorEntity):
+class KippyBatterySensor(CoordinatorEntity[KippyMapDataUpdateCoordinator], SensorEntity):
     """Sensor for device battery level."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
-        super().__init__(coordinator, pet)
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        self._pet_data = pet
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Battery Level" if pet_name else "Battery Level"
         self._attr_unique_id = f"{self._pet_id}_battery"
@@ -138,8 +143,16 @@ class KippyBatterySensor(_KippyBaseEntity, SensorEntity):
         self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
+
+    @property
     def native_value(self) -> Any:
-        val = self._pet_data.get("battery") or self._pet_data.get("batteryLevel")
+        val = self.coordinator.data.get("battery") if self.coordinator.data else None
+        if val is None:
+            val = self._pet_data.get("battery") or self._pet_data.get("batteryLevel")
         try:
             return int(val)
         except (TypeError, ValueError):
