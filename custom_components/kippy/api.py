@@ -214,6 +214,13 @@ class KippyApi:
 
                     if resp.status == 401 and isinstance(data, dict):
                         return_code = data.get("return")
+                        if return_code is None:
+                            return_code = data.get("Result")
+                            if str(return_code) == "113":
+                                _LOGGER.debug(
+                                    "%s returned Result=113, treating as empty", path
+                                )
+                                return data
                         if str(return_code).lower() in ("true", "1"):
                             return data
                     try:
