@@ -35,6 +35,7 @@ async def async_setup_entry(
         map_coord = map_coordinators.get(pet["petID"])
         if map_coord:
             entities.append(KippyBatterySensor(map_coord, pet))
+            entities.append(KippyLocalizationTechnologySensor(map_coord, pet))
     async_add_entities(entities)
 
 
@@ -157,4 +158,36 @@ class KippyBatterySensor(CoordinatorEntity[KippyMapDataUpdateCoordinator], Senso
             return int(val)
         except (TypeError, ValueError):
             return None
+
+
+class KippyLocalizationTechnologySensor(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], SensorEntity
+):
+    """Sensor for the technology used to determine location."""
+
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        self._pet_data = pet
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Localization Technology"
+            if pet_name
+            else "Localization Technology"
+        )
+        self._attr_unique_id = f"{self._pet_id}_localization_technology"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
+
+    @property
+    def native_value(self) -> Any:
+        return (
+            self.coordinator.data.get("localization_technology")
+            if self.coordinator.data
+            else None
+        )
 
