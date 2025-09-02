@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 import ssl
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
@@ -377,24 +377,56 @@ class KippyApi:
         from_date: str,
         to_date: str,
         time_division: int,
-        weeks: int,
+        _weeks: int,
     ) -> Dict[str, Any]:
-        """Retrieve activity categories for a pet."""
+        """Retrieve activity categories for a pet.
+
+        The API changed parameter names and now expects timestamps and a list of
+        ISO weeks.  ``from_date`` and ``to_date`` are provided as ``YYYY-MM-DD``
+        strings and converted internally to UNIX timestamps.  The ``_weeks``
+        argument is kept for backwards compatibility and currently ignored.
+        """
 
         await self.ensure_login()
 
         if not self._auth:
             raise RuntimeError("No authentication data available")
 
+        tz_offset = datetime.now().astimezone().utcoffset() or timedelta()
+        tz_hours = tz_offset.total_seconds() / 3600
+
+        start = datetime.strptime(from_date, "%Y-%m-%d")
+        end = datetime.strptime(to_date, "%Y-%m-%d")
+
+        from_ts = int((start - tz_offset).replace(tzinfo=timezone.utc).timestamp())
+        to_ts = int((end - tz_offset).replace(tzinfo=timezone.utc).timestamp())
+
+        weeks_list: list[dict[str, str]] = []
+        current = start
+        while current <= end:
+            year, week, _ = current.isocalendar()
+            entry = {"year": str(year), "number": str(week)}
+            if entry not in weeks_list:
+                weeks_list.append(entry)
+            current += timedelta(days=1)
+        weeks_param = json.dumps(weeks_list)
+
+        time_divisions_map = {1: "h", 2: "d", 3: "w"}
+        time_divisions = time_divisions_map.get(time_division, "h")
+
         payload: Dict[str, Any] = {
             "app_code": self._app_code,
             "app_verification_code": self._app_verification_code,
             "app_identity": "evo",
-            "id_pet": pet_id,
-            "from_date": from_date,
-            "to_date": to_date,
-            "time_division": time_division,
-            "weeks": weeks,
+            "petID": pet_id,
+            "activityID": 0,
+            "fromDate": from_ts,
+            "toDate": to_ts,
+            "timeDivisions": time_divisions,
+            "formulaGroup": "SUM",
+            "tID": 1,
+            "timezone": tz_hours,
+            "weeks": weeks_param,
         }
         if self._token:
             payload["auth_token"] = self._token
