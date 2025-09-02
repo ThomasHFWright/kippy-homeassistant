@@ -216,11 +216,16 @@ class KippyApi:
                         return_code = data.get("return")
                         if return_code is None:
                             return_code = data.get("Result")
-                            if str(return_code) == "113":
-                                _LOGGER.debug(
-                                    "%s returned Result=113, treating as empty", path
-                                )
-                                return data
+                        if return_code is None:
+                            _LOGGER.debug(
+                                "%s returned HTTP 401 with data, assuming success", path
+                            )
+                            return data
+                        if str(return_code) == "113":
+                            _LOGGER.debug(
+                                "%s returned Result=113, treating as empty", path
+                            )
+                            return data
                         if str(return_code) in ("0", "1") or str(return_code).lower() == "true":
                             return data
                     try:
