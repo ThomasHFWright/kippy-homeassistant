@@ -17,6 +17,9 @@ OPERATING_STATUS_IDLE = 1
 OPERATING_STATUS_LIVE = 5
 OPERATING_STATUS_POWER_SAVING = 18
 
+# Name used by the API for low accuracy location updates
+LOCALIZATION_TECHNOLOGY_LBS = "LBS (Low accuracy)"
+
 # Mapping of ``petKind`` codes returned by the API to a human readable type.
 PET_KIND_TO_TYPE: dict[str, str] = {
     "4": "Dog",

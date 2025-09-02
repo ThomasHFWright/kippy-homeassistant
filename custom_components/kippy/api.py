@@ -11,13 +11,15 @@ from typing import Any, Dict, Optional
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
+from .const import LOCALIZATION_TECHNOLOGY_LBS
+
 DEFAULT_HOST = "https://prod.kippyapi.eu"
 LOGIN_PATH = "/v2/login.php"
 GET_PETS_PATH = "/v2/GetPetKippyList.php"
 KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
 
 LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
-    "1": "LBS (Low accuracy)",
+    "1": LOCALIZATION_TECHNOLOGY_LBS,
     "2": "GPS",
     "3": "Wifi",
 }
