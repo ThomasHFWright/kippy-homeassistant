@@ -1,6 +1,7 @@
 """Sensor platform for Kippy pets."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -36,6 +37,10 @@ async def async_setup_entry(
         if map_coord:
             entities.append(KippyBatterySensor(map_coord, pet))
             entities.append(KippyLocalizationTechnologySensor(map_coord, pet))
+            entities.append(KippyContactTimeSensor(map_coord, pet))
+            entities.append(KippyFixTimeSensor(map_coord, pet))
+            entities.append(KippyGpsTimeSensor(map_coord, pet))
+            entities.append(KippyLbsTimeSensor(map_coord, pet))
     async_add_entities(entities)
 
 
@@ -190,4 +195,92 @@ class KippyLocalizationTechnologySensor(
             if self.coordinator.data
             else None
         )
+
+
+class _KippyBaseMapEntity(CoordinatorEntity[KippyMapDataUpdateCoordinator]):
+    """Base entity for map-based sensors."""
+
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        self._pet_data = pet
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
+
+    def _get_datetime(self, key: str) -> datetime | None:
+        if not self.coordinator.data:
+            return None
+        ts = self.coordinator.data.get(key)
+        try:
+            return datetime.fromtimestamp(int(ts), timezone.utc)
+        except (TypeError, ValueError, OSError):
+            return None
+
+
+class KippyContactTimeSensor(_KippyBaseMapEntity, SensorEntity):
+    """Sensor for the last contact time with the server."""
+
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} Contact Time" if pet_name else "Contact Time"
+        self._attr_unique_id = f"{self._pet_id}_contact_time"
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._get_datetime("contact_time")
+
+
+class KippyFixTimeSensor(_KippyBaseMapEntity, SensorEntity):
+    """Sensor for the time of the current location fix."""
+
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} Fix Time" if pet_name else "Fix Time"
+        self._attr_unique_id = f"{self._pet_id}_fix_time"
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._get_datetime("fix_time")
+
+
+class KippyGpsTimeSensor(_KippyBaseMapEntity, SensorEntity):
+    """Sensor for the timestamp of the latest GPS fix."""
+
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} GPS Time" if pet_name else "GPS Time"
+        self._attr_unique_id = f"{self._pet_id}_gps_time"
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._get_datetime("gps_time")
+
+
+class KippyLbsTimeSensor(_KippyBaseMapEntity, SensorEntity):
+    """Sensor for the timestamp of the latest LBS fix."""
+
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} LBS Time" if pet_name else "LBS Time"
+        self._attr_unique_id = f"{self._pet_id}_lbs_time"
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._get_datetime("lbs_time")
 
