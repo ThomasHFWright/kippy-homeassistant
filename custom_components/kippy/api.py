@@ -221,7 +221,7 @@ class KippyApi:
                                     "%s returned Result=113, treating as empty", path
                                 )
                                 return data
-                        if str(return_code).lower() in ("true", "1"):
+                        if str(return_code) in ("0", "1") or str(return_code).lower() == "true":
                             return data
                     try:
                         resp.raise_for_status()
@@ -441,8 +441,16 @@ class KippyApi:
             GET_ACTIVITY_CATEGORIES_PATH, payload, headers
         )
 
-        payload = data.get("data") if isinstance(data, dict) else data
-        if payload is None:
+        if isinstance(data, dict):
+            if "data" in data:
+                payload = data.get("data") or {}
+            else:
+                payload = {
+                    "activities": data.get("ActivitiesData"),
+                    "avg": data.get("AVGData"),
+                    "health": data.get("HealthData"),
+                }
+        else:
             payload = {}
 
         return {
