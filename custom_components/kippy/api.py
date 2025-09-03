@@ -7,7 +7,7 @@ import json
 import logging
 import ssl
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
@@ -35,10 +35,22 @@ LOGIN_SENSITIVE_FIELDS = {
 }
 
 
+def _redact_tree(data: Any, sensitive: set[str]) -> Any:
+    """Recursively redact sensitive fields within ``data``."""
+    if isinstance(data, dict):
+        return {
+            k: ("***" if k in sensitive else _redact_tree(v, sensitive))
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [_redact_tree(item, sensitive) for item in data]
+    return data
+
+
 def _redact(data: Dict[str, Any], extra: set[str] | None = None) -> Dict[str, Any]:
     """Return a copy of ``data`` with sensitive fields redacted."""
     sensitive = SENSITIVE_LOG_FIELDS | (extra or set())
-    return {k: ("***" if k in sensitive else v) for k, v in data.items()}
+    return cast(Dict[str, Any], _redact_tree(data, sensitive))
 
 
 def _redact_json(text: str) -> str:
@@ -47,9 +59,8 @@ def _redact_json(text: str) -> str:
         data = json.loads(text)
     except json.JSONDecodeError:
         return text
-    if isinstance(data, dict):
-        return json.dumps(_redact(data))
-    return text
+    return json.dumps(_redact_tree(data, SENSITIVE_LOG_FIELDS))
+
 
 class KippyApi:
     """Minimal Kippy API wrapper handling authentication."""
@@ -104,7 +115,9 @@ class KippyApi:
         """Return the app verification code from the login response."""
         return self._app_verification_code
 
-    async def login(self, email: str, password: str, force: bool = False) -> Dict[str, Any]:
+    async def login(
+        self, email: str, password: str, force: bool = False
+    ) -> Dict[str, Any]:
         """Login to the Kippy API and cache the session.
 
         If a non-expired login session is already cached, it will be returned
@@ -143,7 +156,9 @@ class KippyApi:
 
         try:
             if _LOGGER.isEnabledFor(logging.DEBUG):
-                _LOGGER.debug("Login request: %s", _redact(payload, LOGIN_SENSITIVE_FIELDS))
+                _LOGGER.debug(
+                    "Login request: %s", _redact(payload, LOGIN_SENSITIVE_FIELDS)
+                )
             async with self._session.post(
                 self._url(LOGIN_PATH),
                 data=json.dumps(payload),
@@ -192,7 +207,9 @@ class KippyApi:
         self._password = password
         self._app_code = data.get("app_code")
         self._app_verification_code = data.get("app_verification_code")
-        self._token = data.get("token") or data.get("login_token") or data.get("auth_token")
+        self._token = (
+            data.get("token") or data.get("login_token") or data.get("auth_token")
+        )
         expires_in = data.get("token_expires_in") or data.get("expires_in")
         expire_at = data.get("token_expires_at") or data.get("expire_at")
         if expires_in is not None:
@@ -250,7 +267,10 @@ class KippyApi:
                                 "%s returned Result=113, treating as empty", path
                             )
                             return data
-                        if str(return_code) == "0" or str(return_code).lower() == "true":
+                        if (
+                            str(return_code) == "0"
+                            or str(return_code).lower() == "true"
+                        ):
                             return data
                     try:
                         resp.raise_for_status()
