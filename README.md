@@ -12,3 +12,13 @@ If the Kippy service provides a profile picture for your pet, it will be shown o
 3. Configure the integration via the Home Assistant UI.
 
 This repository is a work in progress and provides only a basic skeleton for future development.
+
+## Testing
+
+Run the test suite with:
+
+```bash
+pytest
+```
+
+The tests rely solely on Home Assistant's integration test utilities and do not require an internet connection.
