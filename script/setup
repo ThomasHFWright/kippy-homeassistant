@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Set up the development environment for kippy-homeassistant-hacs
+set -e
+
+cd "$(dirname "$0")/.."
+
+# Create virtual environment if not already activated
+if [ ! -n "$VIRTUAL_ENV" ]; then
+  if command -v uv >/dev/null 2>&1; then
+    uv venv .venv
+  else
+    python3 -m venv .venv
+  fi
+  source .venv/bin/activate
+fi
+
+# Ensure uv is available
+if ! command -v uv >/dev/null 2>&1; then
+  python3 -m pip install uv
+fi
+
+# Install project dependencies
+script/bootstrap
+
+# Install pre-commit hooks
+pre-commit install
