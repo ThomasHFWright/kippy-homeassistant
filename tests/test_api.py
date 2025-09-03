@@ -22,11 +22,11 @@ api_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(api_module)
 KippyApi = api_module.KippyApi
 
-EMAIL = os.getenv("email")
-PASSWORD = os.getenv("password")
+EMAIL = os.getenv("KIPPY_EMAIL")
+PASSWORD = os.getenv("KIPPY_PASSWORD")
 
 if not EMAIL or not PASSWORD:
-    pytest.skip("Missing email/password secrets", allow_module_level=True)
+    pytest.skip("Missing KIPPY_EMAIL/KIPPY_PASSWORD secrets", allow_module_level=True)
 
 
 async def _create_api() -> KippyApi:
