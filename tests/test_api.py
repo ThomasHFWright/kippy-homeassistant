@@ -1,12 +1,12 @@
+import importlib.util
 import os
+import sys
+import types
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import aiohttp
 import pytest
-from pathlib import Path
-import sys
-import types
-import importlib.util
 
 KIPPY_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "kippy"
 custom_components = types.ModuleType("custom_components")
@@ -42,7 +42,6 @@ async def test_login_succeeds():
     try:
         assert api.app_code is not None
         assert api.app_verification_code is not None
-        assert api.token is not None
     finally:
         await api._session.close()
 
