@@ -1,21 +1,13 @@
-import logging
 from unittest.mock import MagicMock
-from pathlib import Path
-import sys
 
 import pytest
-try:
-    from homeassistant.core import HomeAssistant
-except ModuleNotFoundError:
-    pytest.skip("HomeAssistant not installed", allow_module_level=True)
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from custom_components.kippy.const import PET_KIND_TO_TYPE
 from custom_components.kippy.sensor import KippyExpiredDaysSensor, KippyPetTypeSensor
 
 
 @pytest.mark.asyncio
-async def test_expired_days_sensor_returns_expired(hass: HomeAssistant) -> None:
+async def test_expired_days_sensor_returns_expired() -> None:
     """Ensure non-negative days report as 'Expired'."""
     pet = {"petID": "1", "expired_days": 0}
     coordinator = MagicMock()
@@ -30,7 +22,7 @@ async def test_expired_days_sensor_returns_expired(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_expired_days_sensor_returns_positive_days(hass: HomeAssistant) -> None:
+async def test_expired_days_sensor_returns_positive_days() -> None:
     """Negative days are returned as positive remaining days."""
     pet = {"petID": "1", "expired_days": -3}
     coordinator = MagicMock()
@@ -42,7 +34,7 @@ async def test_expired_days_sensor_returns_positive_days(hass: HomeAssistant) ->
 
 
 @pytest.mark.asyncio
-async def test_pet_type_sensor_maps_kind_to_type(hass: HomeAssistant) -> None:
+async def test_pet_type_sensor_maps_kind_to_type() -> None:
     """Pet type sensor should map kind code to type label."""
     pet = {"petID": "1", "petKind": "4"}
     coordinator = MagicMock()
