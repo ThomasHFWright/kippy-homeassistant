@@ -195,7 +195,7 @@ class _KippyActivitySensor(
         activities = self.coordinator.get_activities(self._pet_id)
         if not activities:
             return None
-        today = datetime.now()
+        today = datetime.utcnow()
         value: Any = None
 
         # Cat trackers return data grouped by activity rather than by day.
