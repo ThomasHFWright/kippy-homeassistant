@@ -7,6 +7,9 @@ from pathlib import Path
 
 import aiohttp
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv(".secrets/kippy.env")
 
 KIPPY_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "kippy"
 custom_components = types.ModuleType("custom_components")
