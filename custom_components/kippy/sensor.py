@@ -195,37 +195,72 @@ class _KippyActivitySensor(
         activities = self.coordinator.get_activities(self._pet_id)
         if not activities:
             return None
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = datetime.utcnow()
         value: Any = None
-        for item in activities:
-            item_date = (
-                item.get("date")
-                or item.get("day")
-                or item.get("date_time")
-                or item.get("datetime")
-            )
-            if item_date != today:
-                continue
-            data = item.get(self._metric)
-            if data is None and isinstance(item.get("activities"), list):
-                for cat in item["activities"]:
-                    if cat.get("name") == self._metric or cat.get("type") == self._metric:
-                        data = (
-                            cat.get("value")
-                            or cat.get("count")
-                            or cat.get("minutes")
-                            or cat.get("duration")
-                            or cat.get("total")
-                        )
-                        break
-            if isinstance(data, dict):
-                for key in ("value", "count", "minutes", "duration", "total"):
-                    if key in data:
-                        data = data[key]
-                        break
-            value = data
-            self._date = item_date
-            break
+
+        # Cat trackers return data grouped by activity rather than by day.
+        if isinstance(activities, list) and activities and "activity" in activities[0]:
+            today_prefix = today.strftime("%Y%m%d")
+            for activity in activities:
+                if activity.get("activity") != self._metric:
+                    continue
+                total: float | int = 0
+                for entry in activity.get("data", []):
+                    time_caption = str(entry.get("timeCaption") or "")
+                    if not time_caption.startswith(today_prefix):
+                        continue
+                    for key in (
+                        "valueMinutes",
+                        "value",
+                        "count",
+                        "minutes",
+                        "duration",
+                        "total",
+                    ):
+                        if key in entry:
+                            try:
+                                total += int(entry[key])
+                            except (TypeError, ValueError):
+                                try:
+                                    total += float(entry[key])
+                                except (TypeError, ValueError):
+                                    pass
+                            break
+                value = total
+                self._date = today.strftime("%Y-%m-%d")
+                break
+        else:
+            today_str = today.strftime("%Y-%m-%d")
+            for item in activities:
+                item_date = (
+                    item.get("date")
+                    or item.get("day")
+                    or item.get("date_time")
+                    or item.get("datetime")
+                )
+                if item_date != today_str:
+                    continue
+                data = item.get(self._metric)
+                if data is None and isinstance(item.get("activities"), list):
+                    for cat in item["activities"]:
+                        if cat.get("name") == self._metric or cat.get("type") == self._metric:
+                            data = (
+                                cat.get("value")
+                                or cat.get("count")
+                                or cat.get("minutes")
+                                or cat.get("duration")
+                                or cat.get("total")
+                            )
+                            break
+                if isinstance(data, dict):
+                    for key in ("value", "count", "minutes", "duration", "total"):
+                        if key in data:
+                            data = data[key]
+                            break
+                value = data
+                self._date = item_date
+                break
+
         if value is None:
             return None
         try:
