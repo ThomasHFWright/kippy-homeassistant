@@ -9,20 +9,20 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, UnitOfTime
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import PERCENTAGE, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .helpers import build_device_info
 from .const import DOMAIN, PET_KIND_TO_TYPE
 from .coordinator import (
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
+from .helpers import build_device_info
 
 
 async def async_setup_entry(
@@ -67,7 +67,9 @@ async def async_setup_entry(
 class _KippyBaseEntity(CoordinatorEntity[KippyDataUpdateCoordinator]):
     """Base entity for Kippy sensors."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         self._pet_data = pet
@@ -89,7 +91,9 @@ class _KippyBaseEntity(CoordinatorEntity[KippyDataUpdateCoordinator]):
 class KippyExpiredDaysSensor(_KippyBaseEntity, SensorEntity):
     """Sensor for remaining service days."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
@@ -112,7 +116,9 @@ class KippyExpiredDaysSensor(_KippyBaseEntity, SensorEntity):
 class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):
     """Sensor for pet type."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Type" if pet_name else "Pet Type"
@@ -127,7 +133,9 @@ class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):
 class KippyIDSensor(_KippyBaseEntity, SensorEntity):
     """Diagnostic sensor for the Kippy device ID."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Kippy ID" if pet_name else "Kippy ID"
@@ -142,7 +150,9 @@ class KippyIDSensor(_KippyBaseEntity, SensorEntity):
 class KippyIMEISensor(_KippyBaseEntity, SensorEntity):
     """Diagnostic sensor for the device IMEI."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} IMEI" if pet_name else "IMEI"
@@ -243,7 +253,10 @@ class _KippyActivitySensor(
                 data = item.get(self._metric)
                 if data is None and isinstance(item.get("activities"), list):
                     for cat in item["activities"]:
-                        if cat.get("name") == self._metric or cat.get("type") == self._metric:
+                        if (
+                            cat.get("name") == self._metric
+                            or cat.get("type") == self._metric
+                        ):
                             data = (
                                 cat.get("value")
                                 or cat.get("count")
@@ -337,10 +350,15 @@ class KippyRestSensor(_KippyActivitySensor):
     ) -> None:
         super().__init__(coordinator, pet, "rest", "Rest", UnitOfTime.MINUTES)
 
-class KippyBatterySensor(CoordinatorEntity[KippyMapDataUpdateCoordinator], SensorEntity):
+
+class KippyBatterySensor(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], SensorEntity
+):
     """Sensor for device battery level."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         self._pet_data = pet
@@ -373,7 +391,9 @@ class KippyLocalizationTechnologySensor(
 ):
     """Sensor for the technology used to determine location."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         self._pet_data = pet
@@ -403,7 +423,9 @@ class KippyLocalizationTechnologySensor(
 class _KippyBaseMapEntity(CoordinatorEntity[KippyMapDataUpdateCoordinator]):
     """Base entity for map-based sensors."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         self._pet_data = pet
@@ -427,7 +449,9 @@ class _KippyBaseMapEntity(CoordinatorEntity[KippyMapDataUpdateCoordinator]):
 class KippyContactTimeSensor(_KippyBaseMapEntity, SensorEntity):
     """Sensor for the last contact time with the server."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Contact Time" if pet_name else "Contact Time"
@@ -443,7 +467,9 @@ class KippyContactTimeSensor(_KippyBaseMapEntity, SensorEntity):
 class KippyFixTimeSensor(_KippyBaseMapEntity, SensorEntity):
     """Sensor for the time of the current location fix."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Fix Time" if pet_name else "Fix Time"
@@ -459,7 +485,9 @@ class KippyFixTimeSensor(_KippyBaseMapEntity, SensorEntity):
 class KippyGpsTimeSensor(_KippyBaseMapEntity, SensorEntity):
     """Sensor for the timestamp of the latest GPS fix."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} GPS Time" if pet_name else "GPS Time"
@@ -475,7 +503,9 @@ class KippyGpsTimeSensor(_KippyBaseMapEntity, SensorEntity):
 class KippyLbsTimeSensor(_KippyBaseMapEntity, SensorEntity):
     """Sensor for the timestamp of the latest LBS fix."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} LBS Time" if pet_name else "LBS Time"
@@ -486,4 +516,3 @@ class KippyLbsTimeSensor(_KippyBaseMapEntity, SensorEntity):
     @property
     def native_value(self) -> datetime | None:
         return self._get_datetime("lbs_time")
-
