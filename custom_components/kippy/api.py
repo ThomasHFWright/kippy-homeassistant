@@ -27,6 +27,30 @@ LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
 
 _LOGGER = logging.getLogger(__name__)
 
+SENSITIVE_LOG_FIELDS = {"app_code", "app_verification_code", "petID", "auth_token"}
+LOGIN_SENSITIVE_FIELDS = {
+    "login_email",
+    "login_password_hash",
+    "login_password_hash_md5",
+}
+
+
+def _redact(data: Dict[str, Any], extra: set[str] | None = None) -> Dict[str, Any]:
+    """Return a copy of ``data`` with sensitive fields redacted."""
+    sensitive = SENSITIVE_LOG_FIELDS | (extra or set())
+    return {k: ("***" if k in sensitive else v) for k, v in data.items()}
+
+
+def _redact_json(text: str) -> str:
+    """Redact sensitive fields from JSON ``text`` if possible."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return text
+    if isinstance(data, dict):
+        return json.dumps(_redact(data))
+    return text
+
 class KippyApi:
     """Minimal Kippy API wrapper handling authentication."""
 
@@ -119,7 +143,7 @@ class KippyApi:
 
         try:
             if _LOGGER.isEnabledFor(logging.DEBUG):
-                _LOGGER.debug("Login request: %s", payload)
+                _LOGGER.debug("Login request: %s", _redact(payload, LOGIN_SENSITIVE_FIELDS))
             async with self._session.post(
                 self._url(LOGIN_PATH),
                 data=json.dumps(payload),
@@ -128,15 +152,15 @@ class KippyApi:
             ) as resp:
                 resp_text = await resp.text()
                 if _LOGGER.isEnabledFor(logging.DEBUG):
-                    _LOGGER.debug("Login response: %s", resp_text)
+                    _LOGGER.debug("Login response: %s", _redact_json(resp_text))
                 try:
                     resp.raise_for_status()
                 except ClientResponseError as err:
                     _LOGGER.debug(
                         "Login failed: status=%s request=%s response=%s",
                         err.status,
-                        payload,
-                        resp_text,
+                        _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                        _redact_json(resp_text),
                     )
                     raise
                 data = json.loads(resp_text)
@@ -145,8 +169,8 @@ class KippyApi:
                     _LOGGER.debug(
                         "Login failed: return=%s request=%s response=%s",
                         return_code,
-                        payload,
-                        resp_text,
+                        _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                        _redact_json(resp_text),
                     )
                     raise ClientResponseError(
                         resp.request_info,
@@ -158,7 +182,7 @@ class KippyApi:
         except ClientError as err:
             _LOGGER.debug(
                 "Error communicating with Kippy API: request=%s error=%s",
-                payload,
+                _redact(payload, LOGIN_SENSITIVE_FIELDS),
                 err,
             )
             raise
@@ -194,7 +218,7 @@ class KippyApi:
         for attempt in range(2):
             try:
                 if _LOGGER.isEnabledFor(logging.DEBUG):
-                    _LOGGER.debug("%s request: %s", path, payload)
+                    _LOGGER.debug("%s request: %s", path, _redact(payload))
                 async with self._session.post(
                     self._url(path),
                     data=json.dumps(payload),
@@ -203,7 +227,7 @@ class KippyApi:
                 ) as resp:
                     resp_text = await resp.text()
                     if _LOGGER.isEnabledFor(logging.DEBUG):
-                        _LOGGER.debug("%s response: %s", path, resp_text)
+                        _LOGGER.debug("%s response: %s", path, _redact_json(resp_text))
                     # Try to decode the response even on HTTP errors as some
                     # endpoints (e.g. ``kippymap_action``) incorrectly return a
                     # 401 status code while still providing valid data.
@@ -235,8 +259,8 @@ class KippyApi:
                             "%s failed: status=%s request=%s response=%s",
                             path,
                             err.status,
-                            payload,
-                            resp_text,
+                            _redact(payload),
+                            _redact_json(resp_text),
                         )
                         if err.status == 401 and attempt == 0:
                             await self.login(self._email, self._password, force=True)
@@ -262,8 +286,8 @@ class KippyApi:
                             "%s failed: return=%s request=%s response=%s",
                             path,
                             return_code,
-                            payload,
-                            resp_text,
+                            _redact(payload),
+                            _redact_json(resp_text),
                         )
                         if str(return_code) == "6" and attempt == 0:
                             await self.login(self._email, self._password, force=True)
@@ -286,7 +310,7 @@ class KippyApi:
             except ClientError as err:
                 _LOGGER.debug(
                     "Error communicating with Kippy API: request=%s error=%s",
-                    payload,
+                    _redact(payload),
                     err,
                 )
                 raise

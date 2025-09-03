@@ -4,7 +4,10 @@ from pathlib import Path
 import sys
 
 import pytest
-from homeassistant.core import HomeAssistant
+try:
+    from homeassistant.core import HomeAssistant
+except ModuleNotFoundError:
+    pytest.skip("HomeAssistant not installed", allow_module_level=True)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from custom_components.kippy.const import PET_KIND_TO_TYPE
