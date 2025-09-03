@@ -19,6 +19,11 @@ if ! command -v uv >/dev/null 2>&1; then
   python3 -m pip install uv
 fi
 
+# Ensure pre-commit is available
+if ! command -v pre-commit >/dev/null 2>&1; then
+  uv pip install pre-commit
+fi
+
 # Install project dependencies
 script/bootstrap
 
