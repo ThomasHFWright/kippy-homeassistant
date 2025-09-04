@@ -9,7 +9,12 @@ import aiohttp
 import pytest
 from dotenv import load_dotenv
 
-load_dotenv(".secrets/kippy.env")
+SECRETS_FILE = Path(__file__).resolve().parents[1] / ".secrets" / "kippy.env"
+
+if SECRETS_FILE.exists():
+    load_dotenv(SECRETS_FILE)
+else:
+    pytest.skip("Missing KIPPY secrets file", allow_module_level=True)
 
 KIPPY_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "kippy"
 custom_components = types.ModuleType("custom_components")
@@ -29,7 +34,7 @@ EMAIL = os.getenv("KIPPY_EMAIL")
 PASSWORD = os.getenv("KIPPY_PASSWORD")
 
 if not EMAIL or not PASSWORD:
-    pytest.skip("Missing KIPPY_EMAIL/KIPPY_PASSWORD secrets", allow_module_level=True)
+    pytest.fail("Missing KIPPY_EMAIL/KIPPY_PASSWORD secrets")
 
 
 async def _create_api() -> KippyApi:
