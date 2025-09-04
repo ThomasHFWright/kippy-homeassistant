@@ -1,5 +1,0 @@
-{
-  "python.defaultInterpreterPath": "/home/vscode/.local/ha-venv/bin/python",
-  "python.linting.pylintPath": "/home/vscode/.local/ha-venv/bin/pylint",
-  "pylint.importStrategy": "fromEnvironment"
-}

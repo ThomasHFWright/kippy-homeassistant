@@ -35,11 +35,10 @@
       "settings": {
         "python.experiments.optOutFrom": ["pythonTestAdapter"],
         "python.defaultInterpreterPath": "/home/vscode/.local/ha-venv/bin/python",
-        "python.pythonPath": "/home/vscode/.local/ha-venv/bin/python",
-        "python.linting.pylintPath": "/home/vscode/.local/ha-venv/bin/pylint",
+        "pylint.importStrategy": "fromEnvironment",
+        "pylint.path": ["/home/vscode/.local/ha-venv/bin/pylint"],
         "python.terminal.activateEnvInCurrentTerminal": true,
         "python.testing.pytestArgs": ["--no-cov"],
-        "pylint.importStrategy": "fromEnvironment",
         "editor.formatOnPaste": false,
         "editor.formatOnSave": true,
         "editor.formatOnType": true,

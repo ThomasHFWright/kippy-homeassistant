@@ -2,8 +2,7 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
-.vscode/*
-!.vscode/settings.default.json
+.vscode/
 .idea/
 dev-config/
 .secrets/
