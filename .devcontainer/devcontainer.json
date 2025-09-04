@@ -39,6 +39,7 @@
         "pylint.path": ["/home/vscode/.local/ha-venv/bin/pylint"],
         "python.terminal.activateEnvInCurrentTerminal": true,
         "python.testing.pytestArgs": ["--no-cov"],
+        "python-envs.pythonProjects": [],
         "editor.formatOnPaste": false,
         "editor.formatOnSave": true,
         "editor.formatOnType": true,
