@@ -61,5 +61,6 @@ YAML
   fi
 fi
 
-echo "Starting Home Assistant with config: $CONFIG_DIR"
-exec "$PY" -m homeassistant -c "$CONFIG_DIR"
+#Disabling HA start so it can be manually started later
+#echo "Starting Home Assistant with config: $CONFIG_DIR"
+#exec "$PY" -m homeassistant -c "$CONFIG_DIR"
