@@ -4,3 +4,4 @@ pytest-cov==6.2.1
 aiohttp==3.9.3
 pre-commit==4.3.0
 python-dotenv==1.1.1
+pylint==3.3.8
