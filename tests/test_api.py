@@ -1,7 +1,4 @@
-import importlib.util
 import os
-import sys
-import types
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -9,32 +6,19 @@ import aiohttp
 import pytest
 from dotenv import load_dotenv
 
+from custom_components.kippy.api import KippyApi
+
 SECRETS_FILE = Path(__file__).resolve().parents[1] / ".secrets" / "kippy.env"
 
 if SECRETS_FILE.exists():
     load_dotenv(SECRETS_FILE)
-else:
-    pytest.skip("Missing KIPPY secrets file", allow_module_level=True)
-
-KIPPY_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "kippy"
-custom_components = types.ModuleType("custom_components")
-kippy_pkg = types.ModuleType("custom_components.kippy")
-kippy_pkg.__path__ = [str(KIPPY_DIR)]
-sys.modules.setdefault("custom_components", custom_components)
-sys.modules.setdefault("custom_components.kippy", kippy_pkg)
-
-spec = importlib.util.spec_from_file_location(
-    "custom_components.kippy.api", KIPPY_DIR / "api.py"
-)
-api_module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(api_module)
-KippyApi = api_module.KippyApi
 
 EMAIL = os.getenv("KIPPY_EMAIL")
 PASSWORD = os.getenv("KIPPY_PASSWORD")
 
-if not EMAIL or not PASSWORD:
-    pytest.fail("Missing KIPPY_EMAIL/KIPPY_PASSWORD secrets")
+pytestmark = pytest.mark.skipif(
+    not (EMAIL and PASSWORD), reason="Missing KIPPY_EMAIL/KIPPY_PASSWORD secrets"
+)
 
 
 async def _create_api() -> KippyApi:
