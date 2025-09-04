@@ -9,6 +9,9 @@ PIP="$VENV_DIR/bin/pip"
 
 cd "$REPO_ROOT"
 
+# Mark the repository as safe for Git inside the container
+git config --global --add safe.directory "$REPO_ROOT"
+
 # Create the venv VS Code/devcontainer is configured to use
 if [ ! -x "$PY" ]; then
   echo "Creating virtualenv at $VENV_DIR ..."

@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "/home/vscode/.local/ha-venv/bin/python",
+    "python.pythonPath": "/home/vscode/.local/ha-venv/bin/python",
+    "python.linting.pylintPath": "/home/vscode/.local/ha-venv/bin/pylint",
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "pylint.importStrategy": "fromEnvironment",
+    "python.testing.pytestArgs": ["--no-cov"]
+  }
+}
