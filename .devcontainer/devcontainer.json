@@ -31,7 +31,7 @@
         "GitHub.vscode-pull-request-github",
         "GitHub.copilot"
       ],
-      // Please keep this file in sync with settings in home-assistant/.vscode/settings.default.json
+      // Please keep this file in sync with settings in .vscode/settings.default.json
       "settings": {
         "python.experiments.optOutFrom": ["pythonTestAdapter"],
         "python.defaultInterpreterPath": "/home/vscode/.local/ha-venv/bin/python",
