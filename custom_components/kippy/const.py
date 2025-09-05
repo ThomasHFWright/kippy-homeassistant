@@ -54,6 +54,10 @@ LOGIN_SENSITIVE_FIELDS = {
     "login_password_hash_md5",
 }
 
+# Credential values that should be treated as absent. Tests use this set to
+# decide when to exercise a fake API rather than the real service.
+MISSING_CREDENTIAL_SENTINELS = {None, "", "<REDACTED>"}
+
 with resources.files(__package__).joinpath("translations/en.json").open(
     "r", encoding="utf-8"
 ) as _trans_file:

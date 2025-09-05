@@ -19,6 +19,7 @@ import pytest_asyncio
 from dotenv import load_dotenv
 
 from custom_components.kippy.api import KippyApi
+from custom_components.kippy.const import MISSING_CREDENTIAL_SENTINELS
 
 SECRETS_FILE = Path(__file__).resolve().parents[1] / ".secrets" / "kippy.env"
 
@@ -28,9 +29,8 @@ if SECRETS_FILE.exists():
 EMAIL = os.getenv("KIPPY_EMAIL")
 PASSWORD = os.getenv("KIPPY_PASSWORD")
 
-# Treat empty or redacted credential values as missing so tests use the fake API.
-PLACEHOLDER_VALUES = {None, "", "<REDACTED>"}
-CREDS = not any(value in PLACEHOLDER_VALUES for value in (EMAIL, PASSWORD))
+# Treat empty or placeholder credential values as missing so tests use the fake API.
+CREDS = not any(value in MISSING_CREDENTIAL_SENTINELS for value in (EMAIL, PASSWORD))
 
 
 class _FakeKippyApi:
