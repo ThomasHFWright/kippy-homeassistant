@@ -2,26 +2,25 @@
 from __future__ import annotations
 
 import logging
-
 from datetime import datetime, timedelta
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import KippyApi
-from .const import (
-    DOMAIN,
-    LOCALIZATION_TECHNOLOGY_LBS,
-    OPERATING_STATUS_LIVE,
-)
+from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_LBS, OPERATING_STATUS_LIVE
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class KippyDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the Kippy API."""
 
-    def __init__(self, hass: HomeAssistant, api: KippyApi) -> None:
+    def __init__(
+        self, hass: HomeAssistant, config_entry: ConfigEntry, api: KippyApi
+    ) -> None:
         """Initialize the coordinator."""
         self.api = api
         super().__init__(
@@ -31,12 +30,16 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
             # Fetching the pet list does not need to happen on a schedule.
             # The coordinator will only update when explicitly requested.
             update_interval=None,
+            config_entry=config_entry,
         )
 
     async def _async_update_data(self):
         """Fetch data from the API endpoint."""
         # ``get_pet_kippy_list`` internally ensures a valid login session.
-        return {"pets": await self.api.get_pet_kippy_list()}
+        try:
+            return {"pets": await self.api.get_pet_kippy_list()}
+        except Exception as err:  # noqa: BLE001
+            raise UpdateFailed(f"Error communicating with API: {err}") from err
 
 
 class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
@@ -45,6 +48,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
+        config_entry: ConfigEntry,
         api: KippyApi,
         kippy_id: int,
         idle_refresh: int = 300,
@@ -61,11 +65,15 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name=f"{DOMAIN}_{kippy_id}_map",
             update_interval=timedelta(seconds=self.idle_refresh),
+            config_entry=config_entry,
         )
 
     async def _async_update_data(self):
         """Fetch location data and adjust the refresh interval."""
-        data = await self.api.kippymap_action(self.kippy_id)
+        try:
+            data = await self.api.kippymap_action(self.kippy_id)
+        except Exception as err:  # noqa: BLE001
+            raise UpdateFailed(f"Error communicating with API: {err}") from err
         if (
             self.ignore_lbs
             and data.get("localization_technology") == LOCALIZATION_TECHNOLOGY_LBS
@@ -133,6 +141,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
+        config_entry: ConfigEntry,
         api: KippyApi,
         pet_ids: list[int],
         update_hours: int = 6,
@@ -145,6 +154,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name=f"{DOMAIN}_activities",
             update_interval=timedelta(hours=update_hours),
+            config_entry=config_entry,
         )
 
     async def _async_update_data(self) -> dict[int, dict[str, Any]]:
@@ -153,10 +163,13 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         from_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
         to_date = now.strftime("%Y-%m-%d")
         data: dict[int, dict[str, Any]] = {}
-        for pet_id in self.pet_ids:
-            data[pet_id] = await self.api.get_activity_categories(
-                pet_id, from_date, to_date, 1, 1
-            )
+        try:
+            for pet_id in self.pet_ids:
+                data[pet_id] = await self.api.get_activity_categories(
+                    pet_id, from_date, to_date, 1, 1
+                )
+        except Exception as err:  # noqa: BLE001
+            raise UpdateFailed(f"Error communicating with API: {err}") from err
         return data
 
     async def async_refresh_pet(self, pet_id: int) -> None:
@@ -164,7 +177,9 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         now = datetime.utcnow()
         from_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
         to_date = now.strftime("%Y-%m-%d")
-        result = await self.api.get_activity_categories(pet_id, from_date, to_date, 1, 1)
+        result = await self.api.get_activity_categories(
+            pet_id, from_date, to_date, 1, 1
+        )
         new_data = dict(self.data or {})
         new_data[pet_id] = result
         self.async_set_updated_data(new_data)
