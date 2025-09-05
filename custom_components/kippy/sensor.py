@@ -16,7 +16,12 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, PET_KIND_TO_TYPE
+from .const import (
+    DOMAIN,
+    LOCALIZATION_TECHNOLOGY_GPS,
+    LOCALIZATION_TECHNOLOGY_LBS,
+    PET_KIND_TO_TYPE,
+)
 from .coordinator import (
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
@@ -490,7 +495,11 @@ class KippyGpsTimeSensor(_KippyBaseMapEntity, SensorEntity):
     ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
-        self._attr_name = f"{pet_name} GPS Time" if pet_name else "GPS Time"
+        self._attr_name = (
+            f"{pet_name} {LOCALIZATION_TECHNOLOGY_GPS} Time"
+            if pet_name
+            else f"{LOCALIZATION_TECHNOLOGY_GPS} Time"
+        )
         self._attr_unique_id = f"{self._pet_id}_gps_time"
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -508,7 +517,11 @@ class KippyLbsTimeSensor(_KippyBaseMapEntity, SensorEntity):
     ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
-        self._attr_name = f"{pet_name} LBS Time" if pet_name else "LBS Time"
+        self._attr_name = (
+            f"{pet_name} {LOCALIZATION_TECHNOLOGY_LBS} Time"
+            if pet_name
+            else f"{LOCALIZATION_TECHNOLOGY_LBS} Time"
+        )
         self._attr_unique_id = f"{self._pet_id}_lbs_time"
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_entity_category = EntityCategory.DIAGNOSTIC

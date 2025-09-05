@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import EntityCategory
 from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, OPERATING_STATUS_LIVE
+from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_LBS, OPERATING_STATUS_LIVE
 from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
@@ -133,9 +133,9 @@ class KippyIgnoreLBSSwitch(
         self._pet_name = pet.get("petName")
         self._pet_data = pet
         self._attr_name = (
-            f"{self._pet_name} Ignore LBS (Low accuracy) updates"
+            f"{self._pet_name} Ignore {LOCALIZATION_TECHNOLOGY_LBS} updates"
             if self._pet_name
-            else "Ignore LBS (Low accuracy) updates"
+            else f"Ignore {LOCALIZATION_TECHNOLOGY_LBS} updates"
         )
         self._attr_unique_id = f"{self._pet_id}_ignore_lbs"
         self._attr_translation_key = "ignore_lbs_updates"
