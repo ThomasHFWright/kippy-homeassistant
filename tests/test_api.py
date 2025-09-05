@@ -9,6 +9,7 @@ silently skipping the entire module.
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -31,6 +32,8 @@ PASSWORD = os.getenv("KIPPY_PASSWORD")
 
 # Treat empty or placeholder credential values as missing so tests use the fake API.
 CREDS = not any(value in MISSING_CREDENTIAL_PLACEHOLDERS for value in (EMAIL, PASSWORD))
+
+log = logging.getLogger(__name__)
 
 
 class _FakeKippyApi:
@@ -55,6 +58,7 @@ async def api():
     """Return a real or fake API depending on the available credentials."""
 
     if CREDS:
+        log.info("Using real Kippy API for tests")
         session = aiohttp.ClientSession()
         api = await KippyApi.async_create(session)
         api.is_fake = False
@@ -64,6 +68,9 @@ async def api():
         finally:
             await api._session.close()
     else:
+        log.info(
+            "Using fake Kippy API for tests because credentials are missing or redacted"
+        )
         yield _FakeKippyApi()
 
 
@@ -75,9 +82,11 @@ async def test_login_succeeds(api):
     assert api.app_verification_code is not None
 
     if getattr(api, "is_fake", False):
-        # Make it clear we ran the artificial fallback tests.
+        log.info("Login simulated using fake credentials")
         assert api.app_code == "FAKE_CODE"
         assert api.app_verification_code == "FAKE_VERIFICATION_CODE"
+    else:
+        log.info("Login succeeded using real credentials")
 
 
 @pytest.mark.asyncio
@@ -85,6 +94,10 @@ async def test_get_pet_kippy_list_returns_list(api):
     """The pet list should always be a list, even for the fake API."""
 
     pets = await api.get_pet_kippy_list()
+    if getattr(api, "is_fake", False):
+        log.info("Fake API returned %d pets", len(pets))
+    else:
+        log.info("Real API returned %d pets", len(pets))
     assert isinstance(pets, list)
 
 
@@ -99,14 +112,18 @@ async def test_kippymap_action_and_activity_categories(api):
     pets = await api.get_pet_kippy_list()
 
     if getattr(api, "is_fake", False):
+        log.info("Fake API: verifying placeholder location and activity responses")
         assert pets == []
         location = await api.kippymap_action(0)
         activity = await api.get_activity_categories(0, "", "", 0, 0)
+        log.info("Fake location response: %s", location)
+        log.info("Fake activity response: %s", activity)
         assert location == {"fake": True}
         assert activity == {"fake": True}
         return
 
     if not pets:
+        log.info("Real API returned no pets; skipping location and activity tests")
         assert pets == []
         return
 
@@ -119,7 +136,10 @@ async def test_kippymap_action_and_activity_categories(api):
     )
     if kippy_id:
         location = await api.kippymap_action(int(kippy_id), do_sms=False)
+        log.info("Retrieved location for pet %s", kippy_id)
         assert isinstance(location, dict)
+    else:
+        log.info("Pet missing kippy_id; skipping location test")
     pet_id = pet.get("petID") or pet.get("id")
     if pet_id:
         today = datetime.utcnow().date()
@@ -128,4 +148,7 @@ async def test_kippymap_action_and_activity_categories(api):
         activity = await api.get_activity_categories(
             int(pet_id), from_date, to_date, 1, 1
         )
+        log.info("Retrieved activity for pet %s", pet_id)
         assert isinstance(activity, dict)
+    else:
+        log.info("Pet missing pet_id; skipping activity test")
