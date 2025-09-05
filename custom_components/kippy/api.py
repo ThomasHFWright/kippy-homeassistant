@@ -144,8 +144,6 @@ class KippyApi:
         self._session = session
         self._host = host.rstrip("/")
         self._auth: Optional[Dict[str, Any]] = None
-        self._token: Optional[str] = None
-        self._token_expiry: Optional[datetime] = None
         self._credentials: tuple[str, str] | None = None
 
         self._ssl_context = ssl_context
@@ -165,11 +163,6 @@ class KippyApi:
     def _url(self, path: str) -> str:
         """Construct a full URL for a given API path."""
         return f"{self._host}{path}"
-
-    @property
-    def token(self) -> Optional[str]:
-        """Return the cached session token if available."""
-        return self._token
 
     @property
     def app_code(self) -> Optional[str]:
@@ -192,12 +185,7 @@ class KippyApi:
         If a non-expired login session is already cached, it will be returned
         without performing a new network request unless ``force`` is True.
         """
-        now = datetime.utcnow()
-        if (
-            not force
-            and self._auth is not None
-            and (self._token_expiry is None or now < self._token_expiry)
-        ):
+        if not force and self._auth is not None:
             return self._auth
 
         payload = {
@@ -266,18 +254,6 @@ class KippyApi:
 
         self._auth = data
         self._credentials = (email, password)
-        self._token = (
-            data.get("token") or data.get("login_token") or data.get("auth_token")
-        )
-        expires_in = data.get("token_expires_in") or data.get("expires_in")
-        expire_at = data.get("token_expires_at") or data.get("expire_at")
-        if expires_in is not None:
-            self._token_expiry = now + timedelta(seconds=int(expires_in))
-        elif expire_at is not None:
-            self._token_expiry = datetime.utcfromtimestamp(int(expire_at))
-        else:
-            self._token_expiry = None
-
         return data
 
     async def ensure_login(self) -> None:
@@ -288,7 +264,7 @@ class KippyApi:
         await self.login(email, password)
 
     async def _refresh_login(self, payload: Dict[str, Any]) -> None:
-        """Refresh login credentials and update ``payload`` with new tokens."""
+        """Refresh login credentials and update ``payload`` with new codes."""
         if self._credentials is None:
             raise RuntimeError(ERROR_NO_CREDENTIALS)
         email, password = self._credentials
@@ -297,8 +273,6 @@ class KippyApi:
             "app_code": self.app_code,
             "app_verification_code": self.app_verification_code,
         }
-        if self._token is not None:
-            retry_payload["auth_token"] = self._token
         payload.update(retry_payload)
 
     async def _post_with_refresh(
@@ -350,7 +324,7 @@ class KippyApi:
                         _redact(payload),
                         _redact_json(resp_text),
                     )
-                    if return_code == RETURN_VALUES.TOKEN_EXPIRED and attempt == 0:
+                    if return_code == RETURN_VALUES.AUTHORIZATION_EXPIRED and attempt == 0:
                         await self._refresh_login(payload)
                         continue
                     raise ClientResponseError(
@@ -383,8 +357,6 @@ class KippyApi:
             "app_identity": APP_IDENTITY,
             "app_sub_identity": APP_SUB_IDENTITY,
         }
-        if self._token:
-            payload["auth_token"] = self._token
 
         data = await self._post_with_refresh(GET_PETS_PATH, payload, REQUEST_HEADERS)
         return data.get("data", [])
@@ -410,8 +382,6 @@ class KippyApi:
             "kippy_id": kippy_id,
             "do_sms": int(do_sms),
         }
-        if self._token:
-            payload["auth_token"] = self._token
         if app_action is not None:
             payload["app_action"] = app_action
         if geofence_id is not None:
@@ -497,8 +467,6 @@ class KippyApi:
             "timezone": tz_hours,
             "weeks": weeks_param,
         }
-        if self._token:
-            payload["auth_token"] = self._token
 
         data = await self._post_with_refresh(
             GET_ACTIVITY_CATEGORIES_PATH, payload, REQUEST_HEADERS
