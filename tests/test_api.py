@@ -44,7 +44,10 @@ class _FakeKippyApi:
     app_verification_code = "FAKE_VERIFICATION_CODE"
 
     async def get_pet_kippy_list(self) -> list:
-        return []
+        return [
+            {"petID": "12345", "name": "Fido", "petKind": "4"},
+            {"petID": "54321", "name": "Fluffy", "petKind": "3"},
+        ]
 
     async def kippymap_action(self, *args, **kwargs) -> dict:  # noqa: D401
         return {"fake": True}
@@ -96,6 +99,16 @@ async def test_get_pet_kippy_list_returns_list(api):
     pets = await api.get_pet_kippy_list()
     if getattr(api, "is_fake", False):
         log.info("Fake API returned %d pets", len(pets))
+        assert any(
+            pet["name"] == "Fido" and pet["petID"] == "12345" and pet["petKind"] == "4"
+            for pet in pets
+        )
+        assert any(
+            pet["name"] == "Fluffy"
+            and pet["petID"] == "54321"
+            and pet["petKind"] == "3"
+            for pet in pets
+        )
     else:
         log.info("Real API returned %d pets", len(pets))
     assert isinstance(pets, list)
@@ -113,9 +126,9 @@ async def test_kippymap_action_and_activity_categories(api):
 
     if getattr(api, "is_fake", False):
         log.info("Fake API: verifying placeholder location and activity responses")
-        assert pets == []
-        location = await api.kippymap_action(0)
-        activity = await api.get_activity_categories(0, "", "", 0, 0)
+        assert any(pet["petID"] == "12345" for pet in pets)
+        location = await api.kippymap_action(12345)
+        activity = await api.get_activity_categories(12345, "", "", 0, 0)
         log.info("Fake location response: %s", location)
         log.info("Fake activity response: %s", activity)
         assert location == {"fake": True}
