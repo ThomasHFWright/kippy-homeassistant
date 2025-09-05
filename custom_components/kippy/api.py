@@ -32,6 +32,7 @@ from .const import (
     PHONE_COUNTRY_CODE,
     PLATFORM_DEVICE,
     REQUEST_HEADERS,
+    RETURN_VALUES,
     SENSITIVE_LOG_FIELDS,
     T_ID,
     TIMEZONE,
@@ -76,14 +77,14 @@ def _decode_json(text: str) -> Dict[str, Any] | None:
         return None
 
 
-def _get_return_code(data: Dict[str, Any] | None) -> str | None:
+def _get_return_code(data: Dict[str, Any] | None) -> Any | None:
     """Extract the API ``return`` code from ``data`` if present."""
     if not isinstance(data, dict):
         return None
     if (code := data.get("return")) is not None:
-        return str(code)
+        return code
     if (code := data.get("Result")) is not None:
-        return str(code)
+        return code
     return None
 
 
@@ -93,10 +94,13 @@ def _treat_401_as_success(path: str, data: Dict[str, Any]) -> bool:
     if return_code is None:
         _LOGGER.debug("%s returned HTTP 401 with data, assuming success", path)
         return True
-    if return_code == "113":
-        _LOGGER.debug("%s returned Result=113, treating as failure", path)
+    if return_code in {RETURN_VALUES.UNAUTHORIZED, RETURN_VALUES.INVALID_CREDENTIALS}:
+        _LOGGER.debug("%s returned Result=%s, treating as failure", path, return_code)
         return False
-    if return_code.lower() in {"0", "true"}:
+    if (
+        return_code == RETURN_VALUES.SUCCESS
+        or return_code is RETURN_VALUES.SUCCESS_TRUE
+    ):
         return True
     return False
 
@@ -231,7 +235,7 @@ class KippyApi:
                     raise
                 data = json.loads(resp_text)
                 return_code = data.get("return")
-                if return_code not in (0, "0"):
+                if return_code != RETURN_VALUES.SUCCESS:
                     _LOGGER.debug(
                         "Login failed: return=%s request=%s response=%s",
                         return_code,
@@ -332,7 +336,10 @@ class KippyApi:
                     return_code = _get_return_code(data)
                     if return_code is None:
                         return data
-                    if return_code.lower() not in {"0", "true"}:
+                    if (
+                        return_code != RETURN_VALUES.SUCCESS
+                        and return_code is not RETURN_VALUES.SUCCESS_TRUE
+                    ):
                         _LOGGER.debug(
                             "%s failed: return=%s request=%s response=%s",
                             path,
@@ -340,7 +347,7 @@ class KippyApi:
                             _redact(payload),
                             _redact_json(resp_text),
                         )
-                        if return_code == "6" and attempt == 0:
+                        if return_code == RETURN_VALUES.TOKEN_EXPIRED and attempt == 0:
                             await self._refresh_login(payload)
                             continue
                         raise ClientResponseError(

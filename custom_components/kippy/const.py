@@ -46,6 +46,15 @@ T_ID = 1
 FORMULA_GROUP = SimpleNamespace(SUM="SUM")
 ACTIVITY_ID = SimpleNamespace(ALL=0)
 
+# Values for the API ``return`` field.
+RETURN_VALUES = SimpleNamespace(
+    SUCCESS=0,
+    SUCCESS_TRUE=True,
+    TOKEN_EXPIRED=6,
+    UNAUTHORIZED=113,
+    INVALID_CREDENTIALS=108,
+)
+
 # Fields to redact from logs.
 SENSITIVE_LOG_FIELDS = {"app_code", "app_verification_code", "petID", "auth_token"}
 LOGIN_SENSITIVE_FIELDS = {
