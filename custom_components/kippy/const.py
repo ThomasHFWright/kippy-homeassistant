@@ -1,4 +1,8 @@
 """Constants for the Kippy integration."""
+import json
+from importlib import resources
+from types import SimpleNamespace
+
 DOMAIN = "kippy"
 
 # The integration exposes multiple entity types. The list is kept
@@ -19,6 +23,29 @@ GET_PETS_PATH = "/v2/GetPetKippyList.php"
 KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
 GET_ACTIVITY_CATEGORIES_PATH = "/v2/vita/get_activities_cat.php"
 
+# Default request headers.
+REQUEST_HEADERS: dict[str, str] = {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Accept": "application/json, */*;q=0.8",
+    "User-Agent": "kippy-ha/0.1 (+aiohttp)",
+}
+
+# Default app/device configuration.
+APP_IDENTITY = "evo"
+APP_SUB_IDENTITY = "evo"
+APP_IDENTITY_EVO = "1"
+PLATFORM_DEVICE = "10"
+APP_VERSION = "2.9.9"
+TIMEZONE = 1.0
+PHONE_COUNTRY_CODE = "1"
+TOKEN_DEVICE = None
+DEVICE_NAME = "homeassistant"
+T_ID = 1
+
+# Formula group and activity identifiers.
+FORMULA_GROUP = SimpleNamespace(SUM="SUM")
+ACTIVITY_ID = SimpleNamespace(ALL=0)
+
 # Fields to redact from logs.
 SENSITIVE_LOG_FIELDS = {"app_code", "app_verification_code", "petID", "auth_token"}
 LOGIN_SENSITIVE_FIELDS = {
@@ -26,6 +53,16 @@ LOGIN_SENSITIVE_FIELDS = {
     "login_password_hash",
     "login_password_hash_md5",
 }
+
+with resources.files(__package__).joinpath("translations/en.json").open(
+    "r", encoding="utf-8"
+) as _trans_file:
+    _TRANSLATIONS = json.load(_trans_file)
+
+ERROR_NO_CREDENTIALS = _TRANSLATIONS["error"]["no_credentials"]
+ERROR_UNEXPECTED_AUTH_FAILURE = _TRANSLATIONS["error"]["auth_failure"]
+ERROR_NO_AUTH_DATA = _TRANSLATIONS["error"]["no_auth_data"]
+LABEL_EXPIRED = _TRANSLATIONS["common"]["expired"]
 
 # Mapping of operating status codes returned by the API.
 OPERATING_STATUS_IDLE = 1
@@ -46,7 +83,6 @@ LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
 
 # Mapping of ``petKind`` codes returned by the API to a human readable type.
 PET_KIND_TO_TYPE: dict[str, str] = {
-    "4": "Dog",
-    "3": "Cat",
+    "4": _TRANSLATIONS["pet_type"]["dog"],
+    "3": _TRANSLATIONS["pet_type"]["cat"],
 }
-

@@ -16,6 +16,18 @@
       }
     }
   },
+  "error": {
+    "no_credentials": "No stored credentials; call login() first",
+    "auth_failure": "Unexpected authentication failure",
+    "no_auth_data": "No authentication data available"
+  },
+  "common": {
+    "expired": "Expired"
+  },
+  "pet_type": {
+    "dog": "Dog",
+    "cat": "Cat"
+  },
   "entity": {
     "binary_sensor": {
       "firmware_upgrade_available": {

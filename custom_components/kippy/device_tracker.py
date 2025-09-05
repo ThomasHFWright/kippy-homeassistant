@@ -3,19 +3,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.device_tracker import TrackerEntity, SourceType
+from homeassistant.components.device_tracker import SourceType, TrackerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-
-from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, PET_KIND_TO_TYPE
+from .const import DOMAIN, LABEL_EXPIRED, PET_KIND_TO_TYPE
 from .coordinator import KippyMapDataUpdateCoordinator
+from .helpers import build_device_info
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+) -> None:
     """Set up Kippy device trackers."""
     base_coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
@@ -30,7 +31,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerEntity):
     """Representation of a Kippy tracked pet."""
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         """Initialize the tracker entity."""
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
@@ -73,7 +76,7 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
             try:
                 expired_days = int(expired_days)
                 attrs["expired_days"] = (
-                    abs(expired_days) if expired_days < 0 else "Expired"
+                    abs(expired_days) if expired_days < 0 else LABEL_EXPIRED
                 )
             except ValueError:
                 pass
@@ -93,25 +96,35 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
     @property
     def latitude(self) -> float | None:
         """Return latitude if available."""
-        lat = self.coordinator.data.get("gps_latitude") if self.coordinator.data else None
+        lat = (
+            self.coordinator.data.get("gps_latitude") if self.coordinator.data else None
+        )
         return float(lat) if lat is not None else None
 
     @property
     def longitude(self) -> float | None:
         """Return longitude if available."""
-        lon = self.coordinator.data.get("gps_longitude") if self.coordinator.data else None
+        lon = (
+            self.coordinator.data.get("gps_longitude")
+            if self.coordinator.data
+            else None
+        )
         return float(lon) if lon is not None else None
 
     @property
     def location_accuracy(self) -> float | None:
         """Return accuracy radius if available."""
-        acc = self.coordinator.data.get("gps_accuracy") if self.coordinator.data else None
+        acc = (
+            self.coordinator.data.get("gps_accuracy") if self.coordinator.data else None
+        )
         return float(acc) if acc is not None else None
 
     @property
     def altitude(self) -> float | None:
         """Return altitude if available."""
-        alt = self.coordinator.data.get("gps_altitude") if self.coordinator.data else None
+        alt = (
+            self.coordinator.data.get("gps_altitude") if self.coordinator.data else None
+        )
         return float(alt) if alt is not None else None
 
     @property
@@ -130,5 +143,7 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
         """Return device information for this pet."""
         return build_device_info(self._pet_id, self._pet_data, self._attr_name)
 
-    def _handle_coordinator_update(self) -> None:  # pragma: no cover - simple passthrough
+    def _handle_coordinator_update(
+        self,
+    ) -> None:  # pragma: no cover - simple passthrough
         super()._handle_coordinator_update()
