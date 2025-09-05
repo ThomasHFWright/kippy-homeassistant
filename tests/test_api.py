@@ -60,6 +60,7 @@ async def api():
         api.is_fake = False
         await api.login(EMAIL, PASSWORD, force=True)
         try:
+            print("Using real Kippy API for tests")
             yield api
         finally:
             await api._session.close()
@@ -79,6 +80,9 @@ async def test_login_succeeds(api):
         # Make it clear we ran the artificial fallback tests.
         assert api.app_code == "FAKE_CODE"
         assert api.app_verification_code == "FAKE_VERIFICATION_CODE"
+        print("Login test executed with fake credentials")
+    else:
+        print("Login test executed with real credentials")
 
 
 @pytest.mark.asyncio
@@ -87,6 +91,10 @@ async def test_get_pet_kippy_list_returns_list(api):
 
     pets = await api.get_pet_kippy_list()
     assert isinstance(pets, list)
+    if getattr(api, "is_fake", False):
+        print("Pet list test executed with fake API")
+    else:
+        print(f"Pet list test executed with real API and retrieved {len(pets)} pets")
 
 
 @pytest.mark.asyncio
@@ -105,6 +113,7 @@ async def test_kippymap_action_and_activity_categories(api):
         activity = await api.get_activity_categories(0, "", "", 0, 0)
         assert location == {"fake": True}
         assert activity == {"fake": True}
+        print("Endpoint test executed with fake API")
         return
 
     if not pets:
@@ -130,3 +139,4 @@ async def test_kippymap_action_and_activity_categories(api):
             int(pet_id), from_date, to_date, 1, 1
         )
         assert isinstance(activity, dict)
+    print("Endpoint test executed with real API")
