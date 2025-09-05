@@ -13,12 +13,16 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 
 from .const import (
     DEFAULT_HOST,
+    ERROR_NO_AUTH_DATA,
+    ERROR_NO_CREDENTIALS,
+    ERROR_UNEXPECTED_AUTH_FAILURE,
     GET_ACTIVITY_CATEGORIES_PATH,
     GET_PETS_PATH,
     KIPPYMAP_ACTION_PATH,
     LOCALIZATION_TECHNOLOGY_MAP,
     LOGIN_PATH,
     LOGIN_SENSITIVE_FIELDS,
+    REQUEST_HEADERS,
     SENSITIVE_LOG_FIELDS,
 )
 
@@ -52,6 +56,58 @@ def _redact_json(text: str) -> str:
     return json.dumps(_redact_tree(data, SENSITIVE_LOG_FIELDS))
 
 
+def _decode_json(text: str) -> Dict[str, Any] | None:
+    """Decode ``text`` as JSON, returning ``None`` on failure."""
+    try:
+        return cast(Dict[str, Any], json.loads(text))
+    except json.JSONDecodeError:
+        return None
+
+
+def _get_return_code(data: Dict[str, Any] | None) -> str | None:
+    """Extract the API ``return`` code from ``data`` if present."""
+    if not isinstance(data, dict):
+        return None
+    if (code := data.get("return")) is not None:
+        return str(code)
+    if (code := data.get("Result")) is not None:
+        return str(code)
+    return None
+
+
+def _treat_401_as_success(path: str, data: Dict[str, Any]) -> bool:
+    """Determine if a 401 response should be treated as a success."""
+    return_code = _get_return_code(data)
+    if return_code is None:
+        _LOGGER.debug("%s returned HTTP 401 with data, assuming success", path)
+        return True
+    if return_code == "113":
+        _LOGGER.debug("%s returned Result=113, treating as failure", path)
+        return False
+    if return_code.lower() in {"0", "true"}:
+        return True
+    return False
+
+
+def _weeks_param(start: datetime, end: datetime) -> str:
+    """Return a JSON list of ISO weeks between ``start`` and ``end``."""
+    weeks_list: list[dict[str, str]] = []
+    current = start
+    while current <= end:
+        year, week, _ = current.isocalendar()
+        entry = {"year": str(year), "number": str(week)}
+        if entry not in weeks_list:
+            weeks_list.append(entry)
+        current += timedelta(days=1)
+    return json.dumps(weeks_list)
+
+
+def _tz_hours(dt: datetime) -> float:
+    """Return timezone offset in hours for ``dt``."""
+    tz_offset = dt.utcoffset() or timedelta()
+    return tz_offset.total_seconds() / 3600
+
+
 class KippyApi:
     """Minimal Kippy API wrapper handling authentication."""
 
@@ -67,10 +123,7 @@ class KippyApi:
         self._auth: Optional[Dict[str, Any]] = None
         self._token: Optional[str] = None
         self._token_expiry: Optional[datetime] = None
-        self._email: Optional[str] = None
-        self._password: Optional[str] = None
-        self._app_code: Optional[str] = None
-        self._app_verification_code: Optional[str] = None
+        self._credentials: tuple[str, str] | None = None
 
         self._ssl_context = ssl_context
 
@@ -98,12 +151,15 @@ class KippyApi:
     @property
     def app_code(self) -> Optional[str]:
         """Return the app code from the login response."""
-        return self._app_code
+        return cast(Optional[str], self._auth.get("app_code") if self._auth else None)
 
     @property
     def app_verification_code(self) -> Optional[str]:
         """Return the app verification code from the login response."""
-        return self._app_verification_code
+        return cast(
+            Optional[str],
+            self._auth.get("app_verification_code") if self._auth else None,
+        )
 
     async def login(
         self, email: str, password: str, force: bool = False
@@ -121,13 +177,12 @@ class KippyApi:
         ):
             return self._auth
 
-        sha256_hex = hashlib.sha256(password.encode("utf-8")).hexdigest()
-        md5_hex = hashlib.md5(password.encode("utf-8")).hexdigest()
-
         payload = {
             "login_email": email,
-            "login_password_hash": sha256_hex,
-            "login_password_hash_md5": md5_hex,
+            "login_password_hash": hashlib.sha256(password.encode("utf-8")).hexdigest(),
+            "login_password_hash_md5": hashlib.md5(
+                password.encode("utf-8")
+            ).hexdigest(),
             "app_identity": "evo",
             "app_identity_evo": "1",
             "platform_device": "10",
@@ -138,12 +193,6 @@ class KippyApi:
             "device_name": "homeassistant",
         }
 
-        headers = {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Accept": "application/json, */*;q=0.8",
-            "User-Agent": "kippy-ha/0.1 (+aiohttp)",
-        }
-
         try:
             if _LOGGER.isEnabledFor(logging.DEBUG):
                 _LOGGER.debug(
@@ -152,7 +201,7 @@ class KippyApi:
             async with self._session.post(
                 self._url(LOGIN_PATH),
                 data=json.dumps(payload),
-                headers=headers,
+                headers=REQUEST_HEADERS,
                 ssl=self._ssl_context,
             ) as resp:
                 resp_text = await resp.text()
@@ -193,10 +242,7 @@ class KippyApi:
             raise
 
         self._auth = data
-        self._email = email
-        self._password = password
-        self._app_code = data.get("app_code")
-        self._app_verification_code = data.get("app_verification_code")
+        self._credentials = (email, password)
         self._token = (
             data.get("token") or data.get("login_token") or data.get("auth_token")
         )
@@ -213,15 +259,29 @@ class KippyApi:
 
     async def ensure_login(self) -> None:
         """Ensure a valid login session is available."""
-        if self._email is None or self._password is None:
-            raise RuntimeError("No stored credentials; call login() first")
-        await self.login(self._email, self._password)
+        if self._credentials is None:
+            raise RuntimeError(ERROR_NO_CREDENTIALS)
+        email, password = self._credentials
+        await self.login(email, password)
+
+    async def _refresh_login(self, payload: Dict[str, Any]) -> None:
+        """Refresh login credentials and update ``payload`` with new tokens."""
+        if self._credentials is None:
+            raise RuntimeError(ERROR_NO_CREDENTIALS)
+        email, password = self._credentials
+        await self.login(email, password, force=True)
+        retry_payload = {
+            "app_code": self.app_code,
+            "app_verification_code": self.app_verification_code,
+        }
+        if self._token is not None:
+            retry_payload["auth_token"] = self._token
+        payload.update(retry_payload)
 
     async def _post_with_refresh(
         self, path: str, payload: Dict[str, Any], headers: Dict[str, str]
     ) -> Dict[str, Any]:
         """POST to the API and refresh login on authentication errors."""
-
         for attempt in range(2):
             try:
                 if _LOGGER.isEnabledFor(logging.DEBUG):
@@ -235,33 +295,13 @@ class KippyApi:
                     resp_text = await resp.text()
                     if _LOGGER.isEnabledFor(logging.DEBUG):
                         _LOGGER.debug("%s response: %s", path, _redact_json(resp_text))
-                    # Try to decode the response even on HTTP errors as some
-                    # endpoints (e.g. ``kippymap_action``) incorrectly return a
-                    # 401 status code while still providing valid data.
-                    try:
-                        data = json.loads(resp_text)
-                    except json.JSONDecodeError:
-                        data = None
-
-                    if resp.status == 401 and isinstance(data, dict):
-                        return_code = data.get("return")
-                        if return_code is None:
-                            return_code = data.get("Result")
-                        if return_code is None:
-                            _LOGGER.debug(
-                                "%s returned HTTP 401 with data, assuming success", path
-                            )
-                            return data
-                        if str(return_code) == "113":
-                            _LOGGER.debug(
-                                "%s returned Result=113, treating as empty", path
-                            )
-                            return data
-                        if (
-                            str(return_code) == "0"
-                            or str(return_code).lower() == "true"
-                        ):
-                            return data
+                    data = _decode_json(resp_text)
+                    if (
+                        resp.status == 401
+                        and isinstance(data, dict)
+                        and _treat_401_as_success(path, data)
+                    ):
+                        return data
                     try:
                         resp.raise_for_status()
                     except ClientResponseError as err:
@@ -273,25 +313,14 @@ class KippyApi:
                             _redact_json(resp_text),
                         )
                         if err.status == 401 and attempt == 0:
-                            await self.login(self._email, self._password, force=True)
-                            retry_payload = {
-                                "app_code": self._app_code,
-                                "app_verification_code": self._app_verification_code,
-                            }
-                            if self._token is not None:
-                                retry_payload["auth_token"] = self._token
-                            payload.update(retry_payload)
+                            await self._refresh_login(payload)
                             continue
                         raise
-
-                    if data is None:
-                        data = json.loads(resp_text)
-                    return_code = data.get("return")
-                    if return_code is None:
-                        return_code = data.get("Result")
+                    data = data or json.loads(resp_text)
+                    return_code = _get_return_code(data)
                     if return_code is None:
                         return data
-                    if str(return_code).lower() not in {"0", "true"}:
+                    if return_code.lower() not in {"0", "true"}:
                         _LOGGER.debug(
                             "%s failed: return=%s request=%s response=%s",
                             path,
@@ -299,15 +328,8 @@ class KippyApi:
                             _redact(payload),
                             _redact_json(resp_text),
                         )
-                        if str(return_code) == "6" and attempt == 0:
-                            await self.login(self._email, self._password, force=True)
-                            retry_payload = {
-                                "app_code": self._app_code,
-                                "app_verification_code": self._app_verification_code,
-                            }
-                            if self._token is not None:
-                                retry_payload["auth_token"] = self._token
-                            payload.update(retry_payload)
+                        if return_code == "6" and attempt == 0:
+                            await self._refresh_login(payload)
                             continue
                         raise ClientResponseError(
                             resp.request_info,
@@ -325,30 +347,25 @@ class KippyApi:
                 )
                 raise
 
-        raise RuntimeError("Unexpected authentication failure")
+        raise RuntimeError(ERROR_UNEXPECTED_AUTH_FAILURE)
 
     async def get_pet_kippy_list(self) -> list[dict[str, Any]]:
         """Retrieve the list of pets associated with the account."""
         await self.ensure_login()
 
         if not self._auth:
-            raise RuntimeError("No authentication data available")
+            raise RuntimeError(ERROR_NO_AUTH_DATA)
 
         payload = {
-            "app_code": self._app_code,
-            "app_verification_code": self._app_verification_code,
+            "app_code": self.app_code,
+            "app_verification_code": self.app_verification_code,
             "app_identity": "evo",
             "app_sub_identity": "evo",
         }
         if self._token:
             payload["auth_token"] = self._token
 
-        headers = {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Accept": "application/json, */*;q=0.8",
-            "User-Agent": "kippy-ha/0.1 (+aiohttp)",
-        }
-        data = await self._post_with_refresh(GET_PETS_PATH, payload, headers)
+        data = await self._post_with_refresh(GET_PETS_PATH, payload, REQUEST_HEADERS)
         return data.get("data", [])
 
     async def kippymap_action(
@@ -363,11 +380,11 @@ class KippyApi:
         await self.ensure_login()
 
         if not self._auth:
-            raise RuntimeError("No authentication data available")
+            raise RuntimeError(ERROR_NO_AUTH_DATA)
 
         payload: Dict[str, Any] = {
-            "app_code": self._app_code,
-            "app_verification_code": self._app_verification_code,
+            "app_code": self.app_code,
+            "app_verification_code": self.app_verification_code,
             "app_identity": "evo",
             "kippy_id": kippy_id,
             "do_sms": int(do_sms),
@@ -379,13 +396,9 @@ class KippyApi:
         if geofence_id is not None:
             payload["geofence_id"] = geofence_id
 
-        headers = {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Accept": "application/json, */*;q=0.8",
-            "User-Agent": "kippy-ha/0.1 (+aiohttp)",
-        }
-
-        data = await self._post_with_refresh(KIPPYMAP_ACTION_PATH, payload, headers)
+        data = await self._post_with_refresh(
+            KIPPYMAP_ACTION_PATH, payload, REQUEST_HEADERS
+        )
 
         payload = data.get("data")
         if not isinstance(payload, dict):
@@ -433,42 +446,30 @@ class KippyApi:
         await self.ensure_login()
 
         if not self._auth:
-            raise RuntimeError("No authentication data available")
+            raise RuntimeError(ERROR_NO_AUTH_DATA)
 
         start = datetime.strptime(from_date, "%Y-%m-%d")
         end = datetime.strptime(to_date, "%Y-%m-%d")
 
-        local_tz = datetime.now().astimezone().tzinfo
-        start_local = start.replace(tzinfo=local_tz)
-        end_local = end.replace(tzinfo=local_tz)
+        start_ts = int(
+            start.replace(tzinfo=datetime.now().astimezone().tzinfo).timestamp()
+        )
+        end_ts = int(end.replace(tzinfo=datetime.now().astimezone().tzinfo).timestamp())
 
-        tz_offset = start_local.utcoffset() or timedelta()
-        tz_hours = tz_offset.total_seconds() / 3600
+        tz_hours = _tz_hours(start.replace(tzinfo=datetime.now().astimezone().tzinfo))
 
-        from_ts = int(start_local.timestamp())
-        to_ts = int(end_local.timestamp())
+        weeks_param = _weeks_param(start, end)
 
-        weeks_list: list[dict[str, str]] = []
-        current = start
-        while current <= end:
-            year, week, _ = current.isocalendar()
-            entry = {"year": str(year), "number": str(week)}
-            if entry not in weeks_list:
-                weeks_list.append(entry)
-            current += timedelta(days=1)
-        weeks_param = json.dumps(weeks_list)
-
-        time_divisions_map = {1: "h", 2: "d", 3: "w"}
-        time_divisions = time_divisions_map.get(time_division, "h")
+        time_divisions = {1: "h", 2: "d", 3: "w"}.get(time_division, "h")
 
         payload: Dict[str, Any] = {
-            "app_code": self._app_code,
-            "app_verification_code": self._app_verification_code,
+            "app_code": self.app_code,
+            "app_verification_code": self.app_verification_code,
             "app_identity": "evo",
             "petID": pet_id,
             "activityID": 0,
-            "fromDate": from_ts,
-            "toDate": to_ts,
+            "fromDate": start_ts,
+            "toDate": end_ts,
             "timeDivisions": time_divisions,
             "formulaGroup": "SUM",
             "tID": 1,
@@ -478,14 +479,8 @@ class KippyApi:
         if self._token:
             payload["auth_token"] = self._token
 
-        headers = {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Accept": "application/json, */*;q=0.8",
-            "User-Agent": "kippy-ha/0.1 (+aiohttp)",
-        }
-
         data = await self._post_with_refresh(
-            GET_ACTIVITY_CATEGORIES_PATH, payload, headers
+            GET_ACTIVITY_CATEGORIES_PATH, payload, REQUEST_HEADERS
         )
 
         if isinstance(data, dict):

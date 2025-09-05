@@ -18,6 +18,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
+    LABEL_EXPIRED,
     LOCALIZATION_TECHNOLOGY_GPS,
     LOCALIZATION_TECHNOLOGY_LBS,
     PET_KIND_TO_TYPE,
@@ -115,7 +116,7 @@ class KippyExpiredDaysSensor(_KippyBaseEntity, SensorEntity):
             days = int(days)
         except (TypeError, ValueError):
             return None
-        return abs(days) if days < 0 else "Expired"
+        return abs(days) if days < 0 else LABEL_EXPIRED
 
 
 class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):

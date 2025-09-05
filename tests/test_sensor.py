@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.kippy.const import PET_KIND_TO_TYPE
+from custom_components.kippy.const import LABEL_EXPIRED, PET_KIND_TO_TYPE
 from custom_components.kippy.sensor import KippyExpiredDaysSensor, KippyPetTypeSensor
 
 
@@ -15,10 +15,10 @@ async def test_expired_days_sensor_returns_expired() -> None:
     coordinator.async_add_listener = MagicMock()
     sensor = KippyExpiredDaysSensor(coordinator, pet)
 
-    assert sensor.native_value == "Expired"
+    assert sensor.native_value == LABEL_EXPIRED
 
     pet["expired_days"] = 5
-    assert sensor.native_value == "Expired"
+    assert sensor.native_value == LABEL_EXPIRED
 
 
 @pytest.mark.asyncio
