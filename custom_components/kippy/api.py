@@ -32,8 +32,8 @@ from .const import (
     PHONE_COUNTRY_CODE,
     PLATFORM_DEVICE,
     REQUEST_HEADERS,
-    RETURN_CODES_SUCCESS,
     RETURN_CODE_ERRORS,
+    RETURN_CODES_SUCCESS,
     RETURN_VALUES,
     SENSITIVE_LOG_FIELDS,
     T_ID,
@@ -79,15 +79,26 @@ def _decode_json(text: str) -> Dict[str, Any] | None:
         return None
 
 
-def _get_return_code(data: Dict[str, Any] | None) -> Any | None:
-    """Extract the API ``return`` code from ``data`` if present."""
+def _get_return_code(data: Dict[str, Any] | None) -> int | bool | str | None:
+    """Extract the API ``return`` code from ``data`` if present.
+
+    The ``return`` value is inconsistently typed by the API, sometimes being
+    returned as a string such as ``"0"`` or ``"108"``. Normalizing the value to
+    ``int`` ensures comparisons against numeric constants remain valid regardless
+    of the original type. Boolean values are preserved as-is.
+    """
     if not isinstance(data, dict):
         return None
-    if (code := data.get("return")) is not None:
+    if (code := data.get("return")) is None:
+        code = data.get("Result")
+    if code is None:
+        return None
+    if isinstance(code, bool):
         return code
-    if (code := data.get("Result")) is not None:
+    try:
+        return int(code)
+    except (TypeError, ValueError):
         return code
-    return None
 
 
 def _return_code_error(code: Any) -> str:
@@ -347,7 +358,10 @@ class KippyApi:
                         _redact(payload),
                         _redact_json(resp_text),
                     )
-                    if return_code == RETURN_VALUES.AUTHORIZATION_EXPIRED and attempt == 0:
+                    if (
+                        return_code == RETURN_VALUES.AUTHORIZATION_EXPIRED
+                        and attempt == 0
+                    ):
                         await self._refresh_login(payload)
                         continue
                     raise ClientResponseError(

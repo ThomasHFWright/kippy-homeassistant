@@ -19,6 +19,14 @@ def test_return_code_subscription_failure_not_success():
     )
 
 
+def test_return_code_success_string():
+    assert _treat_401_as_success("/path", {"return": "0"})
+
+
+def test_return_code_invalid_credentials_string_not_success():
+    assert not _treat_401_as_success("/path", {"return": "108"})
+
+
 def test_error_message_for_unknown_code():
     assert _return_code_error(999) == "Unknown error code 999"
 
