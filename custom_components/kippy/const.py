@@ -1,6 +1,7 @@
 """Constants for the Kippy integration."""
 import json
 from importlib import resources
+from types import SimpleNamespace
 
 DOMAIN = "kippy"
 
@@ -28,6 +29,22 @@ REQUEST_HEADERS: dict[str, str] = {
     "Accept": "application/json, */*;q=0.8",
     "User-Agent": "kippy-ha/0.1 (+aiohttp)",
 }
+
+# Default app/device configuration.
+APP_IDENTITY = "evo"
+APP_SUB_IDENTITY = "evo"
+APP_IDENTITY_EVO = "1"
+PLATFORM_DEVICE = "10"
+APP_VERSION = "2.9.9"
+TIMEZONE = 1.0
+PHONE_COUNTRY_CODE = "1"
+TOKEN_DEVICE = None
+DEVICE_NAME = "homeassistant"
+T_ID = 1
+
+# Formula group and activity identifiers.
+FORMULA_GROUP = SimpleNamespace(SUM="SUM")
+ACTIVITY_ID = SimpleNamespace(ALL=0)
 
 # Fields to redact from logs.
 SENSITIVE_LOG_FIELDS = {"app_code", "app_verification_code", "petID", "auth_token"}

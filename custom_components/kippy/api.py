@@ -12,18 +12,30 @@ from typing import Any, Dict, Optional, cast
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
 from .const import (
+    ACTIVITY_ID,
+    APP_IDENTITY,
+    APP_IDENTITY_EVO,
+    APP_SUB_IDENTITY,
+    APP_VERSION,
     DEFAULT_HOST,
+    DEVICE_NAME,
     ERROR_NO_AUTH_DATA,
     ERROR_NO_CREDENTIALS,
     ERROR_UNEXPECTED_AUTH_FAILURE,
+    FORMULA_GROUP,
     GET_ACTIVITY_CATEGORIES_PATH,
     GET_PETS_PATH,
     KIPPYMAP_ACTION_PATH,
     LOCALIZATION_TECHNOLOGY_MAP,
     LOGIN_PATH,
     LOGIN_SENSITIVE_FIELDS,
+    PHONE_COUNTRY_CODE,
+    PLATFORM_DEVICE,
     REQUEST_HEADERS,
     SENSITIVE_LOG_FIELDS,
+    T_ID,
+    TIMEZONE,
+    TOKEN_DEVICE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -183,14 +195,14 @@ class KippyApi:
             "login_password_hash_md5": hashlib.md5(
                 password.encode("utf-8")
             ).hexdigest(),
-            "app_identity": "evo",
-            "app_identity_evo": "1",
-            "platform_device": "10",
-            "app_version": "2.9.9",
-            "timezone": 1.0,
-            "phone_country_code": "1",
-            "token_device": None,
-            "device_name": "homeassistant",
+            "app_identity": APP_IDENTITY,
+            "app_identity_evo": APP_IDENTITY_EVO,
+            "platform_device": PLATFORM_DEVICE,
+            "app_version": APP_VERSION,
+            "timezone": TIMEZONE,
+            "phone_country_code": PHONE_COUNTRY_CODE,
+            "token_device": TOKEN_DEVICE,
+            "device_name": DEVICE_NAME,
         }
 
         try:
@@ -359,8 +371,8 @@ class KippyApi:
         payload = {
             "app_code": self.app_code,
             "app_verification_code": self.app_verification_code,
-            "app_identity": "evo",
-            "app_sub_identity": "evo",
+            "app_identity": APP_IDENTITY,
+            "app_sub_identity": APP_SUB_IDENTITY,
         }
         if self._token:
             payload["auth_token"] = self._token
@@ -385,7 +397,7 @@ class KippyApi:
         payload: Dict[str, Any] = {
             "app_code": self.app_code,
             "app_verification_code": self.app_verification_code,
-            "app_identity": "evo",
+            "app_identity": APP_IDENTITY,
             "kippy_id": kippy_id,
             "do_sms": int(do_sms),
         }
@@ -465,14 +477,14 @@ class KippyApi:
         payload: Dict[str, Any] = {
             "app_code": self.app_code,
             "app_verification_code": self.app_verification_code,
-            "app_identity": "evo",
+            "app_identity": APP_IDENTITY,
             "petID": pet_id,
-            "activityID": 0,
+            "activityID": ACTIVITY_ID.ALL,
             "fromDate": start_ts,
             "toDate": end_ts,
             "timeDivisions": time_divisions,
-            "formulaGroup": "SUM",
-            "tID": 1,
+            "formulaGroup": FORMULA_GROUP.SUM,
+            "tID": T_ID,
             "timezone": tz_hours,
             "weeks": weeks_param,
         }
