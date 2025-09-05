@@ -106,6 +106,11 @@ def _treat_401_as_success(path: str, data: Dict[str, Any]) -> bool:
     if return_code is None:
         _LOGGER.debug("%s returned HTTP 401 with data, assuming success", path)
         return True
+    if isinstance(return_code, bool):
+        if return_code:
+            return True
+        _LOGGER.debug("%s returned Result=%s, treating as failure", path, return_code)
+        return False
     if return_code not in RETURN_CODES_SUCCESS:
         _LOGGER.debug("%s returned Result=%s, treating as failure", path, return_code)
         return False
@@ -230,7 +235,22 @@ class KippyApi:
                     raise
                 data = json.loads(resp_text)
                 return_code = _get_return_code(data)
-                if return_code not in RETURN_CODES_SUCCESS:
+                if isinstance(return_code, bool):
+                    if not return_code:
+                        _LOGGER.debug(
+                            "Login failed: return=%s request=%s response=%s",
+                            return_code,
+                            _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                            _redact_json(resp_text),
+                        )
+                        raise ClientResponseError(
+                            resp.request_info,
+                            resp.history,
+                            status=401,
+                            message=_return_code_error(return_code),
+                            headers=resp.headers,
+                        )
+                elif return_code not in RETURN_CODES_SUCCESS:
                     _LOGGER.debug(
                         "Login failed: return=%s request=%s response=%s",
                         return_code,
@@ -315,7 +335,10 @@ class KippyApi:
                         raise
                     data = data or json.loads(resp_text)
                     return_code = _get_return_code(data)
-                    if return_code is None or return_code in RETURN_CODES_SUCCESS:
+                    if isinstance(return_code, bool):
+                        if return_code:
+                            return data
+                    elif return_code is None or return_code in RETURN_CODES_SUCCESS:
                         return data
                     _LOGGER.debug(
                         "%s failed: return=%s request=%s response=%s",
@@ -394,7 +417,6 @@ class KippyApi:
         payload = data.get("data")
         if not isinstance(payload, dict):
             payload = dict(data)
-        payload.pop("return", None)
 
         # Extract primary GPS location details
         lat = payload.pop("lat", None)

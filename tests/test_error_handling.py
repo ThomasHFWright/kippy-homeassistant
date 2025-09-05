@@ -13,6 +13,12 @@ def test_return_code_invalid_credentials_not_success():
     )
 
 
+def test_return_code_subscription_failure_not_success():
+    assert not _treat_401_as_success(
+        "/path", {"return": RETURN_VALUES.SUBSCRIPTION_FAILURE}
+    )
+
+
 def test_error_message_for_unknown_code():
     assert _return_code_error(999) == "Unknown error code 999"
 
@@ -33,4 +39,11 @@ def test_error_message_for_authorization_expired():
     assert (
         _return_code_error(RETURN_VALUES.AUTHORIZATION_EXPIRED)
         == "Authorization expired (code 6)"
+    )
+
+
+def test_error_message_for_subscription_failure():
+    assert (
+        _return_code_error(RETURN_VALUES.SUBSCRIPTION_FAILURE)
+        == "Subscription inactive (code False)"
     )
