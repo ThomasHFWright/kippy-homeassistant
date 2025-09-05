@@ -12,7 +12,12 @@ from homeassistant.helpers.entity import EntityCategory
 from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_LBS, OPERATING_STATUS_LIVE
+from .const import (
+    DOMAIN,
+    LOCALIZATION_TECHNOLOGY_LBS,
+    OPERATING_STATUS,
+    OPERATING_STATUS_MAP,
+)
 from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
@@ -97,7 +102,8 @@ class KippyLiveTrackingSwitch(
     @property
     def is_on(self) -> bool:
         return bool(
-            self.coordinator.data.get("operating_status") == OPERATING_STATUS_LIVE
+            self.coordinator.data.get("operating_status")
+            == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
         )
 
     async def async_turn_on(self, **kwargs: Any) -> None:

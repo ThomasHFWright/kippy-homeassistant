@@ -3,7 +3,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from custom_components.kippy.const import LABEL_EXPIRED, PET_KIND_TO_TYPE
-from custom_components.kippy.sensor import KippyExpiredDaysSensor, KippyPetTypeSensor
+from custom_components.kippy.const import OPERATING_STATUS, OPERATING_STATUS_MAP
+from custom_components.kippy.sensor import (
+    KippyExpiredDaysSensor,
+    KippyOperatingStatusSensor,
+    KippyPetTypeSensor,
+)
 
 
 @pytest.mark.asyncio
@@ -43,3 +48,20 @@ async def test_pet_type_sensor_maps_kind_to_type() -> None:
     sensor = KippyPetTypeSensor(coordinator, pet)
 
     assert sensor.native_value == PET_KIND_TO_TYPE["4"]
+
+
+@pytest.mark.asyncio
+async def test_operating_status_sensor_returns_string() -> None:
+    """Operating status sensor should expose a human readable value."""
+    pet = {"petID": "1"}
+    coordinator = MagicMock()
+    coordinator.data = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+    }
+    coordinator.async_add_listener = MagicMock()
+    sensor = KippyOperatingStatusSensor(coordinator, pet)
+
+    assert (
+        sensor.native_value
+        == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+    )

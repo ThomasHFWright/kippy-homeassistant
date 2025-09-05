@@ -55,6 +55,7 @@ async def async_setup_entry(
             entities.append(KippyFixTimeSensor(map_coord, pet))
             entities.append(KippyGpsTimeSensor(map_coord, pet))
             entities.append(KippyLbsTimeSensor(map_coord, pet))
+            entities.append(KippyOperatingStatusSensor(map_coord, pet))
 
         entities.extend(
             [
@@ -530,3 +531,31 @@ class KippyLbsTimeSensor(_KippyBaseMapEntity, SensorEntity):
     @property
     def native_value(self) -> datetime | None:
         return self._get_datetime("lbs_time")
+
+
+class KippyOperatingStatusSensor(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], SensorEntity
+):
+    """Sensor indicating operating status."""
+
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        self._pet_name = pet.get("petName")
+        self._pet_data = pet
+        self._attr_name = (
+            f"{self._pet_name} Operating Status" if self._pet_name else "Operating Status"
+        )
+        self._attr_unique_id = f"{self._pet_id}_operating_status"
+        self._attr_translation_key = "operating_status"
+
+    @property
+    def native_value(self) -> Any:
+        return self.coordinator.data.get("operating_status") if self.coordinator.data else None
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
