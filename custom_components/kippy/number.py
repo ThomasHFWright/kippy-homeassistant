@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import EntityCategory
 from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_GPS
 from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
 
 
@@ -44,9 +44,9 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} GPS Automatic update frequency (hours)"
+            f"{pet_name} {LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency (hours)"
             if pet_name
-            else "GPS Automatic update frequency (hours)"
+            else f"{LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency (hours)"
         )
         self._attr_unique_id = f"{self._pet_id}_update_frequency"
         self._pet_data = pet

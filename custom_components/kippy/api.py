@@ -11,28 +11,18 @@ from typing import Any, Dict, Optional, cast
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
-from .const import LOCALIZATION_TECHNOLOGY_LBS
-
-DEFAULT_HOST = "https://prod.kippyapi.eu"
-LOGIN_PATH = "/v2/login.php"
-GET_PETS_PATH = "/v2/GetPetKippyList.php"
-KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
-GET_ACTIVITY_CATEGORIES_PATH = "/v2/vita/get_activities_cat.php"
-
-LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
-    "1": LOCALIZATION_TECHNOLOGY_LBS,
-    "2": "GPS",
-    "3": "Wifi",
-}
+from .const import (
+    DEFAULT_HOST,
+    GET_ACTIVITY_CATEGORIES_PATH,
+    GET_PETS_PATH,
+    KIPPYMAP_ACTION_PATH,
+    LOCALIZATION_TECHNOLOGY_MAP,
+    LOGIN_PATH,
+    LOGIN_SENSITIVE_FIELDS,
+    SENSITIVE_LOG_FIELDS,
+)
 
 _LOGGER = logging.getLogger(__name__)
-
-SENSITIVE_LOG_FIELDS = {"app_code", "app_verification_code", "petID", "auth_token"}
-LOGIN_SENSITIVE_FIELDS = {
-    "login_email",
-    "login_password_hash",
-    "login_password_hash_md5",
-}
 
 
 def _redact_tree(data: Any, sensitive: set[str]) -> Any:
