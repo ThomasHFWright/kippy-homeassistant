@@ -1,0 +1,18 @@
+rules:
+  # Bronze (mandatory)
+  config-flow: done
+  entity-unique-id: done
+  action-setup:
+    status: exempt
+    comment: Integration does not register custom actions.
+
+  # Silver (if targeting Silver+)
+  entity-unavailable: todo
+  parallel-updates: todo
+
+  # Gold (if targeting Gold+)
+  devices: done
+  diagnostics: todo
+
+  # Platinum (if targeting Platinum)
+  strict-typing: todo
