@@ -32,6 +32,8 @@ from .const import (
     PHONE_COUNTRY_CODE,
     PLATFORM_DEVICE,
     REQUEST_HEADERS,
+    RETURN_CODES_SUCCESS,
+    RETURN_CODE_ERRORS,
     RETURN_VALUES,
     SENSITIVE_LOG_FIELDS,
     T_ID,
@@ -88,21 +90,26 @@ def _get_return_code(data: Dict[str, Any] | None) -> Any | None:
     return None
 
 
+def _return_code_error(code: Any) -> str:
+    """Return a human readable error for ``code``.
+
+    If ``code`` is unknown, include the code in the message.
+    """
+    if (msg := RETURN_CODE_ERRORS.get(code)) is not None:
+        return f"{msg} (code {code})"
+    return f"Unknown error code {code}"
+
+
 def _treat_401_as_success(path: str, data: Dict[str, Any]) -> bool:
     """Determine if a 401 response should be treated as a success."""
     return_code = _get_return_code(data)
     if return_code is None:
         _LOGGER.debug("%s returned HTTP 401 with data, assuming success", path)
         return True
-    if return_code in {RETURN_VALUES.UNAUTHORIZED, RETURN_VALUES.INVALID_CREDENTIALS}:
+    if return_code not in RETURN_CODES_SUCCESS:
         _LOGGER.debug("%s returned Result=%s, treating as failure", path, return_code)
         return False
-    if (
-        return_code == RETURN_VALUES.SUCCESS
-        or return_code is RETURN_VALUES.SUCCESS_TRUE
-    ):
-        return True
-    return False
+    return True
 
 
 def _weeks_param(start: datetime, end: datetime) -> str:
@@ -234,8 +241,8 @@ class KippyApi:
                     )
                     raise
                 data = json.loads(resp_text)
-                return_code = data.get("return")
-                if return_code != RETURN_VALUES.SUCCESS:
+                return_code = _get_return_code(data)
+                if return_code not in RETURN_CODES_SUCCESS:
                     _LOGGER.debug(
                         "Login failed: return=%s request=%s response=%s",
                         return_code,
@@ -246,7 +253,7 @@ class KippyApi:
                         resp.request_info,
                         resp.history,
                         status=401,
-                        message=resp_text,
+                        message=_return_code_error(return_code),
                         headers=resp.headers,
                     )
         except ClientError as err:
@@ -334,30 +341,25 @@ class KippyApi:
                         raise
                     data = data or json.loads(resp_text)
                     return_code = _get_return_code(data)
-                    if return_code is None:
+                    if return_code is None or return_code in RETURN_CODES_SUCCESS:
                         return data
-                    if (
-                        return_code != RETURN_VALUES.SUCCESS
-                        and return_code is not RETURN_VALUES.SUCCESS_TRUE
-                    ):
-                        _LOGGER.debug(
-                            "%s failed: return=%s request=%s response=%s",
-                            path,
-                            return_code,
-                            _redact(payload),
-                            _redact_json(resp_text),
-                        )
-                        if return_code == RETURN_VALUES.TOKEN_EXPIRED and attempt == 0:
-                            await self._refresh_login(payload)
-                            continue
-                        raise ClientResponseError(
-                            resp.request_info,
-                            resp.history,
-                            status=401,
-                            message=resp_text,
-                            headers=resp.headers,
-                        )
-                    return data
+                    _LOGGER.debug(
+                        "%s failed: return=%s request=%s response=%s",
+                        path,
+                        return_code,
+                        _redact(payload),
+                        _redact_json(resp_text),
+                    )
+                    if return_code == RETURN_VALUES.TOKEN_EXPIRED and attempt == 0:
+                        await self._refresh_login(payload)
+                        continue
+                    raise ClientResponseError(
+                        resp.request_info,
+                        resp.history,
+                        status=401,
+                        message=_return_code_error(return_code),
+                        headers=resp.headers,
+                    )
             except ClientError as err:
                 _LOGGER.debug(
                     "Error communicating with Kippy API: request=%s error=%s",

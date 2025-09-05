@@ -50,10 +50,27 @@ ACTIVITY_ID = SimpleNamespace(ALL=0)
 RETURN_VALUES = SimpleNamespace(
     SUCCESS=0,
     SUCCESS_TRUE=True,
+    MALFORMED_REQUEST=4,
     TOKEN_EXPIRED=6,
     UNAUTHORIZED=113,
     INVALID_CREDENTIALS=108,
 )
+
+# Return codes grouped by outcome.
+RETURN_CODES_SUCCESS = {
+    RETURN_VALUES.SUCCESS,
+    RETURN_VALUES.SUCCESS_TRUE,
+}
+
+# Mapping of failure codes to human readable errors.
+RETURN_CODE_ERRORS = {
+    RETURN_VALUES.MALFORMED_REQUEST: "Malformed request",
+    RETURN_VALUES.TOKEN_EXPIRED: "Session token expired",
+    RETURN_VALUES.UNAUTHORIZED: "Unauthorized",
+    RETURN_VALUES.INVALID_CREDENTIALS: "Invalid credentials",
+}
+
+RETURN_CODES_FAILURE = set(RETURN_CODE_ERRORS)
 
 # Fields to redact from logs.
 SENSITIVE_LOG_FIELDS = {"app_code", "app_verification_code", "petID", "auth_token"}
