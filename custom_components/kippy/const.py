@@ -97,9 +97,18 @@ ERROR_NO_AUTH_DATA = _TRANSLATIONS["error"]["no_auth_data"]
 LABEL_EXPIRED = _TRANSLATIONS["common"]["expired"]
 
 # Mapping of operating status codes returned by the API.
-OPERATING_STATUS_IDLE = 1
-OPERATING_STATUS_LIVE = 5
-OPERATING_STATUS_POWER_SAVING = 18
+OPERATING_STATUS = SimpleNamespace(
+    IDLE=1,
+    LIVE=5,
+    ENERGY_SAVING=18,
+)
+
+# Mapping of operating status codes to their human readable string.
+OPERATING_STATUS_MAP: dict[int, str] = {
+    OPERATING_STATUS.IDLE: "idle",
+    OPERATING_STATUS.LIVE: "live",
+    OPERATING_STATUS.ENERGY_SAVING: "energy_saving",
+}
 
 # Names used by the API for location technologies.
 LOCALIZATION_TECHNOLOGY_LBS = "LBS (Low accuracy)"

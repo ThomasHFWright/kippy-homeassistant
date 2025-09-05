@@ -10,7 +10,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import KippyApi
-from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_LBS, OPERATING_STATUS_LIVE
+from .const import (
+    DOMAIN,
+    LOCALIZATION_TECHNOLOGY_LBS,
+    OPERATING_STATUS,
+    OPERATING_STATUS_MAP,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -101,13 +106,17 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
 
         operating_status = data.get("operating_status")
         try:
-            operating_status = int(operating_status)
+            operating_status_int = int(operating_status)
         except (TypeError, ValueError):
-            operating_status = None
-        if operating_status == OPERATING_STATUS_LIVE:
+            operating_status_int = None
+
+        operating_status_str = OPERATING_STATUS_MAP.get(operating_status_int)
+        if operating_status_int == OPERATING_STATUS.LIVE:
             self.update_interval = timedelta(seconds=self.live_refresh)
         else:
             self.update_interval = timedelta(seconds=self.idle_refresh)
+
+        data["operating_status"] = operating_status_str
         return data
 
     async def async_set_idle_refresh(self, value: int) -> None:
@@ -115,11 +124,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.idle_refresh = value
         if self.data:
             operating_status = self.data.get("operating_status")
-            try:
-                operating_status = int(operating_status)
-            except (TypeError, ValueError):
-                operating_status = None
-            if operating_status != OPERATING_STATUS_LIVE:
+            if operating_status != OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
                 self.update_interval = timedelta(seconds=self.idle_refresh)
 
     async def async_set_live_refresh(self, value: int) -> None:
@@ -127,11 +132,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.live_refresh = value
         if self.data:
             operating_status = self.data.get("operating_status")
-            try:
-                operating_status = int(operating_status)
-            except (TypeError, ValueError):
-                operating_status = None
-            if operating_status == OPERATING_STATUS_LIVE:
+            if operating_status == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
                 self.update_interval = timedelta(seconds=self.live_refresh)
 
 

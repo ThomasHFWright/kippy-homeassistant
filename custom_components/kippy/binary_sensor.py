@@ -11,8 +11,8 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, OPERATING_STATUS_LIVE
-from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
+from .const import DOMAIN
+from .coordinator import KippyDataUpdateCoordinator
 
 
 async def async_setup_entry(
@@ -20,13 +20,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up Kippy binary sensors."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[BinarySensorEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyFirmwareUpgradeAvailableBinarySensor(coordinator, pet))
-        entities.append(
-            KippyOperatingStatusBinarySensor(map_coordinators[pet["petID"]], pet)
-        )
     async_add_entities(entities)
 
 
@@ -63,34 +59,4 @@ class KippyFirmwareUpgradeAvailableBinarySensor(
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
 
-
-class KippyOperatingStatusBinarySensor(
-    CoordinatorEntity[KippyMapDataUpdateCoordinator], BinarySensorEntity
-):
-    """Binary sensor indicating operating status."""
-
-    def __init__(
-        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
-    ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
-        pet_name = pet.get("petName")
-        self._attr_name = (
-            f"{pet_name} Operating status" if pet_name else "Operating status"
-        )
-        self._attr_unique_id = f"{self._pet_id}_live_tracking"
-        self._pet_name = pet_name
-        self._pet_data = pet
-        self._attr_translation_key = "operating_status"
-
-    @property
-    def is_on(self) -> bool:
-        return bool(
-            self.coordinator.data.get("operating_status") == OPERATING_STATUS_LIVE
-        )
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
 

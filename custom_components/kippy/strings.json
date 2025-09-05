@@ -34,12 +34,15 @@
           "on": "Yes",
           "off": "No"
         }
-      },
+      }
+    },
+    "sensor": {
       "operating_status": {
         "name": "Operating status",
         "state": {
-          "on": "Live",
-          "off": "Idle"
+          "live": "Live",
+          "idle": "Idle",
+          "energy_saving": "Energy saving"
         }
       }
     },
