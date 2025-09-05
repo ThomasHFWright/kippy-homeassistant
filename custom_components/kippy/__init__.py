@@ -15,6 +15,7 @@ from .coordinator import (
     KippyMapDataUpdateCoordinator,
 )
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Kippy from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -27,20 +28,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await api.login(email, password)
-        coordinator = KippyDataUpdateCoordinator(hass, api)
+        coordinator = KippyDataUpdateCoordinator(hass, entry, api)
         await coordinator.async_config_entry_first_refresh()
 
         map_coordinators = {}
         pet_ids: list[int] = []
         for pet in coordinator.data.get("pets", []):
             kippy_id = pet.get("kippyID") or pet.get("kippy_id") or pet.get("petID")
-            map_coordinator = KippyMapDataUpdateCoordinator(hass, api, int(kippy_id))
+            map_coordinator = KippyMapDataUpdateCoordinator(
+                hass, entry, api, int(kippy_id)
+            )
             await map_coordinator.async_config_entry_first_refresh()
             map_coordinators[pet["petID"]] = map_coordinator
             pet_ids.append(pet["petID"])
 
         activity_coordinator = KippyActivityCategoriesDataUpdateCoordinator(
-            hass, api, pet_ids
+            hass, entry, api, pet_ids
         )
         await activity_coordinator.async_config_entry_first_refresh()
     except Exception as err:  # noqa: BLE001
@@ -56,6 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Kippy config entry."""
