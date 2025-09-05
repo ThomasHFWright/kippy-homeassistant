@@ -1,9 +1,10 @@
 """Tests for the Kippy API.
 
 These tests normally exercise the real API using credentials supplied via
-environment variables.  When those credentials are not available we still run
-the tests using a small in-memory fake so that it is obvious a placeholder test
-executed instead of silently skipping the entire module.
+environment variables. When those credentials are not available, or are
+placeholder values like ``"<REDACTED>"``, we still run the tests using a small
+in-memory fake so that it is obvious a placeholder test executed instead of
+silently skipping the entire module.
 """
 
 from __future__ import annotations
@@ -26,7 +27,10 @@ if SECRETS_FILE.exists():
 
 EMAIL = os.getenv("KIPPY_EMAIL")
 PASSWORD = os.getenv("KIPPY_PASSWORD")
-CREDS = bool(EMAIL and PASSWORD)
+
+# Treat empty or redacted credential values as missing so tests use the fake API.
+PLACEHOLDER_VALUES = {None, "", "<REDACTED>"}
+CREDS = not any(value in PLACEHOLDER_VALUES for value in (EMAIL, PASSWORD))
 
 
 class _FakeKippyApi:
