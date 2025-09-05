@@ -50,6 +50,9 @@ ACTIVITY_ID = SimpleNamespace(ALL=0)
 RETURN_VALUES = SimpleNamespace(
     SUCCESS=0,
     SUCCESS_TRUE=True,
+    # Returned when a kippymap action is performed on a device without an
+    # active subscription.
+    SUBSCRIPTION_FAILURE=False,
     MALFORMED_REQUEST=[4, 13],
     AUTHORIZATION_EXPIRED=6,
     INVALID_CREDENTIALS=108,
@@ -66,6 +69,7 @@ RETURN_CODE_ERRORS = {
     **{code: "Malformed request" for code in RETURN_VALUES.MALFORMED_REQUEST},
     RETURN_VALUES.AUTHORIZATION_EXPIRED: "Authorization expired",
     RETURN_VALUES.INVALID_CREDENTIALS: "Invalid credentials",
+    RETURN_VALUES.SUBSCRIPTION_FAILURE: "Subscription inactive",
 }
 
 RETURN_CODES_FAILURE = set(RETURN_CODE_ERRORS)

@@ -165,3 +165,26 @@ async def test_kippymap_action_and_activity_categories(api):
         assert isinstance(activity, dict)
     else:
         log.info("Pet missing pet_id; skipping activity test")
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_handles_inactive_subscription(monkeypatch):
+    """kippymap_action should surface subscription status."""
+
+    session = aiohttp.ClientSession()
+    api = await KippyApi.async_create(session)
+    api._auth = {"token": 1}
+
+    async def fake_post(path, payload, headers):
+        return {"return": False}
+
+    async def fake_ensure_login():
+        return None
+
+    monkeypatch.setattr(api, "_post_with_refresh", fake_post)
+    monkeypatch.setattr(api, "ensure_login", fake_ensure_login)
+
+    result = await api.kippymap_action(12345)
+    await session.close()
+
+    assert result == {"return": False}
