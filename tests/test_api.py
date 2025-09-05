@@ -32,6 +32,7 @@ CREDS = bool(EMAIL and PASSWORD)
 class _FakeKippyApi:
     """Fallback API used when no credentials are provided."""
 
+    is_fake = True
     app_code = "FAKE_CODE"
     app_verification_code = "FAKE_VERIFICATION_CODE"
 
@@ -52,12 +53,14 @@ async def api():
     if CREDS:
         session = aiohttp.ClientSession()
         api = await KippyApi.async_create(session)
+        api.is_fake = False
         await api.login(EMAIL, PASSWORD, force=True)
         try:
             yield api
         finally:
             await api._session.close()
     else:
+        print("Using in-memory fake Kippy API for tests")
         yield _FakeKippyApi()
 
 
@@ -68,7 +71,7 @@ async def test_login_succeeds(api):
     assert api.app_code is not None
     assert api.app_verification_code is not None
 
-    if not CREDS:
+    if getattr(api, "is_fake", False):
         # Make it clear we ran the artificial fallback tests.
         assert api.app_code == "FAKE_CODE"
         assert api.app_verification_code == "FAKE_VERIFICATION_CODE"
@@ -92,7 +95,15 @@ async def test_kippymap_action_and_activity_categories(api):
 
     pets = await api.get_pet_kippy_list()
 
-    if not pets or not CREDS:
+    if getattr(api, "is_fake", False):
+        assert pets == []
+        location = await api.kippymap_action(0)
+        activity = await api.get_activity_categories(0, "", "", 0, 0)
+        assert location == {"fake": True}
+        assert activity == {"fake": True}
+        return
+
+    if not pets:
         assert pets == []
         return
 
