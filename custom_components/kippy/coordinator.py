@@ -1,6 +1,7 @@
 """Coordinator for Kippy data updates."""
 from __future__ import annotations
 
+import inspect
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -19,6 +20,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+_HAS_CONFIG_ENTRY = "config_entry" in inspect.signature(
+    DataUpdateCoordinator.__init__
+).parameters
+
 
 class KippyDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the Kippy API."""
@@ -28,15 +33,16 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
     ) -> None:
         """Initialize the coordinator."""
         self.api = api
-        super().__init__(
-            hass,
-            _LOGGER,
-            name=DOMAIN,
+        self.config_entry = config_entry
+        kwargs: dict[str, Any] = {
+            "name": DOMAIN,
             # Fetching the pet list does not need to happen on a schedule.
             # The coordinator will only update when explicitly requested.
-            update_interval=None,
-            config_entry=config_entry,
-        )
+            "update_interval": None,
+        }
+        if _HAS_CONFIG_ENTRY:
+            kwargs["config_entry"] = config_entry
+        super().__init__(hass, _LOGGER, **kwargs)
 
     async def _async_update_data(self):
         """Fetch data from the API endpoint."""
@@ -61,17 +67,18 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
     ) -> None:
         """Initialize the map coordinator."""
         self.api = api
+        self.config_entry = config_entry
         self.kippy_id = kippy_id
         self.idle_refresh = idle_refresh
         self.live_refresh = live_refresh
         self.ignore_lbs = True
-        super().__init__(
-            hass,
-            _LOGGER,
-            name=f"{DOMAIN}_{kippy_id}_map",
-            update_interval=timedelta(seconds=self.idle_refresh),
-            config_entry=config_entry,
-        )
+        kwargs: dict[str, Any] = {
+            "name": f"{DOMAIN}_{kippy_id}_map",
+            "update_interval": timedelta(seconds=self.idle_refresh),
+        }
+        if _HAS_CONFIG_ENTRY:
+            kwargs["config_entry"] = config_entry
+        super().__init__(hass, _LOGGER, **kwargs)
 
     async def _async_update_data(self):
         """Fetch location data and adjust the refresh interval."""
@@ -149,14 +156,15 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
     ) -> None:
         """Initialize the activity categories coordinator."""
         self.api = api
+        self.config_entry = config_entry
         self.pet_ids = pet_ids
-        super().__init__(
-            hass,
-            _LOGGER,
-            name=f"{DOMAIN}_activities",
-            update_interval=timedelta(hours=update_hours),
-            config_entry=config_entry,
-        )
+        kwargs: dict[str, Any] = {
+            "name": f"{DOMAIN}_activities",
+            "update_interval": timedelta(hours=update_hours),
+        }
+        if _HAS_CONFIG_ENTRY:
+            kwargs["config_entry"] = config_entry
+        super().__init__(hass, _LOGGER, **kwargs)
 
     async def _async_update_data(self) -> dict[int, dict[str, Any]]:
         """Fetch activity categories for all configured pets."""
