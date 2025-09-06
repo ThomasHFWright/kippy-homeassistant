@@ -106,3 +106,17 @@ async def test_button_async_setup_entry_no_pets() -> None:
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once_with([])
+
+
+def test_button_device_info_properties() -> None:
+    """Device info includes pet identifiers and name."""
+    coordinator = MagicMock()
+    pet = {"petID": 7, "kippyID": 9, "petName": "Rex"}
+    press = KippyPressButton(coordinator, pet)
+    info = press.device_info
+    assert info["name"] == "Kippy Rex"
+    assert (DOMAIN, "7") in info["identifiers"]
+
+    activity = KippyActivityCategoriesButton(coordinator, pet)
+    info2 = activity.device_info
+    assert info2["name"] == "Kippy Rex"

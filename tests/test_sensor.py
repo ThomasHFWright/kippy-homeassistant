@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,9 +11,18 @@ from custom_components.kippy.const import (
     PET_KIND_TO_TYPE,
 )
 from custom_components.kippy.sensor import (
+    KippyBatterySensor,
+    KippyContactTimeSensor,
     KippyExpiredDaysSensor,
+    KippyFixTimeSensor,
+    KippyGpsTimeSensor,
+    KippyIDSensor,
+    KippyIMEISensor,
+    KippyLbsTimeSensor,
+    KippyLocalizationTechnologySensor,
     KippyOperatingStatusSensor,
     KippyPetTypeSensor,
+    KippyStepsSensor,
     async_setup_entry,
 )
 
@@ -68,6 +78,7 @@ async def test_operating_status_sensor_returns_string() -> None:
     sensor = KippyOperatingStatusSensor(coordinator, pet)
 
     assert sensor.native_value == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+    assert sensor.device_info["name"] == "Kippy"
 
 
 @pytest.mark.asyncio
@@ -116,3 +127,101 @@ async def test_sensor_async_setup_entry_no_pets() -> None:
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once_with([])
+
+
+def test_base_entity_updates_and_device_info() -> None:
+    """_handle_coordinator_update refreshes pet data and device info."""
+    pet1 = {"petID": 1, "petName": "Rex", "kippyID": 2}
+    coord = MagicMock()
+    coord.data = {"pets": [pet1]}
+    coord.async_add_listener = MagicMock()
+    sensor = KippyIDSensor(coord, pet1)
+    sensor.hass = MagicMock()
+    sensor.entity_id = "sensor.test"
+    coord.data = {"pets": [{"petID": 1, "petName": "Max", "kippyID": 3}]}
+    sensor._handle_coordinator_update()
+    assert sensor.device_info["name"] == "Kippy Max"
+    assert sensor.native_value == 3
+
+
+def test_expired_days_invalid_and_none() -> None:
+    """Expired days sensor handles invalid values."""
+    pet = {"petID": 1, "expired_days": "bad"}
+    coord = MagicMock()
+    coord.data = {"pets": [pet]}
+    coord.async_add_listener = MagicMock()
+    sensor = KippyExpiredDaysSensor(coord, pet)
+    assert sensor.native_value is None
+    pet["expired_days"] = None
+    assert sensor.native_value is None
+
+
+def test_imei_sensor_and_battery_sensor() -> None:
+    """IMEI and battery sensors expose data."""
+    pet = {"petID": 1, "kippyIMEI": "abc", "battery": "50"}
+    coord = MagicMock()
+    coord.data = {"gps_time": 1, "battery": 60}
+    sensor_batt = KippyBatterySensor(coord, pet)
+    assert sensor_batt.native_value == 60
+    coord.data = {}
+    assert sensor_batt.native_value == 50
+    pet_bad = {"petID": 2, "battery": "bad"}
+    sensor_batt2 = KippyBatterySensor(coord, pet_bad)
+    assert sensor_batt2.native_value is None
+    sensor_imei = KippyIMEISensor(coord, pet)
+    assert sensor_imei.native_value == "abc"
+
+
+def test_localization_and_time_sensors() -> None:
+    """Map-based sensors convert timestamps."""
+    coord = MagicMock()
+    coord.data = {
+        "localization_technology": "GPS",
+        "contact_time": 1,
+        "fix_time": "bad",
+        "gps_time": 2,
+        "lbs_time": 3,
+    }
+    pet = {"petID": 1, "petName": "Rex"}
+    loc = KippyLocalizationTechnologySensor(coord, pet)
+    assert loc.native_value == "GPS"
+    assert loc.device_info["name"] == "Kippy Rex"
+    contact = KippyContactTimeSensor(coord, pet)
+    assert contact.native_value == datetime.utcfromtimestamp(1).replace(
+        tzinfo=timezone.utc
+    )
+    assert contact.device_info["name"] == "Kippy Rex"
+    fix = KippyFixTimeSensor(coord, pet)
+    assert fix.native_value is None
+    gps = KippyGpsTimeSensor(coord, pet)
+    assert gps.native_value == datetime.utcfromtimestamp(2).replace(tzinfo=timezone.utc)
+    lbs = KippyLbsTimeSensor(coord, pet)
+    assert lbs.native_value == datetime.utcfromtimestamp(3).replace(tzinfo=timezone.utc)
+
+
+def test_activity_sensor_handles_cat_and_dog_data() -> None:
+    """Activity sensor parses both cat-style and dog-style payloads."""
+    api_coord = MagicMock()
+    api_coord.get_activities = MagicMock()
+    coord = MagicMock()
+    today = datetime.utcnow()
+    today_code = today.strftime("%Y%m%d")
+    coord.get_activities = MagicMock(
+        return_value=[
+            {"activity": "other", "data": []},
+            {"activity": "steps", "data": [{"timeCaption": today_code, "value": "5"}]},
+        ]
+    )
+    sensor = KippyStepsSensor(coord, {"petID": 1, "petName": "Rex"})
+    assert sensor.native_value == 5
+    assert sensor.device_info["name"] == "Kippy Rex"
+    assert sensor.extra_state_attributes == {"date": today.strftime("%Y-%m-%d")}
+
+    coord.get_activities.return_value = [
+        {"date": today.strftime("%Y-%m-%d"), "steps": "7"}
+    ]
+    sensor._date = None
+    assert sensor.native_value == 7
+
+    coord.get_activities.return_value = None
+    assert sensor.native_value is None

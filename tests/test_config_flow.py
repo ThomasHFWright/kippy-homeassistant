@@ -28,6 +28,10 @@ async def test_config_flow_success() -> None:
     "error,base",
     [
         (ClientResponseError(MagicMock(), (), status=401, message=""), "invalid_auth"),
+        (
+            ClientResponseError(MagicMock(), (), status=500, message="boom"),
+            "cannot_connect",
+        ),
         (ClientError(), "cannot_connect"),
         (Exception(), "unknown"),
     ],

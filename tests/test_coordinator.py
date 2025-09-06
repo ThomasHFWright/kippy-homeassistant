@@ -11,6 +11,7 @@ from custom_components.kippy.const import (
     OPERATING_STATUS_MAP,
 )
 from custom_components.kippy.coordinator import (
+    KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
@@ -86,3 +87,83 @@ async def test_map_coordinator_set_refresh_updates_interval() -> None:
     }
     await coord.async_set_idle_refresh(600)
     assert coord.update_interval == timedelta(seconds=600)
+
+
+@pytest.mark.asyncio
+async def test_map_coordinator_update_failure() -> None:
+    """_async_update_data raises UpdateFailed on API error."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    api = MagicMock()
+    api.kippymap_action = AsyncMock(side_effect=Exception)
+    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), api, 1)
+    with pytest.raises(UpdateFailed):
+        await coord._async_update_data()
+
+
+@pytest.mark.asyncio
+async def test_process_data_without_existing_data_strips_lbs() -> None:
+    """LBS update with no previous data drops GPS keys."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord.ignore_lbs = True
+    data = {"localization_technology": LOCALIZATION_TECHNOLOGY_LBS, "gps_latitude": 1}
+    processed = coord._process_data(data)
+    assert "gps_latitude" not in processed
+
+
+@pytest.mark.asyncio
+async def test_process_data_live_sets_interval() -> None:
+    """Live status updates refresh interval."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord._process_data({"operating_status": OPERATING_STATUS.LIVE})
+    assert coord.update_interval == timedelta(seconds=coord.live_refresh)
+
+
+@pytest.mark.asyncio
+async def test_activity_coordinator_update_and_refresh() -> None:
+    """Activity coordinator fetches data and exposes helpers."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    api = MagicMock()
+    api.get_activity_categories = AsyncMock(
+        return_value={"activities": 1, "avg": 2, "health": 3}
+    )
+    coord = KippyActivityCategoriesDataUpdateCoordinator(hass, MagicMock(), api, [1])
+    data = await coord._async_update_data()
+    assert data[1]["avg"] == 2
+    api.get_activity_categories.side_effect = Exception
+    with pytest.raises(UpdateFailed):
+        await coord._async_update_data()
+    api.get_activity_categories.side_effect = None
+    await coord.async_refresh_pet(1)
+    assert coord.get_activities(1) == 1
+    assert coord.get_avg(1) == 2
+    assert coord.get_health(1) == 3
+
+
+def test_has_config_entry_branches(monkeypatch) -> None:
+    """Ensure config_entry kwargs passed when supported."""
+    calls = []
+
+    def fake_init(self, hass, logger, **kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(
+        "custom_components.kippy.coordinator._HAS_CONFIG_ENTRY", True, raising=False
+    )
+    monkeypatch.setattr(
+        "homeassistant.helpers.update_coordinator.DataUpdateCoordinator.__init__",
+        fake_init,
+    )
+    loop = asyncio.new_event_loop()
+    hass = MagicMock()
+    hass.loop = loop
+    api = MagicMock()
+    KippyDataUpdateCoordinator(hass, MagicMock(), api)
+    KippyMapDataUpdateCoordinator(hass, MagicMock(), api, 1)
+    KippyActivityCategoriesDataUpdateCoordinator(hass, MagicMock(), api, [])
+    assert all("config_entry" in c for c in calls)
