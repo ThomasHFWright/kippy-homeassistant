@@ -1,6 +1,9 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.kippy.button import (
     KippyActivityCategoriesButton,
@@ -144,10 +147,29 @@ async def test_refresh_pets_button_reloads_entry() -> None:
     hass = MagicMock()
     entry = MagicMock()
     entry.entry_id = "1"
+    entry.state = ConfigEntryState.LOADED
     hass.config_entries.async_reload = AsyncMock()
+    hass.async_create_task = MagicMock(
+        side_effect=lambda coro: asyncio.create_task(coro)
+    )
     button = KippyRefreshPetsButton(hass, entry)
     await button.async_press()
     hass.config_entries.async_reload.assert_called_once_with("1")
+    hass.async_create_task.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_refresh_pets_button_not_pressable_when_entry_not_loaded() -> None:
+    """Refresh pets button raises when entry is not loaded."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    entry.state = ConfigEntryState.NOT_LOADED
+    hass.config_entries.async_reload = AsyncMock()
+    button = KippyRefreshPetsButton(hass, entry)
+    with pytest.raises(HomeAssistantError):
+        await button.async_press()
+    hass.config_entries.async_reload.assert_not_called()
 
 
 def test_button_device_info_properties() -> None:

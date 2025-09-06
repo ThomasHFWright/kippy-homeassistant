@@ -4,8 +4,9 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -107,6 +108,12 @@ class KippyRefreshPetsButton(ButtonEntity):
         self._attr_unique_id = f"{entry.entry_id}_refresh_pets"
         self._attr_entity_category = EntityCategory.CONFIG
         self._attr_translation_key = "refresh_pets"
+        self._reloading = False
 
     async def async_press(self) -> None:
-        await self.hass.config_entries.async_reload(self.entry.entry_id)
+        if self._reloading or self.entry.state is not ConfigEntryState.LOADED:
+            raise HomeAssistantError("Entry is not loaded")
+        self._reloading = True
+        self.hass.async_create_task(
+            self.hass.config_entries.async_reload(self.entry.entry_id)
+        )
