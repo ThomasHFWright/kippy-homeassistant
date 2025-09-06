@@ -91,10 +91,10 @@ with resources.files(__package__).joinpath("translations/en.json").open(
 ) as _trans_file:
     _TRANSLATIONS = json.load(_trans_file)
 
-ERROR_NO_CREDENTIALS = _TRANSLATIONS["error"]["no_credentials"]
-ERROR_UNEXPECTED_AUTH_FAILURE = _TRANSLATIONS["error"]["auth_failure"]
-ERROR_NO_AUTH_DATA = _TRANSLATIONS["error"]["no_auth_data"]
-LABEL_EXPIRED = _TRANSLATIONS["common"]["expired"]
+ERROR_NO_CREDENTIALS = "No stored credentials; call login() first"
+ERROR_UNEXPECTED_AUTH_FAILURE = "Unexpected authentication failure"
+ERROR_NO_AUTH_DATA = "No authentication data available"
+LABEL_EXPIRED = "Expired"
 
 # Mapping of operating status codes returned by the API.
 OPERATING_STATUS = SimpleNamespace(
@@ -124,6 +124,6 @@ LOCALIZATION_TECHNOLOGY_MAP: dict[str, str] = {
 
 # Mapping of ``petKind`` codes returned by the API to a human readable type.
 PET_KIND_TO_TYPE: dict[str, str] = {
-    "4": _TRANSLATIONS["pet_type"]["dog"],
-    "3": _TRANSLATIONS["pet_type"]["cat"],
+    "4": "Dog",
+    "3": "Cat",
 }
