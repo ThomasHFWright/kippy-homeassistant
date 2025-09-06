@@ -108,6 +108,42 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
 
 
 @pytest.mark.asyncio
+async def test_sensor_async_setup_entry_expired_pet_only_basic_sensors() -> None:
+    """Expired pets only expose basic diagnostic sensors."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    coordinator = MagicMock()
+    coordinator.data = {
+        "pets": [
+            {"petID": 1, "kippyID": 1, "kippyIMEI": "a", "expired_days": -1},
+            {"petID": 2, "kippyID": 2, "kippyIMEI": "b", "expired_days": 0},
+        ]
+    }
+    map_coordinator = MagicMock()
+    activity_coord = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": coordinator,
+                "map_coordinators": {1: map_coordinator},
+                "activity_coordinator": activity_coord,
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    entities = async_add_entities.call_args[0][0]
+    expired_entities = [e for e in entities if getattr(e, "_pet_id", None) == 2]
+    assert len(expired_entities) == 3
+    assert {type(e) for e in expired_entities} == {
+        KippyExpiredDaysSensor,
+        KippyIDSensor,
+        KippyIMEISensor,
+    }
+
+
+@pytest.mark.asyncio
 async def test_sensor_async_setup_entry_no_pets() -> None:
     """No sensors added when there are no pets."""
     hass = MagicMock()

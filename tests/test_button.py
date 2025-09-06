@@ -108,6 +108,28 @@ async def test_button_async_setup_entry_no_pets() -> None:
     async_add_entities.assert_called_once_with([])
 
 
+@pytest.mark.asyncio
+async def test_button_async_setup_entry_missing_map() -> None:
+    """No buttons added when map coordinator is missing."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [{"petID": 1}]}
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": coordinator,
+                "map_coordinators": {},
+                "activity_coordinator": MagicMock(),
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])
+
+
 def test_button_device_info_properties() -> None:
     """Device info includes pet identifiers and name."""
     coordinator = MagicMock()

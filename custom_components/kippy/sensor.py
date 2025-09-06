@@ -44,29 +44,38 @@ async def async_setup_entry(
     entities: list[SensorEntity] = []
     for pet in coordinator.data.get("pets", []):
         entities.append(KippyExpiredDaysSensor(coordinator, pet))
-        entities.append(KippyPetTypeSensor(coordinator, pet))
         entities.append(KippyIDSensor(coordinator, pet))
         entities.append(KippyIMEISensor(coordinator, pet))
-        map_coord = map_coordinators.get(pet["petID"])
-        if map_coord:
-            entities.append(KippyBatterySensor(map_coord, pet))
-            entities.append(KippyLocalizationTechnologySensor(map_coord, pet))
-            entities.append(KippyContactTimeSensor(map_coord, pet))
-            entities.append(KippyFixTimeSensor(map_coord, pet))
-            entities.append(KippyGpsTimeSensor(map_coord, pet))
-            entities.append(KippyLbsTimeSensor(map_coord, pet))
-            entities.append(KippyOperatingStatusSensor(map_coord, pet))
 
-        entities.extend(
-            [
-                KippyStepsSensor(activity_coordinator, pet),
-                KippyCaloriesSensor(activity_coordinator, pet),
-                KippyRunSensor(activity_coordinator, pet),
-                KippyWalkSensor(activity_coordinator, pet),
-                KippySleepSensor(activity_coordinator, pet),
-                KippyRestSensor(activity_coordinator, pet),
-            ]
-        )
+        expired_days = pet.get("expired_days")
+        is_expired = False
+        try:
+            is_expired = int(expired_days) >= 0
+        except (TypeError, ValueError):
+            pass
+
+        if not is_expired:
+            entities.append(KippyPetTypeSensor(coordinator, pet))
+            map_coord = map_coordinators.get(pet["petID"])
+            if map_coord:
+                entities.append(KippyBatterySensor(map_coord, pet))
+                entities.append(KippyLocalizationTechnologySensor(map_coord, pet))
+                entities.append(KippyContactTimeSensor(map_coord, pet))
+                entities.append(KippyFixTimeSensor(map_coord, pet))
+                entities.append(KippyGpsTimeSensor(map_coord, pet))
+                entities.append(KippyLbsTimeSensor(map_coord, pet))
+                entities.append(KippyOperatingStatusSensor(map_coord, pet))
+
+            entities.extend(
+                [
+                    KippyStepsSensor(activity_coordinator, pet),
+                    KippyCaloriesSensor(activity_coordinator, pet),
+                    KippyRunSensor(activity_coordinator, pet),
+                    KippyWalkSensor(activity_coordinator, pet),
+                    KippySleepSensor(activity_coordinator, pet),
+                    KippyRestSensor(activity_coordinator, pet),
+                ]
+            )
 
     async_add_entities(entities)
 

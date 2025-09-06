@@ -22,8 +22,9 @@ async def async_setup_entry(
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
 
     entities = [
-        KippyPetTracker(map_coordinators[pet["petID"]], pet)
+        KippyPetTracker(map_coord, pet)
         for pet in base_coordinator.data.get("pets", [])
+        if (map_coord := map_coordinators.get(pet["petID"]))
     ]
     async_add_entities(entities)
 
