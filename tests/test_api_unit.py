@@ -170,8 +170,8 @@ async def test_modify_kippy_settings_propagates_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_modify_kippy_settings_lowercase_bools(monkeypatch) -> None:
-    """gps_on_default is sent as lowercase booleans."""
+async def test_modify_kippy_settings_uses_bools(monkeypatch) -> None:
+    """gps_on_default is sent as boolean values."""
 
     api = KippyApi(MagicMock())
     api._auth = {"app_code": "1", "app_verification_code": "2"}
@@ -188,5 +188,5 @@ async def test_modify_kippy_settings_lowercase_bools(monkeypatch) -> None:
     await api.modify_kippy_settings(1, gps_on_default=True)
     await api.modify_kippy_settings(1, gps_on_default=False)
 
-    assert payloads[0]["gps_on_default"] == "true"
-    assert payloads[1]["gps_on_default"] == "false"
+    assert payloads[0]["gps_on_default"] is True
+    assert payloads[1]["gps_on_default"] is False

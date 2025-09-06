@@ -479,7 +479,7 @@ class KippyApi:
         if update_frequency is not None:
             payload["update_frequency"] = float(update_frequency)
         if gps_on_default is not None:
-            payload["gps_on_default"] = str(bool(gps_on_default)).lower()
+            payload["gps_on_default"] = bool(gps_on_default)
         if energy_saving_mode is not None:
             payload["energy_saving_mode"] = int(energy_saving_mode)
 
