@@ -1253,8 +1253,8 @@ _LOGGER.debug("Processing data: %s", data)  # Use lazy logging
 ### Validation Commands
 
 ```bash
-# Check specific integration
-python -m script.hassfest --integration-path custom_components/kippy
+# Check specific integration (uses HA version from requirements.txt)
+python script/hassfest --integration-path custom_components/kippy
 
 # Validate quality scale
 # Check quality_scale.yaml against current rules
@@ -1264,3 +1264,7 @@ pytest ./tests \
   --cov=custom_components.kippy \
   --cov-report term-missing
 ```
+
+The `script/hassfest` wrapper downloads the Home Assistant Core repository
+matching the `homeassistant` version pinned in `requirements.txt` to keep the
+validation rules in sync with the runtime environment.
