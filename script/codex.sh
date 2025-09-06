@@ -5,8 +5,8 @@ echo "to be set in the environment."
 set -euo pipefail
 
 # Ensure required env vars exist
-: "${KIPPY_EMAIL?Environment variable KIPPY_EMAIL is not set}"
-: "${KIPPY_PASSWORD?Environment variable KIPPY_PASSWORD is not set}"
+: "${KIPPY_CODEX_EMAIL?Environment variable KIPPY_EMAIL is not set}"
+: "${KIPPY_CODEX_PASSWORD?Environment variable KIPPY_PASSWORD is not set}"
 
 # Create secrets directory
 mkdir -p .secrets
