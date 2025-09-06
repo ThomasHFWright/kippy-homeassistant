@@ -1253,8 +1253,8 @@ _LOGGER.debug("Processing data: %s", data)  # Use lazy logging
 ### Validation Commands
 
 ```bash
-# Check specific integration
-python -m script.hassfest --integration-path custom_components/kippy
+# Check specific integration (uses HA version from requirements.txt)
+python script/hassfest --integration-path custom_components/kippy
 
 # Validate quality scale
 # Check quality_scale.yaml against current rules
@@ -1264,3 +1264,27 @@ pytest ./tests \
   --cov=custom_components.kippy \
   --cov-report term-missing
 ```
+
+The `script/hassfest` wrapper downloads the Home Assistant Core repository
+matching the `homeassistant` version pinned in `requirements.txt` to keep the
+validation rules in sync with the runtime environment.
+
+### Home Assistant Constants
+
+- Prefer constants from `homeassistant.const` when available instead of
+  redefining values locally.
+- Use `script/ha-const` to inspect available constants for the pinned
+  `homeassistant` version:
+
+```bash
+python script/ha-const CONF_EMAIL CONF_PASSWORD
+```
+
+The script reads the same `homeassistant` version specified in
+`requirements.txt` to stay in sync with the runtime environment.
+
+### Translation Notes
+
+- Runtime error strings reside in the `exceptions` section of
+  `strings.json`/`translations/*` to keep them translatable while complying
+  with hassfest.

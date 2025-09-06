@@ -14,17 +14,19 @@
       }
     }
   },
-  "error": {
-    "no_credentials": "No stored credentials; call login() first",
-    "auth_failure": "Unexpected authentication failure",
-    "no_auth_data": "No authentication data available"
-  },
-  "common": {
-    "expired": "Expired"
-  },
-  "pet_type": {
-    "dog": "Dog",
-    "cat": "Cat"
+  "exceptions": {
+    "no_credentials": {
+      "message": "No stored credentials; call login() first"
+    },
+    "auth_failure": {
+      "message": "Unexpected authentication failure"
+    },
+    "no_auth_data": {
+      "message": "No authentication data available"
+    },
+    "expired": {
+      "message": "Expired"
+    }
   },
   "entity": {
     "binary_sensor": {
@@ -44,6 +46,13 @@
           "idle": "Idle",
           "energy_saving": "Energy saving"
         }
+      },
+      "pet_type": {
+        "name": "Pet type",
+        "state": {
+          "dog": "Dog",
+          "cat": "Cat"
+        }
       }
     },
     "switch": {
@@ -59,8 +68,7 @@
         "state": {
           "on": "On",
           "off": "Off"
-        },
-        "help": "Ignore LBS (Location-based service) location updates which can cause the Kippy device to jump very far on a map with very low accuracy"
+        }
       }
     },
     "button": {
