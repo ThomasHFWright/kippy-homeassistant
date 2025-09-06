@@ -73,30 +73,42 @@ async def test_kippymap_action_and_activity_categories(api) -> None:
     if not pets:
         pytest.skip("No pets returned; skipping location and activity tests")
 
-    pet = pets[0]
-    kippy_id = (
-        pet.get("kippy_id")
-        or pet.get("device_kippy_id")
-        or pet.get("deviceID")
-        or pet.get("deviceId")
+    pet_with_kippy = next(
+        (
+            p
+            for p in pets
+            if p.get("kippy_id")
+            or p.get("device_kippy_id")
+            or p.get("deviceID")
+            or p.get("deviceId")
+        ),
+        None,
     )
-    if kippy_id:
-        location = await api.kippymap_action(int(kippy_id), do_sms=False)
-        assert isinstance(location, dict)
-    else:
-        pytest.skip("Pet missing kippy_id; skipping location test")
+    if pet_with_kippy is None:
+        pytest.skip("No pet with kippy_id; skipping location test")
 
-    pet_id = pet.get("petID") or pet.get("id")
-    if pet_id:
-        today = datetime.utcnow().date()
-        from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
-        to_date = today.strftime("%Y-%m-%d")
-        activity = await api.get_activity_categories(
-            int(pet_id), from_date, to_date, 1, 1
-        )
-        assert isinstance(activity, dict)
-    else:
-        pytest.skip("Pet missing pet_id; skipping activity test")
+    kippy_id = (
+        pet_with_kippy.get("kippy_id")
+        or pet_with_kippy.get("device_kippy_id")
+        or pet_with_kippy.get("deviceID")
+        or pet_with_kippy.get("deviceId")
+    )
+    location = await api.kippymap_action(int(kippy_id), do_sms=False)
+    assert isinstance(location, dict)
+
+    pet_with_id = next(
+        (p for p in pets if p.get("petID") or p.get("id")),
+        None,
+    )
+    if pet_with_id is None:
+        pytest.skip("No pet with pet_id; skipping activity test")
+
+    pet_id = pet_with_id.get("petID") or pet_with_id.get("id")
+    today = datetime.utcnow().date()
+    from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+    to_date = today.strftime("%Y-%m-%d")
+    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
+    assert isinstance(activity, dict)
 
 
 @pytest.mark.asyncio
