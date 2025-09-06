@@ -13,8 +13,8 @@ mkdir -p .secrets
 
 # Write secrets to env file
 cat > .secrets/kippy.env <<ENV
-KIPPY_EMAIL=${KIPPY_EMAIL}
-KIPPY_PASSWORD=${KIPPY_PASSWORD}
+KIPPY_EMAIL=${KIPPY_CODEX_EMAIL}
+KIPPY_PASSWORD=${KIPPY_CODEX_PASSWORD}
 ENV
 
 echo "Wrote credentials to .secrets/kippy.env"
