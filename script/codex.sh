@@ -1,7 +1,7 @@
 pip install -r requirements.txt
-echo "Create .secrets/kippy.env with KIPPY_EMAIL and KIPPY_PASSWORD"
-echo "used for local development. Expects KIPPY_EMAIL and KIPPY_PASSWORD"
-echo "to be set in the environment."
+echo "Create .secrets/kippy.env"
+echo "Copy secrets KIPPY_CODEX_EMAIL and KIPPY_CODEX_PASSWORD"
+echo "to KIPPY_EMAIL and KIPPY_PASSWORD environment variables."
 set -euo pipefail
 
 # Ensure required env vars exist
