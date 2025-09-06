@@ -10,6 +10,7 @@ validation rules match the runtime environment.
 from __future__ import annotations
 
 import io
+import ssl
 import subprocess
 import sys
 import tarfile
@@ -31,7 +32,8 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Download and extract the specified version of the Home Assistant repo
-        with urllib.request.urlopen(url) as response:
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(url, context=context) as response:
             archive = io.BytesIO(response.read())
         with tarfile.open(fileobj=archive, mode="r:gz") as tar:
             tar.extractall(tmpdir)
