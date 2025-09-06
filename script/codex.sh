@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Ensure system trust store is present for network operations
+apt-get update
+apt-get install -y ca-certificates
+
 PY_VERSION="3.13.3"
 if ! pyenv versions --bare | grep -qx "$PY_VERSION"; then
   echo "Installing Python $PY_VERSION via pyenv..."
@@ -14,6 +18,10 @@ PYTHON="python"
 "$PYTHON" -m ensurepip --upgrade
 "$PYTHON" -m pip install --upgrade pip
 "$PYTHON" -m pip install -r requirements.txt
+
+# Point Python and requests to the certifi CA bundle
+export SSL_CERT_FILE="$($PYTHON -m certifi)"
+export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
 echo "Create .secrets/kippy.env"
 echo "Copy secrets KIPPY_CODEX_EMAIL and KIPPY_CODEX_PASSWORD"
 echo "to KIPPY_EMAIL and KIPPY_PASSWORD environment variables."
