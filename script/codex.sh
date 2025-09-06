@@ -1,12 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
 pip install -r requirements.txt
 echo "Create .secrets/kippy.env"
 echo "Copy secrets KIPPY_CODEX_EMAIL and KIPPY_CODEX_PASSWORD"
 echo "to KIPPY_EMAIL and KIPPY_PASSWORD environment variables."
-set -euo pipefail
 
 # Ensure required env vars exist
-: "${KIPPY_CODEX_EMAIL?Environment variable KIPPY_EMAIL is not set}"
-: "${KIPPY_CODEX_PASSWORD?Environment variable KIPPY_PASSWORD is not set}"
+: "${KIPPY_CODEX_EMAIL?Environment variable KIPPY_CODEX_EMAIL is not set}"
+: "${KIPPY_CODEX_PASSWORD?Environment variable KIPPY_CODEX_PASSWORD is not set}"
 
 # Create secrets directory
 mkdir -p .secrets
