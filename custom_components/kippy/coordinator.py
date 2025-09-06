@@ -86,6 +86,10 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             data = await self.api.kippymap_action(self.kippy_id)
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+        return self._process_data(data)
+
+    def _process_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Normalize raw kippymap data from the API."""
         if (
             self.ignore_lbs
             and data.get("localization_technology") == LOCALIZATION_TECHNOLOGY_LBS
@@ -125,6 +129,10 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
 
         data["operating_status"] = operating_status_str
         return data
+
+    def process_new_data(self, data: dict[str, Any]) -> None:
+        """Process raw data and update the coordinator state."""
+        self.async_set_updated_data(self._process_data(data))
 
     async def async_set_idle_refresh(self, value: int) -> None:
         """Update idle refresh value and interval when idle."""

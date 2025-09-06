@@ -60,7 +60,7 @@ class KippyPressButton(
 
     async def async_press(self) -> None:
         data = await self.coordinator.api.kippymap_action(self.coordinator.kippy_id)
-        self.coordinator.async_set_updated_data(data)
+        self.coordinator.process_new_data(data)
 
     @property
     def device_info(self) -> DeviceInfo:
