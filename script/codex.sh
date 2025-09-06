@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-pip install -r requirements.txt
+PYTHON="python3.13"
+if ! command -v "$PYTHON" >/dev/null 2>&1; then
+  echo "Installing Python 3.13..."
+  sudo apt-get update
+  sudo apt-get install -y python3.13 python3.13-venv
+fi
+
+"$PYTHON" -m pip install -r requirements.txt
 echo "Create .secrets/kippy.env"
 echo "Copy secrets KIPPY_CODEX_EMAIL and KIPPY_CODEX_PASSWORD"
 echo "to KIPPY_EMAIL and KIPPY_PASSWORD environment variables."
