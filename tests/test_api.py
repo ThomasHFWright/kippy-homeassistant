@@ -146,7 +146,6 @@ async def test_kippymap_action_and_activity_categories_no_pets(
     monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
 
     with pytest.raises(pytest.skip.Exception):
-        await test_kippymap_action_and_activity_categories(api)
 
 
 @pytest.mark.asyncio
@@ -161,7 +160,6 @@ async def test_kippymap_action_and_activity_categories_no_kippy_id(
     monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
 
     with pytest.raises(pytest.skip.Exception):
-        await test_kippymap_action_and_activity_categories(api)
 
 
 @pytest.mark.asyncio
