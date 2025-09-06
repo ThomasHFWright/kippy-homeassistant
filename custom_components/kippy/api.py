@@ -26,6 +26,7 @@ from .const import (
     GET_ACTIVITY_CATEGORIES_PATH,
     GET_PETS_PATH,
     KIPPYMAP_ACTION_PATH,
+    KIPPYMAP_MODIFY_SETTINGS_PATH,
     LOCALIZATION_TECHNOLOGY_MAP,
     LOGIN_PATH,
     LOGIN_SENSITIVE_FIELDS,
@@ -223,7 +224,8 @@ class KippyApi:
         try:
             if _LOGGER.isEnabledFor(logging.DEBUG):
                 _LOGGER.debug(
-                    "Login request: %s", _redact(payload, LOGIN_SENSITIVE_FIELDS)
+                    "Login request: %s",
+                    json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                 )
             async with self._session.post(
                 self._url(LOGIN_PATH),
@@ -240,7 +242,7 @@ class KippyApi:
                     _LOGGER.debug(
                         "Login failed: status=%s request=%s response=%s",
                         err.status,
-                        _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                        json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                         _redact_json(resp_text),
                     )
                     raise
@@ -251,7 +253,7 @@ class KippyApi:
                         _LOGGER.debug(
                             "Login failed: return=%s request=%s response=%s",
                             return_code,
-                            _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                            json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                             _redact_json(resp_text),
                         )
                         raise ClientResponseError(
@@ -265,7 +267,7 @@ class KippyApi:
                     _LOGGER.debug(
                         "Login failed: return=%s request=%s response=%s",
                         return_code,
-                        _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                        json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                         _redact_json(resp_text),
                     )
                     raise ClientResponseError(
@@ -278,7 +280,7 @@ class KippyApi:
         except ClientError as err:
             _LOGGER.debug(
                 "Error communicating with Kippy API: request=%s error=%s",
-                _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                 err,
             )
             raise
@@ -313,7 +315,9 @@ class KippyApi:
         for attempt in range(2):
             try:
                 if _LOGGER.isEnabledFor(logging.DEBUG):
-                    _LOGGER.debug("%s request: %s", path, _redact(payload))
+                    _LOGGER.debug(
+                        "%s request: %s", path, json.dumps(_redact(payload))
+                    )
                 async with self._session.post(
                     self._url(path),
                     data=json.dumps(payload),
@@ -337,7 +341,7 @@ class KippyApi:
                             "%s failed: status=%s request=%s response=%s",
                             path,
                             err.status,
-                            _redact(payload),
+                            json.dumps(_redact(payload)),
                             _redact_json(resp_text),
                         )
                         if err.status == 401 and attempt == 0:
@@ -355,7 +359,7 @@ class KippyApi:
                         "%s failed: return=%s request=%s response=%s",
                         path,
                         return_code,
-                        _redact(payload),
+                        json.dumps(_redact(payload)),
                         _redact_json(resp_text),
                     )
                     if (
@@ -374,7 +378,7 @@ class KippyApi:
             except ClientError as err:
                 _LOGGER.debug(
                     "Error communicating with Kippy API: request=%s error=%s",
-                    _redact(payload),
+                    json.dumps(_redact(payload)),
                     err,
                 )
                 raise
@@ -396,7 +400,19 @@ class KippyApi:
         }
 
         data = await self._post_with_refresh(GET_PETS_PATH, payload, REQUEST_HEADERS)
-        return data.get("data", [])
+        pets = data.get("data", [])
+        for pet in pets:
+            if not isinstance(pet, dict):
+                continue
+            if "enableGPSOnDefault" in pet and "gpsOnDefault" not in pet:
+                value = pet.pop("enableGPSOnDefault")
+                if isinstance(value, str):
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        value = 1 if value.lower() in ("true", "1") else 0
+                pet["gpsOnDefault"] = int(bool(value))
+        return pets
 
     async def kippymap_action(
         self,
@@ -453,6 +469,39 @@ class KippyApi:
             )
 
         return payload
+
+    async def modify_kippy_settings(
+        self,
+        kippy_id: int,
+        *,
+        update_frequency: float | None = None,
+        gps_on_default: bool | None = None,
+        energy_saving_mode: bool | None = None,
+    ) -> Dict[str, Any]:
+        """Modify settings for a specific device."""
+
+        await self.ensure_login()
+
+        if not self._auth:
+            raise RuntimeError(ERROR_NO_AUTH_DATA)
+
+        payload: Dict[str, Any] = {
+            "app_code": self.app_code,
+            "app_verification_code": self.app_verification_code,
+            "app_identity": APP_IDENTITY,
+            "modify_kippy_id": kippy_id,
+        }
+        if update_frequency is not None:
+            # Ensure a single decimal place (e.g. ``1.0``) as required by the API
+            payload["update_frequency"] = float(f"{float(update_frequency):.1f}")
+        if gps_on_default is not None:
+            payload["gps_on_default"] = bool(gps_on_default)
+        if energy_saving_mode is not None:
+            payload["energy_saving_mode"] = int(energy_saving_mode)
+
+        return await self._post_with_refresh(
+            KIPPYMAP_MODIFY_SETTINGS_PATH, payload, REQUEST_HEADERS
+        )
 
     async def get_activity_categories(
         self,

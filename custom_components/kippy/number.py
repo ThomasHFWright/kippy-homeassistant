@@ -68,7 +68,23 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
         return float(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
-        self._pet_data["updateFrequency"] = int(value)
+        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
+        gps_val = self._pet_data.get("gpsOnDefault")
+        if gps_val is None:
+            gps_val = self._pet_data.get("gps_on_default")
+        try:
+            gps_on_default = bool(int(gps_val))
+        except (TypeError, ValueError):
+            gps_on_default = bool(gps_val)
+
+        if kippy_id is not None:
+            data = await self.coordinator.api.modify_kippy_settings(
+                int(kippy_id), update_frequency=value, gps_on_default=gps_on_default
+            )
+            new_value = data.get("update_frequency", value)
+            self._pet_data["updateFrequency"] = int(new_value)
+        else:
+            self._pet_data["updateFrequency"] = int(value)
         self.async_write_ha_state()
 
     def _handle_coordinator_update(self) -> None:

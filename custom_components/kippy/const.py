@@ -21,6 +21,7 @@ DEFAULT_HOST = "https://prod.kippyapi.eu"
 LOGIN_PATH = "/v2/login.php"
 GET_PETS_PATH = "/v2/GetPetKippyList.php"
 KIPPYMAP_ACTION_PATH = "/v2/kippymap_action.php"
+KIPPYMAP_MODIFY_SETTINGS_PATH = "/v2/kippymap_modifyKippySettings.php"
 GET_ACTIVITY_CATEGORIES_PATH = "/v2/vita/get_activities_cat.php"
 
 # Default request headers.

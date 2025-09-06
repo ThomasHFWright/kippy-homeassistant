@@ -69,6 +69,13 @@
           "on": "On",
           "off": "Off"
         }
+      },
+      "gps_on_default": {
+        "name": "GPS tracking",
+        "state": {
+          "on": "On",
+          "off": "Off"
+        }
       }
     },
     "button": {
