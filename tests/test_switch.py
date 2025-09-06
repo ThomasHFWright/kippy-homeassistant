@@ -91,6 +91,15 @@ async def test_live_tracking_switch_read_only_energy_saving() -> None:
 
     with pytest.raises(HomeAssistantError):
         await switch.async_turn_on()
+    assert switch.async_write_ha_state.called
+    assert not switch.is_on
+
+    switch.async_write_ha_state.reset_mock()
+
+    with pytest.raises(HomeAssistantError):
+        await switch.async_turn_off()
+    assert switch.async_write_ha_state.called
+    assert not switch.is_on
     coordinator.api.kippymap_action.assert_not_called()
 
 
@@ -121,7 +130,9 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     """Live tracking switch calls API and processes data."""
     pet = {"petID": 1, "petName": "Rex"}
     coordinator = MagicMock()
-    coordinator.data = {}
+    coordinator.data = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
+    }
     coordinator.kippy_id = 1
     coordinator.api.kippymap_action = AsyncMock(
         return_value={"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
@@ -135,14 +146,23 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     await switch.async_turn_on()
     coordinator.api.kippymap_action.assert_called()
     coordinator.process_new_data.assert_called()
+    assert (
+        coordinator.data.get("operating_status")
+        == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+    )
     coordinator.api.kippymap_action.reset_mock()
     coordinator.process_new_data.reset_mock()
     coordinator.api.kippymap_action.return_value = {
-        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
     }
+    coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
     await switch.async_turn_off()
     coordinator.api.kippymap_action.assert_called()
     coordinator.process_new_data.assert_called()
+    assert (
+        coordinator.data.get("operating_status")
+        == OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
+    )
 
 
 @pytest.mark.asyncio
