@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -190,3 +191,21 @@ async def test_modify_kippy_settings_uses_bools(monkeypatch) -> None:
 
     assert payloads[0]["gps_on_default"] is True
     assert payloads[1]["gps_on_default"] is False
+
+
+@pytest.mark.asyncio
+async def test_post_with_refresh_logs_json(caplog) -> None:
+    """Payloads are logged as JSON with lowercase booleans."""
+
+    resp = _FakeResp(200, '{"return": 0}')
+    session = MagicMock()
+    session.post.return_value = _CM(resp)
+
+    api = KippyApi(session)
+    api._auth = {"token": 1}
+
+    caplog.set_level(logging.DEBUG, logger="custom_components.kippy.api")
+
+    await api._post_with_refresh("/x", {"gps_on_default": True}, REQUEST_HEADERS)
+
+    assert '"gps_on_default": true' in caplog.text

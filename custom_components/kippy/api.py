@@ -224,7 +224,8 @@ class KippyApi:
         try:
             if _LOGGER.isEnabledFor(logging.DEBUG):
                 _LOGGER.debug(
-                    "Login request: %s", _redact(payload, LOGIN_SENSITIVE_FIELDS)
+                    "Login request: %s",
+                    json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                 )
             async with self._session.post(
                 self._url(LOGIN_PATH),
@@ -241,7 +242,7 @@ class KippyApi:
                     _LOGGER.debug(
                         "Login failed: status=%s request=%s response=%s",
                         err.status,
-                        _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                        json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                         _redact_json(resp_text),
                     )
                     raise
@@ -252,7 +253,7 @@ class KippyApi:
                         _LOGGER.debug(
                             "Login failed: return=%s request=%s response=%s",
                             return_code,
-                            _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                            json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                             _redact_json(resp_text),
                         )
                         raise ClientResponseError(
@@ -266,7 +267,7 @@ class KippyApi:
                     _LOGGER.debug(
                         "Login failed: return=%s request=%s response=%s",
                         return_code,
-                        _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                        json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                         _redact_json(resp_text),
                     )
                     raise ClientResponseError(
@@ -279,7 +280,7 @@ class KippyApi:
         except ClientError as err:
             _LOGGER.debug(
                 "Error communicating with Kippy API: request=%s error=%s",
-                _redact(payload, LOGIN_SENSITIVE_FIELDS),
+                json.dumps(_redact(payload, LOGIN_SENSITIVE_FIELDS)),
                 err,
             )
             raise
@@ -314,7 +315,9 @@ class KippyApi:
         for attempt in range(2):
             try:
                 if _LOGGER.isEnabledFor(logging.DEBUG):
-                    _LOGGER.debug("%s request: %s", path, _redact(payload))
+                    _LOGGER.debug(
+                        "%s request: %s", path, json.dumps(_redact(payload))
+                    )
                 async with self._session.post(
                     self._url(path),
                     data=json.dumps(payload),
@@ -338,7 +341,7 @@ class KippyApi:
                             "%s failed: status=%s request=%s response=%s",
                             path,
                             err.status,
-                            _redact(payload),
+                            json.dumps(_redact(payload)),
                             _redact_json(resp_text),
                         )
                         if err.status == 401 and attempt == 0:
@@ -356,7 +359,7 @@ class KippyApi:
                         "%s failed: return=%s request=%s response=%s",
                         path,
                         return_code,
-                        _redact(payload),
+                        json.dumps(_redact(payload)),
                         _redact_json(resp_text),
                     )
                     if (
@@ -375,7 +378,7 @@ class KippyApi:
             except ClientError as err:
                 _LOGGER.debug(
                     "Error communicating with Kippy API: request=%s error=%s",
-                    _redact(payload),
+                    json.dumps(_redact(payload)),
                     err,
                 )
                 raise
