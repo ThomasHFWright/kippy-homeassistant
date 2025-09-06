@@ -24,7 +24,16 @@ async def async_setup_entry(
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[NumberEntity] = []
     for pet in base_coordinator.data.get("pets", []):
-        entities.append(KippyUpdateFrequencyNumber(base_coordinator, pet))
+        expired_days = pet.get("expired_days")
+        is_expired = False
+        try:
+            is_expired = int(expired_days) >= 0
+        except (TypeError, ValueError):
+            pass
+
+        if not is_expired:
+            entities.append(KippyUpdateFrequencyNumber(base_coordinator, pet))
+
         map_coord = map_coordinators.get(pet["petID"])
         if not map_coord:
             continue

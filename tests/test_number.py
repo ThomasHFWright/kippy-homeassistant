@@ -135,3 +135,17 @@ async def test_number_async_setup_entry_missing_map() -> None:
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
     assert all(isinstance(e, KippyUpdateFrequencyNumber) for e in entities)
+
+
+@pytest.mark.asyncio
+async def test_number_async_setup_entry_expired_pet() -> None:
+    """Expired pets should not create number entities."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": [{"petID": 1, "expired_days": 0}]}
+    hass.data = {DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}}
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])
