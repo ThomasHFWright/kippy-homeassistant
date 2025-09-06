@@ -80,3 +80,47 @@ async def test_async_setup_entry_success_and_unload() -> None:
     await async_unload_entry(hass, entry)
     hass.config_entries.async_unload_platforms.assert_awaited_with(entry, PLATFORMS)
     assert entry.entry_id not in hass.data.get(DOMAIN, {})
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_skips_expired_pet() -> None:
+    """Expired pets are not set up for map or activity coordinators."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    hass.data = {}
+    hass.config_entries = MagicMock()
+    hass.config_entries.async_forward_entry_setups = AsyncMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    entry.data = {CONF_EMAIL: "a", CONF_PASSWORD: "b"}
+
+    api = AsyncMock()
+    api.login = AsyncMock()
+    data_coord = AsyncMock()
+    data_coord.async_config_entry_first_refresh = AsyncMock()
+    data_coord.data = {
+        "pets": [
+            {"petID": 1, "kippyID": 1, "expired_days": -1},
+            {"petID": 2, "kippyID": 2, "expired_days": 0},
+        ]
+    }
+    map_coord = AsyncMock()
+    map_coord.async_config_entry_first_refresh = AsyncMock()
+    activity_coord = AsyncMock()
+    activity_coord.async_config_entry_first_refresh = AsyncMock()
+
+    with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
+        "custom_components.kippy.KippyApi.async_create", return_value=api
+    ), patch(
+        "custom_components.kippy.KippyDataUpdateCoordinator", return_value=data_coord
+    ), patch(
+        "custom_components.kippy.KippyMapDataUpdateCoordinator", return_value=map_coord
+    ) as map_cls, patch(
+        "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
+        return_value=activity_coord,
+    ) as act_cls:
+        result = await async_setup_entry(hass, entry)
+
+    assert result is True
+    map_cls.assert_called_once_with(hass, entry, api, 1)
+    act_cls.assert_called_once_with(hass, entry, api, [1])

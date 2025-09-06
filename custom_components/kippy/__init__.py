@@ -34,6 +34,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         map_coordinators = {}
         pet_ids: list[int] = []
         for pet in coordinator.data.get("pets", []):
+            expired_days = pet.get("expired_days")
+            try:
+                if int(expired_days) >= 0:
+                    continue
+            except (TypeError, ValueError):
+                pass
+
             kippy_id = pet.get("kippyID") or pet.get("kippy_id") or pet.get("petID")
             map_coordinator = KippyMapDataUpdateCoordinator(
                 hass, entry, api, int(kippy_id)
