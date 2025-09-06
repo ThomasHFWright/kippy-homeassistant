@@ -1,9 +1,15 @@
-from unittest.mock import MagicMock
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from custom_components.kippy.const import OPERATING_STATUS, OPERATING_STATUS_MAP
-from custom_components.kippy.switch import KippyEnergySavingSwitch
+from custom_components.kippy.const import DOMAIN, OPERATING_STATUS, OPERATING_STATUS_MAP
+from custom_components.kippy.switch import (
+    KippyEnergySavingSwitch,
+    KippyIgnoreLBSSwitch,
+    KippyLiveTrackingSwitch,
+    async_setup_entry,
+)
 
 
 @pytest.mark.asyncio
@@ -31,3 +37,160 @@ async def test_energy_saving_switch_updates_from_operating_status() -> None:
     assert switch.is_on
     assert pet["energySavingMode"] == 1
 
+
+@pytest.mark.asyncio
+async def test_live_tracking_switch_turns_on_off() -> None:
+    """Live tracking switch calls API and processes data."""
+    pet = {"petID": 1, "petName": "Rex"}
+    coordinator = MagicMock()
+    coordinator.data = {}
+    coordinator.kippy_id = 1
+    coordinator.api.kippymap_action = AsyncMock(
+        return_value={"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
+    )
+    coordinator.process_new_data = MagicMock()
+    coordinator.async_add_listener = MagicMock()
+    switch = KippyLiveTrackingSwitch(coordinator, pet)
+    switch.hass = MagicMock()
+    switch.entity_id = "switch.live"
+    await switch.async_turn_on()
+    coordinator.api.kippymap_action.assert_called()
+    coordinator.process_new_data.assert_called()
+    coordinator.api.kippymap_action.reset_mock()
+    coordinator.process_new_data.reset_mock()
+    coordinator.api.kippymap_action.return_value = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+    }
+    await switch.async_turn_off()
+    coordinator.api.kippymap_action.assert_called()
+    coordinator.process_new_data.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_live_tracking_switch_propagates_error() -> None:
+    """Errors from API propagate out of the switch."""
+    pet = {"petID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {}
+    coordinator.kippy_id = 1
+    coordinator.api.kippymap_action = AsyncMock(side_effect=RuntimeError)
+    coordinator.async_add_listener = MagicMock()
+    switch = KippyLiveTrackingSwitch(coordinator, pet)
+    switch.hass = MagicMock()
+    switch.entity_id = "switch.live"
+    with pytest.raises(RuntimeError):
+        await switch.async_turn_on()
+
+
+@pytest.mark.asyncio
+async def test_ignore_lbs_switch_toggles_coordinator() -> None:
+    """Ignore LBS switch mirrors coordinator flag."""
+    pet = {"petID": 1, "petName": "Rex"}
+    map_coord = MagicMock()
+    map_coord.ignore_lbs = False
+    map_coord.async_add_listener = MagicMock()
+    switch = KippyIgnoreLBSSwitch(map_coord, pet)
+    switch.hass = MagicMock()
+    switch.entity_id = "switch.lbs"
+    assert not switch.is_on
+    await switch.async_turn_on()
+    assert map_coord.ignore_lbs is True
+    await switch.async_turn_off()
+    assert map_coord.ignore_lbs is False
+
+
+@pytest.mark.asyncio
+async def test_switch_async_setup_entry_creates_entities() -> None:
+    """async_setup_entry adds all switch entities for each pet."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": [{"petID": 1}]}
+    map_coordinator = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": base_coordinator,
+                "map_coordinators": {1: map_coordinator},
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert any(isinstance(e, KippyEnergySavingSwitch) for e in entities)
+    assert any(isinstance(e, KippyLiveTrackingSwitch) for e in entities)
+    assert any(isinstance(e, KippyIgnoreLBSSwitch) for e in entities)
+
+
+@pytest.mark.asyncio
+async def test_switch_async_setup_entry_no_pets() -> None:
+    """No switches added when there are no pets."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": []}
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])
+
+
+@pytest.mark.asyncio
+async def test_switch_async_setup_entry_missing_map() -> None:
+    """No switches added when map coordinator is missing."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": [{"petID": 1}]}
+    hass.data = {
+        DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])
+
+
+def test_energy_saving_switch_turn_on_off_and_device_info() -> None:
+    """Energy saving switch toggles pet data and exposes device info."""
+    pet = {"petID": "1", "petName": "Rex", "energySavingMode": 0}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    map_coord = MagicMock()
+    map_coord.async_add_listener = MagicMock(return_value=MagicMock())
+    map_coord.data = {}
+    switch = KippyEnergySavingSwitch(coordinator, pet, map_coord)
+    switch.async_write_ha_state = MagicMock()
+    assert not switch.is_on
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(switch.async_turn_on())
+    assert switch.is_on
+    loop.run_until_complete(switch.async_turn_off())
+    assert not switch.is_on
+    coordinator.data = {
+        "pets": [{"petID": "1", "petName": "Rex", "energySavingMode": 1}]
+    }
+    switch._handle_coordinator_update()
+    assert switch.is_on
+    assert switch.device_info["name"] == "Kippy Rex"
+
+
+def test_live_and_ignore_lbs_device_info() -> None:
+    """Other switches expose device info correctly."""
+    pet = {"petID": 1, "petName": "Rex"}
+    map_coord = MagicMock()
+    map_coord.data = {}
+    map_coord.async_add_listener = MagicMock()
+    live = KippyLiveTrackingSwitch(map_coord, pet)
+    ignore = KippyIgnoreLBSSwitch(map_coord, pet)
+    assert live.device_info["name"] == "Kippy Rex"
+    assert ignore.device_info["name"] == "Kippy Rex"

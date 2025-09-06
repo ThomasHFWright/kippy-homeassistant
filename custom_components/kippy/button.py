@@ -35,7 +35,10 @@ async def async_setup_entry(
     ][entry.entry_id]["activity_coordinator"]
     entities: list[ButtonEntity] = []
     for pet in coordinator.data.get("pets", []):
-        entities.append(KippyPressButton(map_coordinators[pet["petID"]], pet))
+        map_coord = map_coordinators.get(pet["petID"])
+        if not map_coord:
+            continue
+        entities.append(KippyPressButton(map_coord, pet))
         entities.append(KippyActivityCategoriesButton(activity_coordinator, pet))
     async_add_entities(entities)
 

@@ -1,18 +1,17 @@
-"""Tests for the Kippy API.
+"""Integration tests for the real Kippy API.
 
-These tests normally exercise the real API using credentials supplied via
-environment variables. When those credentials are not available, or are
-placeholder values like ``"<REDACTED>"``, we still run the tests using a small
-in-memory fake so that it is obvious a placeholder test executed instead of
-silently skipping the entire module.
+These tests require valid credentials defined in environment variables or the
+``.secrets/kippy.env`` file. When credentials are missing or use placeholder
+values like ``"<REDACTED>"``, the tests are skipped. Tests for the in-memory
+fake API live in ``test_api_fake.py``.
 """
 
 from __future__ import annotations
 
-import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 import pytest
@@ -30,145 +29,149 @@ if SECRETS_FILE.exists():
 EMAIL = os.getenv("KIPPY_EMAIL")
 PASSWORD = os.getenv("KIPPY_PASSWORD")
 
-# Treat empty or placeholder credential values as missing so tests use the fake API.
-CREDS = not any(value in MISSING_CREDENTIAL_PLACEHOLDERS for value in (EMAIL, PASSWORD))
+if (
+    not EMAIL
+    or not PASSWORD
+    or any(value in MISSING_CREDENTIAL_PLACEHOLDERS for value in (EMAIL, PASSWORD))
+):
+    pytest.skip(
+        "Kippy credentials are missing or redacted; skipping real API tests",
+        allow_module_level=True,
+    )
 
-log = logging.getLogger(__name__)
 
+def _active(pet: dict[str, Any]) -> bool:
+    """Return True if the subscription is active for the given pet."""
 
-class _FakeKippyApi:
-    """Fallback API used when no credentials are provided."""
-
-    is_fake = True
-    app_code = "FAKE_CODE"
-    app_verification_code = "FAKE_VERIFICATION_CODE"
-
-    async def get_pet_kippy_list(self) -> list:
-        return [
-            {"petID": "12345", "name": "Fido", "petKind": "4"},
-            {"petID": "54321", "name": "Fluffy", "petKind": "3"},
-        ]
-
-    async def kippymap_action(self, *args, **kwargs) -> dict:  # noqa: D401
-        return {"fake": True}
-
-    async def get_activity_categories(self, *args, **kwargs) -> dict:
-        return {"fake": True}
+    days = pet.get("expired_days")
+    try:
+        return int(days) < 0
+    except (TypeError, ValueError):
+        return True
 
 
 @pytest_asyncio.fixture
 async def api():
-    """Return a real or fake API depending on the available credentials."""
+    """Return an authenticated Kippy API instance."""
 
-    if CREDS:
-        log.info("Using real Kippy API for tests")
-        session = aiohttp.ClientSession()
-        api = await KippyApi.async_create(session)
-        api.is_fake = False
-        await api.login(EMAIL, PASSWORD, force=True)
-        try:
-            yield api
-        finally:
-            await api._session.close()
-    else:
-        log.info(
-            "Using fake Kippy API for tests because credentials are missing or redacted"
-        )
-        yield _FakeKippyApi()
+    session = aiohttp.ClientSession()
+    api = await KippyApi.async_create(session)
+    await api.login(EMAIL, PASSWORD, force=True)
+    try:
+        yield api
+    finally:
+        await api._session.close()
 
 
 @pytest.mark.asyncio
-async def test_login_succeeds(api):
-    """Ensure login provides the expected codes or fake identifiers."""
+async def test_login_succeeds(api) -> None:
+    """Ensure login provides the expected codes."""
 
     assert api.app_code is not None
     assert api.app_verification_code is not None
 
-    if getattr(api, "is_fake", False):
-        log.info("Login simulated using fake credentials")
-        assert api.app_code == "FAKE_CODE"
-        assert api.app_verification_code == "FAKE_VERIFICATION_CODE"
-    else:
-        log.info("Login succeeded using real credentials")
-
 
 @pytest.mark.asyncio
-async def test_get_pet_kippy_list_returns_list(api):
-    """The pet list should always be a list, even for the fake API."""
+async def test_get_pet_kippy_list_returns_list(api) -> None:
+    """The pet list should always be a list."""
 
     pets = await api.get_pet_kippy_list()
-    if getattr(api, "is_fake", False):
-        log.info("Fake API returned %d pets", len(pets))
-        assert any(
-            pet["name"] == "Fido" and pet["petID"] == "12345" and pet["petKind"] == "4"
-            for pet in pets
-        )
-        assert any(
-            pet["name"] == "Fluffy"
-            and pet["petID"] == "54321"
-            and pet["petKind"] == "3"
-            for pet in pets
-        )
-    else:
-        log.info("Real API returned %d pets", len(pets))
     assert isinstance(pets, list)
 
 
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories(api):
-    """Exercise Kippy Map and activity endpoints when possible.
 
-    For the fake API this simply confirms the placeholder values to make the
-    intent explicit.
-    """
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories(api) -> None:
+    """Exercise Kippy Map and activity endpoints when possible."""
 
     pets = await api.get_pet_kippy_list()
 
-    if getattr(api, "is_fake", False):
-        log.info("Fake API: verifying placeholder location and activity responses")
-        assert any(pet["petID"] == "12345" for pet in pets)
-        location = await api.kippymap_action(12345)
-        activity = await api.get_activity_categories(12345, "", "", 0, 0)
-        log.info("Fake location response: %s", location)
-        log.info("Fake activity response: %s", activity)
-        assert location == {"fake": True}
-        assert activity == {"fake": True}
-        return
-
     if not pets:
-        log.info("Real API returned no pets; skipping location and activity tests")
-        assert pets == []
-        return
+        pytest.skip("No pets returned; skipping location and activity tests")
 
-    pet = pets[0]
+    pet = next(
+        (
+            p
+            for p in pets
+            if _active(p)
+            and (
+                (p.get("kippy_id")
+                or p.get("kippyID")
+                or p.get("device_kippy_id")
+                or p.get("deviceID")
+                or p.get("deviceId"))
+                and (p.get("petID") or p.get("id"))
+            )
+        ),
+        None,
+    )
+    if pet is None:
+        pytest.skip(
+            "No pet with kippy_id, pet_id and active subscription; skipping location and activity tests",
+        )
+
     kippy_id = (
         pet.get("kippy_id")
+        or pet.get("kippyID")
         or pet.get("device_kippy_id")
         or pet.get("deviceID")
         or pet.get("deviceId")
     )
-    if kippy_id:
-        location = await api.kippymap_action(int(kippy_id), do_sms=False)
-        log.info("Retrieved location for pet %s", kippy_id)
-        assert isinstance(location, dict)
-    else:
-        log.info("Pet missing kippy_id; skipping location test")
-    pet_id = pet.get("petID") or pet.get("id")
-    if pet_id:
-        today = datetime.utcnow().date()
-        from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
-        to_date = today.strftime("%Y-%m-%d")
-        activity = await api.get_activity_categories(
-            int(pet_id), from_date, to_date, 1, 1
-        )
-        log.info("Retrieved activity for pet %s", pet_id)
-        assert isinstance(activity, dict)
-    else:
-        log.info("Pet missing pet_id; skipping activity test")
+    location = await api.kippymap_action(int(kippy_id), do_sms=False)
+    assert isinstance(location, dict)
 
+    pet_id = pet.get("petID") or pet.get("id")
+    today = datetime.utcnow().date()
+    from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+    to_date = today.strftime("%Y-%m-%d")
+    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
+    assert isinstance(activity, dict)
 
 @pytest.mark.asyncio
-async def test_kippymap_action_handles_inactive_subscription(monkeypatch):
+async def test_kippymap_action_and_activity_categories_inactive_subscription(api) -> None:
+    """Exercise endpoints for a pet with an inactive subscription."""
+
+    pets = await api.get_pet_kippy_list()
+
+    inactive = next(
+        (
+            p
+            for p in pets
+            if not _active(p)
+            and (
+                (p.get("kippy_id")
+                or p.get("kippyID")
+                or p.get("device_kippy_id")
+                or p.get("deviceID")
+                or p.get("deviceId"))
+                and (p.get("petID") or p.get("id"))
+            )
+        ),
+        None,
+    )
+
+    if inactive is None:
+        pytest.skip("No pet with inactive subscription; skipping location test")
+
+    kippy_id = (
+        inactive.get("kippy_id")
+        or inactive.get("kippyID")
+        or inactive.get("device_kippy_id")
+        or inactive.get("deviceID")
+        or inactive.get("deviceId")
+    )
+    location = await api.kippymap_action(int(kippy_id), do_sms=False)
+    assert isinstance(location, dict)
+
+    pet_id = inactive.get("petID") or inactive.get("id")
+    today = datetime.utcnow().date()
+    from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+    to_date = today.strftime("%Y-%m-%d")
+    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
+    assert isinstance(activity, dict)
+
+@pytest.mark.asyncio
+async def test_kippymap_action_handles_inactive_subscription(monkeypatch) -> None:
     """kippymap_action should surface subscription status."""
 
     session = aiohttp.ClientSession()
@@ -188,3 +191,98 @@ async def test_kippymap_action_handles_inactive_subscription(monkeypatch):
     await session.close()
 
     assert result == {"return": False}
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_no_pets(
+    monkeypatch, api
+) -> None:
+    """The combined test skips when no pets are returned."""
+
+    async def fake_get_pet_kippy_list():
+        return []
+
+    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
+
+    with pytest.raises(pytest.skip.Exception):
+        await test_kippymap_action_and_activity_categories(api)
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_active_subscription(
+    monkeypatch, api
+) -> None:
+    """The combined test runs when subscription is active."""
+
+    async def fake_get_pet_kippy_list():
+        return [{"kippyID": "1", "petID": "1", "expired_days": -1}]
+
+    called = {"map": 0, "activity": 0}
+
+    async def fake_kippymap_action(*_args, **_kwargs):
+        called["map"] += 1
+        return {}
+
+    async def fake_get_activity_categories(*_args, **_kwargs):
+        called["activity"] += 1
+        return {}
+
+    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
+    monkeypatch.setattr(api, "kippymap_action", fake_kippymap_action)
+    monkeypatch.setattr(
+        api, "get_activity_categories", fake_get_activity_categories
+    )
+
+    await test_kippymap_action_and_activity_categories(api)
+
+    assert called["map"] == 1
+    assert called["activity"] == 1
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_inactive_subscription_skips(
+    monkeypatch, api
+) -> None:
+    """The combined test skips when subscription inactive."""
+
+    async def fake_get_pet_kippy_list():
+        return [{"kippyID": "1", "petID": "1", "expired_days": 0}]
+
+    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
+
+    with pytest.raises(pytest.skip.Exception):
+        await test_kippymap_action_and_activity_categories(api)
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_no_kippy_id(
+    monkeypatch, api
+) -> None:
+    """The combined test skips when pet lacks a kippy id."""
+
+    async def fake_get_pet_kippy_list():
+        return [{"petID": "123"}]
+
+    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
+
+    with pytest.raises(pytest.skip.Exception):
+        await test_kippymap_action_and_activity_categories(api)
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_no_pet_id(
+    monkeypatch, api
+) -> None:
+    """The combined test skips when pet lacks a pet id."""
+
+    async def fake_get_pet_kippy_list():
+        return [{"device_kippy_id": "456"}]
+
+    async def fake_kippymap_action(*_args, **_kwargs):
+        return {}
+
+    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
+    monkeypatch.setattr(api, "kippymap_action", fake_kippymap_action)
+
+    with pytest.raises(pytest.skip.Exception):
+        await test_kippymap_action_and_activity_categories(api)
