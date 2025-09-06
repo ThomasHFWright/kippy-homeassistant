@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -166,3 +167,26 @@ async def test_modify_kippy_settings_propagates_error() -> None:
 
     with pytest.raises(RuntimeError):
         await api.modify_kippy_settings(1, gps_on_default=True)
+
+
+@pytest.mark.asyncio
+async def test_modify_kippy_settings_lowercase_bools(monkeypatch) -> None:
+    """gps_on_default is sent as lowercase booleans."""
+
+    api = KippyApi(MagicMock())
+    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.ensure_login = AsyncMock()  # type: ignore[assignment]
+
+    payloads: list[dict[str, Any]] = []
+
+    async def fake_post(path, payload, headers):
+        payloads.append(payload)
+        return {}
+
+    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+
+    await api.modify_kippy_settings(1, gps_on_default=True)
+    await api.modify_kippy_settings(1, gps_on_default=False)
+
+    assert payloads[0]["gps_on_default"] == "true"
+    assert payloads[1]["gps_on_default"] == "false"
