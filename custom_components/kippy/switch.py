@@ -11,6 +11,7 @@ from homeassistant.helpers.entity import EntityCategory
 
 from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
     DOMAIN,
@@ -186,9 +187,9 @@ class KippyLiveTrackingSwitch(
         self._pet_name = pet_name
         self._pet_data = pet
         self._attr_translation_key = "toggle_live_tracking"
-        self._attr_available = (
+        self._read_only = (
             coordinator.data.get("operating_status")
-            != OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+            == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
         )
 
     @property
@@ -199,13 +200,17 @@ class KippyLiveTrackingSwitch(
         )
 
     def _handle_coordinator_update(self) -> None:
-        self._attr_available = (
+        self._read_only = (
             self.coordinator.data.get("operating_status")
-            != OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+            == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
         )
         super()._handle_coordinator_update()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        if self._read_only:
+            raise HomeAssistantError(
+                "Live tracking cannot be enabled in energy saving mode"
+            )
         data = await self.coordinator.api.kippymap_action(
             self.coordinator.kippy_id, app_action=1
         )
@@ -213,6 +218,10 @@ class KippyLiveTrackingSwitch(
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        if self._read_only:
+            raise HomeAssistantError(
+                "Live tracking cannot be disabled in energy saving mode"
+            )
         data = await self.coordinator.api.kippymap_action(
             self.coordinator.kippy_id, app_action=1
         )

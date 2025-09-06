@@ -11,6 +11,7 @@ from custom_components.kippy.switch import (
     KippyGpsDefaultSwitch,
     async_setup_entry,
 )
+from homeassistant.exceptions import HomeAssistantError
 
 
 @pytest.mark.asyncio
@@ -40,7 +41,7 @@ async def test_energy_saving_switch_updates_from_operating_status() -> None:
 
 
 def test_live_tracking_switch_operating_status() -> None:
-    """Live tracking switch follows operating status and availability."""
+    """Live tracking switch follows operating status and read-only state."""
     pet = {"petID": 1}
     coordinator = MagicMock()
     coordinator.data = {
@@ -54,19 +55,43 @@ def test_live_tracking_switch_operating_status() -> None:
     switch.async_write_ha_state = MagicMock()
 
     assert switch.is_on
-    assert switch._attr_available
+    assert not switch._read_only
 
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
     switch._handle_coordinator_update()
     assert not switch.is_on
-    assert switch._attr_available
+    assert not switch._read_only
 
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
         OPERATING_STATUS.ENERGY_SAVING
     ]
     switch._handle_coordinator_update()
     assert not switch.is_on
-    assert not switch._attr_available
+    assert switch._read_only
+
+
+@pytest.mark.asyncio
+async def test_live_tracking_switch_read_only_energy_saving() -> None:
+    """Live tracking switch blocks toggling in energy saving mode."""
+    pet = {"petID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+    }
+    coordinator.async_add_listener = MagicMock()
+    coordinator.api.kippymap_action = AsyncMock()
+    coordinator.kippy_id = 1
+    switch = KippyLiveTrackingSwitch(coordinator, pet)
+    switch.hass = MagicMock()
+    switch.entity_id = "switch.live"
+    switch.async_write_ha_state = MagicMock()
+
+    assert not switch.is_on
+    assert switch._read_only
+
+    with pytest.raises(HomeAssistantError):
+        await switch.async_turn_on()
+    coordinator.api.kippymap_action.assert_not_called()
 
 
 @pytest.mark.asyncio
