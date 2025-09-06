@@ -77,6 +77,9 @@
       },
       "refresh_activities": {
         "name": "Refresh activities"
+      },
+      "refresh_pets": {
+        "name": "Refresh pets"
       }
     }
   }

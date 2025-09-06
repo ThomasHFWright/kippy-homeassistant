@@ -7,8 +7,6 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-
-from .helpers import build_device_info
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -18,6 +16,7 @@ from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
+from .helpers import build_device_info
 
 
 async def async_setup_entry(
@@ -33,7 +32,7 @@ async def async_setup_entry(
     activity_coordinator: KippyActivityCategoriesDataUpdateCoordinator = hass.data[
         DOMAIN
     ][entry.entry_id]["activity_coordinator"]
-    entities: list[ButtonEntity] = []
+    entities: list[ButtonEntity] = [KippyRefreshPetsButton(hass, entry)]
     for pet in coordinator.data.get("pets", []):
         map_coord = map_coordinators.get(pet["petID"])
         if not map_coord:
@@ -43,9 +42,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class KippyPressButton(
-    CoordinatorEntity[KippyMapDataUpdateCoordinator], ButtonEntity
-):
+class KippyPressButton(CoordinatorEntity[KippyMapDataUpdateCoordinator], ButtonEntity):
     """Button to trigger an immediate kippymap action."""
 
     def __init__(
@@ -98,3 +95,18 @@ class KippyActivityCategoriesButton(ButtonEntity):
         pet_name = self._pet_data.get("petName")
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
+
+
+class KippyRefreshPetsButton(ButtonEntity):
+    """Button to refresh the list of pets."""
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
+        self.entry = entry
+        self._attr_name = "Refresh pets"
+        self._attr_unique_id = f"{entry.entry_id}_refresh_pets"
+        self._attr_entity_category = EntityCategory.CONFIG
+        self._attr_translation_key = "refresh_pets"
+
+    async def async_press(self) -> None:
+        await self.hass.config_entries.async_reload(self.entry.entry_id)

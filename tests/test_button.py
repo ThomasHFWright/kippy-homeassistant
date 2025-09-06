@@ -5,6 +5,7 @@ import pytest
 from custom_components.kippy.button import (
     KippyActivityCategoriesButton,
     KippyPressButton,
+    KippyRefreshPetsButton,
     async_setup_entry,
 )
 from custom_components.kippy.const import DOMAIN
@@ -84,6 +85,7 @@ async def test_button_async_setup_entry_creates_entities() -> None:
     entities = async_add_entities.call_args[0][0]
     assert any(isinstance(e, KippyPressButton) for e in entities)
     assert any(isinstance(e, KippyActivityCategoriesButton) for e in entities)
+    assert any(isinstance(e, KippyRefreshPetsButton) for e in entities)
 
 
 @pytest.mark.asyncio
@@ -105,7 +107,10 @@ async def test_button_async_setup_entry_no_pets() -> None:
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
-    async_add_entities.assert_called_once_with([])
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert len(entities) == 1
+    assert isinstance(entities[0], KippyRefreshPetsButton)
 
 
 @pytest.mark.asyncio
@@ -127,7 +132,22 @@ async def test_button_async_setup_entry_missing_map() -> None:
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
-    async_add_entities.assert_called_once_with([])
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert len(entities) == 1
+    assert isinstance(entities[0], KippyRefreshPetsButton)
+
+
+@pytest.mark.asyncio
+async def test_refresh_pets_button_reloads_entry() -> None:
+    """Refresh pets button reloads the config entry."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    hass.config_entries.async_reload = AsyncMock()
+    button = KippyRefreshPetsButton(hass, entry)
+    await button.async_press()
+    hass.config_entries.async_reload.assert_called_once_with("1")
 
 
 def test_button_device_info_properties() -> None:
