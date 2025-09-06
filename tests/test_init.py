@@ -1,58 +1,50 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import async_setup_entry, async_unload_entry
 from custom_components.kippy.const import DOMAIN, PLATFORMS
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_missing_credentials() -> None:
+async def test_async_setup_entry_missing_credentials(hass: HomeAssistant) -> None:
     """Setup fails when credentials are missing."""
-    hass = MagicMock()
-    hass.data = {}
-    entry = MagicMock()
-    entry.entry_id = "1"
-    entry.data = {}
-    result = await async_setup_entry(hass, entry)
+    entry = MockConfigEntry(domain=DOMAIN, data={}, entry_id="1")
+    with patch("custom_components.kippy.aiohttp_client.async_get_clientsession") as get_session:
+        result = await async_setup_entry(hass, entry)
     assert result is False
+    get_session.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_login_failure() -> None:
+async def test_async_setup_entry_login_failure(hass: HomeAssistant) -> None:
     """Login exceptions raise ConfigEntryNotReady."""
-    hass = MagicMock()
-    hass.loop = asyncio.get_running_loop()
-    hass.data = {}
-    hass.config_entries = MagicMock()
-    hass.config_entries.async_forward_entry_setups = AsyncMock()
-    entry = MagicMock()
-    entry.entry_id = "1"
-    entry.data = {CONF_EMAIL: "a", CONF_PASSWORD: "b"}
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={CONF_EMAIL: "a", CONF_PASSWORD: "b"}, entry_id="1"
+    )
+    entry.add_to_hass(hass)
     api = AsyncMock()
     api.login.side_effect = Exception
     with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
         "custom_components.kippy.KippyApi.async_create", return_value=api
+    ), patch.object(
+        hass.config_entries, "async_forward_entry_setups", AsyncMock()
     ):
         with pytest.raises(ConfigEntryNotReady):
             await async_setup_entry(hass, entry)
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_success_and_unload() -> None:
+async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None:
     """Successful setup stores data and unload removes it."""
-    hass = MagicMock()
-    hass.loop = asyncio.get_running_loop()
-    hass.data = {}
-    hass.config_entries = MagicMock()
-    hass.config_entries.async_forward_entry_setups = AsyncMock()
-    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
-    entry = MagicMock()
-    entry.entry_id = "1"
-    entry.data = {CONF_EMAIL: "a", CONF_PASSWORD: "b"}
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={CONF_EMAIL: "a", CONF_PASSWORD: "b"}, entry_id="1"
+    )
+    entry.add_to_hass(hass)
 
     api = AsyncMock()
     api.login = AsyncMock()
@@ -63,6 +55,8 @@ async def test_async_setup_entry_success_and_unload() -> None:
     map_coord.async_config_entry_first_refresh = AsyncMock()
     activity_coord = AsyncMock()
     activity_coord.async_config_entry_first_refresh = AsyncMock()
+    forward = AsyncMock()
+    unload = AsyncMock(return_value=True)
 
     with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
         "custom_components.kippy.KippyApi.async_create", return_value=api
@@ -73,26 +67,26 @@ async def test_async_setup_entry_success_and_unload() -> None:
     ), patch(
         "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
         return_value=activity_coord,
+    ), patch.object(
+        hass.config_entries, "async_forward_entry_setups", forward
+    ), patch.object(
+        hass.config_entries, "async_unload_platforms", unload
     ):
         result = await async_setup_entry(hass, entry)
-    assert result is True
-    assert DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]
-    await async_unload_entry(hass, entry)
-    hass.config_entries.async_unload_platforms.assert_awaited_with(entry, PLATFORMS)
-    assert entry.entry_id not in hass.data.get(DOMAIN, {})
+        assert result is True
+        assert DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]
+        await async_unload_entry(hass, entry)
+        unload.assert_awaited_with(entry, PLATFORMS)
+        assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_handles_expired_pet() -> None:
+async def test_async_setup_entry_handles_expired_pet(hass: HomeAssistant) -> None:
     """Expired pets are excluded from map and activity coordinators but remain in data."""
-    hass = MagicMock()
-    hass.loop = asyncio.get_running_loop()
-    hass.data = {}
-    hass.config_entries = MagicMock()
-    hass.config_entries.async_forward_entry_setups = AsyncMock()
-    entry = MagicMock()
-    entry.entry_id = "1"
-    entry.data = {CONF_EMAIL: "a", CONF_PASSWORD: "b"}
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={CONF_EMAIL: "a", CONF_PASSWORD: "b"}, entry_id="1"
+    )
+    entry.add_to_hass(hass)
 
     api = AsyncMock()
     api.login = AsyncMock()
@@ -108,6 +102,7 @@ async def test_async_setup_entry_handles_expired_pet() -> None:
     map_coord.async_config_entry_first_refresh = AsyncMock()
     activity_coord = AsyncMock()
     activity_coord.async_config_entry_first_refresh = AsyncMock()
+    forward = AsyncMock()
 
     with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
         "custom_components.kippy.KippyApi.async_create", return_value=api
@@ -118,7 +113,9 @@ async def test_async_setup_entry_handles_expired_pet() -> None:
     ) as map_cls, patch(
         "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
         return_value=activity_coord,
-    ) as act_cls:
+    ) as act_cls, patch.object(
+        hass.config_entries, "async_forward_entry_setups", forward
+    ):
         result = await async_setup_entry(hass, entry)
 
     assert result is True
@@ -128,3 +125,4 @@ async def test_async_setup_entry_handles_expired_pet() -> None:
         {"petID": 1, "kippyID": 1, "expired_days": -1},
         {"petID": 2, "kippyID": 2, "expired_days": 0},
     ]
+
