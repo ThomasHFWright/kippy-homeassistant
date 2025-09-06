@@ -2,6 +2,11 @@
 
 This repository provides the Kippy integration for the Home Assistant home automation platform. The integration is written in Python 3 for use within Home Assistant.
 
+## General Instructions
+
+- Always read this entire AGENTS.md file before making changes; do not skip any sections.
+- If Python 3.13 is not installed, install it before running any other commands.
+
 ## Integration Quality Scale
 
 Home Assistant uses an Integration Quality Scale to ensure code quality and consistency. The quality level determines which rules apply:
