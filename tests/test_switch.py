@@ -53,6 +53,7 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     switch = KippyLiveTrackingSwitch(coordinator, pet)
     switch.hass = MagicMock()
     switch.entity_id = "switch.live"
+    switch.async_write_ha_state = MagicMock()
     await switch.async_turn_on()
     coordinator.api.kippymap_action.assert_called()
     coordinator.process_new_data.assert_called()
@@ -78,6 +79,7 @@ async def test_live_tracking_switch_propagates_error() -> None:
     switch = KippyLiveTrackingSwitch(coordinator, pet)
     switch.hass = MagicMock()
     switch.entity_id = "switch.live"
+    switch.async_write_ha_state = MagicMock()
     with pytest.raises(RuntimeError):
         await switch.async_turn_on()
 
@@ -92,6 +94,7 @@ async def test_ignore_lbs_switch_toggles_coordinator() -> None:
     switch = KippyIgnoreLBSSwitch(map_coord, pet)
     switch.hass = MagicMock()
     switch.entity_id = "switch.lbs"
+    switch.async_write_ha_state = MagicMock()
     assert not switch.is_on
     await switch.async_turn_on()
     assert map_coord.ignore_lbs is True
