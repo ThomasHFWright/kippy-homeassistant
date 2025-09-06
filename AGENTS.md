@@ -1269,6 +1269,16 @@ The `script/hassfest` wrapper downloads the Home Assistant Core repository
 matching the `homeassistant` version pinned in `requirements.txt` to keep the
 validation rules in sync with the runtime environment.
 
+### Known hassfest Ruff error
+
+If `python script/hassfest --integration-path custom_components/kippy` fails with
+`Rule S320 removed and cannot be selected`, reinstall the pinned Ruff version to
+align with the Home Assistant Core release:
+
+```bash
+python -m pip install --force-reinstall ruff==0.2.1
+```
+
 ### Home Assistant Constants
 
 - Prefer constants from `homeassistant.const` when available instead of
