@@ -115,8 +115,8 @@ def _treat_401_as_success(path: str, data: Dict[str, Any]) -> bool:
     """Determine if a 401 response should be treated as a success."""
     return_code = _get_return_code(data)
     if return_code is None:
-        _LOGGER.debug("%s returned HTTP 401 with data, assuming success", path)
-        return True
+        _LOGGER.debug("%s returned HTTP 401 without return code, treating as failure", path)
+        return False
     if isinstance(return_code, bool):
         if return_code:
             return True
@@ -349,7 +349,7 @@ class KippyApi:
                     if isinstance(return_code, bool):
                         if return_code:
                             return data
-                    elif return_code is None or return_code in RETURN_CODES_SUCCESS:
+                    elif return_code in RETURN_CODES_SUCCESS:
                         return data
                     _LOGGER.debug(
                         "%s failed: return=%s request=%s response=%s",

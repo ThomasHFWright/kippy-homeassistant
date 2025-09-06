@@ -91,15 +91,34 @@ async def test_post_with_refresh_retries_on_expired(monkeypatch) -> None:
     assert result["data"]["ok"] is True
 
 
+@pytest.mark.asyncio
+async def test_post_with_refresh_raises_without_return_code() -> None:
+    """_post_with_refresh raises when API lacks a return code."""
+
+    resp = _FakeResp(200, "{}")
+    session = MagicMock()
+    session.post.return_value = _CM(resp)
+
+    api = KippyApi(session)
+    api._auth = {"token": 1, "app_code": "1", "app_verification_code": "2"}
+    api._credentials = ("e", "p")
+
+    with pytest.raises(ClientResponseError):
+        await api._post_with_refresh("/x", {"a": 1}, REQUEST_HEADERS)
+
+
 def test_helper_functions_cover_edge_cases() -> None:
     """Exercise helper utilities with bad inputs."""
 
     assert _redact({"list": [{"petID": 1}]}) == {"list": [{"petID": "***"}]}
     assert _decode_json("not json") is None
     assert _get_return_code({"return": "5"}) == 5
+    assert _get_return_code({"Result": "5"}) == 5
+    assert _get_return_code(123) is None
     assert _get_return_code({"return": True}) is True
     assert _return_code_error(RETURN_VALUES.INVALID_CREDENTIALS).startswith("Invalid")
     assert _treat_401_as_success("/", {"return": False}) is False
+    assert _treat_401_as_success("/", {}) is False
     start = datetime(2020, 1, 1)
     end = datetime(2020, 1, 8)
     weeks = _weeks_param(start, end)
