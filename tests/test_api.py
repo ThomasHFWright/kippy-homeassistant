@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 import pytest
@@ -37,6 +38,16 @@ if (
         "Kippy credentials are missing or redacted; skipping real API tests",
         allow_module_level=True,
     )
+
+
+def _active(pet: dict[str, Any]) -> bool:
+    """Return True if the subscription is active for the given pet."""
+
+    days = pet.get("expired_days")
+    try:
+        return int(days) < 0
+    except (TypeError, ValueError):
+        return True
 
 
 @pytest_asyncio.fixture
@@ -68,6 +79,7 @@ async def test_get_pet_kippy_list_returns_list(api) -> None:
     assert isinstance(pets, list)
 
 
+
 @pytest.mark.asyncio
 async def test_kippymap_action_and_activity_categories(api) -> None:
     """Exercise Kippy Map and activity endpoints when possible."""
@@ -77,43 +89,86 @@ async def test_kippymap_action_and_activity_categories(api) -> None:
     if not pets:
         pytest.skip("No pets returned; skipping location and activity tests")
 
-    pet_with_kippy = next(
+    pet = next(
         (
             p
             for p in pets
-            if p.get("kippy_id")
-            or p.get("device_kippy_id")
-            or p.get("deviceID")
-            or p.get("deviceId")
+            if _active(p)
+            and (
+                (p.get("kippy_id")
+                or p.get("kippyID")
+                or p.get("device_kippy_id")
+                or p.get("deviceID")
+                or p.get("deviceId"))
+                and (p.get("petID") or p.get("id"))
+            )
         ),
         None,
     )
-    if pet_with_kippy is None:
-        pytest.skip("No pet with kippy_id; skipping location test")
+    if pet is None:
+        pytest.skip(
+            "No pet with kippy_id, pet_id and active subscription; skipping location and activity tests",
+        )
 
     kippy_id = (
-        pet_with_kippy.get("kippy_id")
-        or pet_with_kippy.get("device_kippy_id")
-        or pet_with_kippy.get("deviceID")
-        or pet_with_kippy.get("deviceId")
+        pet.get("kippy_id")
+        or pet.get("kippyID")
+        or pet.get("device_kippy_id")
+        or pet.get("deviceID")
+        or pet.get("deviceId")
     )
     location = await api.kippymap_action(int(kippy_id), do_sms=False)
     assert isinstance(location, dict)
 
-    pet_with_id = next(
-        (p for p in pets if p.get("petID") or p.get("id")),
-        None,
-    )
-    if pet_with_id is None:
-        pytest.skip("No pet with pet_id; skipping activity test")
-
-    pet_id = pet_with_id.get("petID") or pet_with_id.get("id")
+    pet_id = pet.get("petID") or pet.get("id")
     today = datetime.utcnow().date()
     from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
     to_date = today.strftime("%Y-%m-%d")
     activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
     assert isinstance(activity, dict)
 
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_inactive_subscription(api) -> None:
+    """Exercise endpoints for a pet with an inactive subscription."""
+
+    pets = await api.get_pet_kippy_list()
+
+    inactive = next(
+        (
+            p
+            for p in pets
+            if not _active(p)
+            and (
+                (p.get("kippy_id")
+                or p.get("kippyID")
+                or p.get("device_kippy_id")
+                or p.get("deviceID")
+                or p.get("deviceId"))
+                and (p.get("petID") or p.get("id"))
+            )
+        ),
+        None,
+    )
+
+    if inactive is None:
+        pytest.skip("No pet with inactive subscription; skipping location test")
+
+    kippy_id = (
+        inactive.get("kippy_id")
+        or inactive.get("kippyID")
+        or inactive.get("device_kippy_id")
+        or inactive.get("deviceID")
+        or inactive.get("deviceId")
+    )
+    location = await api.kippymap_action(int(kippy_id), do_sms=False)
+    assert isinstance(location, dict)
+
+    pet_id = inactive.get("petID") or inactive.get("id")
+    today = datetime.utcnow().date()
+    from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+    to_date = today.strftime("%Y-%m-%d")
+    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
+    assert isinstance(activity, dict)
 
 @pytest.mark.asyncio
 async def test_kippymap_action_handles_inactive_subscription(monkeypatch) -> None:
@@ -146,6 +201,52 @@ async def test_kippymap_action_and_activity_categories_no_pets(
 
     async def fake_get_pet_kippy_list():
         return []
+
+    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
+
+    with pytest.raises(pytest.skip.Exception):
+        await test_kippymap_action_and_activity_categories(api)
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_active_subscription(
+    monkeypatch, api
+) -> None:
+    """The combined test runs when subscription is active."""
+
+    async def fake_get_pet_kippy_list():
+        return [{"kippyID": "1", "petID": "1", "expired_days": -1}]
+
+    called = {"map": 0, "activity": 0}
+
+    async def fake_kippymap_action(*_args, **_kwargs):
+        called["map"] += 1
+        return {}
+
+    async def fake_get_activity_categories(*_args, **_kwargs):
+        called["activity"] += 1
+        return {}
+
+    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
+    monkeypatch.setattr(api, "kippymap_action", fake_kippymap_action)
+    monkeypatch.setattr(
+        api, "get_activity_categories", fake_get_activity_categories
+    )
+
+    await test_kippymap_action_and_activity_categories(api)
+
+    assert called["map"] == 1
+    assert called["activity"] == 1
+
+
+@pytest.mark.asyncio
+async def test_kippymap_action_and_activity_categories_inactive_subscription_skips(
+    monkeypatch, api
+) -> None:
+    """The combined test skips when subscription inactive."""
+
+    async def fake_get_pet_kippy_list():
+        return [{"kippyID": "1", "petID": "1", "expired_days": 0}]
 
     monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
 
