@@ -400,7 +400,19 @@ class KippyApi:
         }
 
         data = await self._post_with_refresh(GET_PETS_PATH, payload, REQUEST_HEADERS)
-        return data.get("data", [])
+        pets = data.get("data", [])
+        for pet in pets:
+            if not isinstance(pet, dict):
+                continue
+            if "enableGPSOnDefault" in pet and "gpsOnDefault" not in pet:
+                value = pet.pop("enableGPSOnDefault")
+                if isinstance(value, str):
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        value = 1 if value.lower() in ("true", "1") else 0
+                pet["gpsOnDefault"] = int(bool(value))
+        return pets
 
     async def kippymap_action(
         self,

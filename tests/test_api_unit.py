@@ -136,6 +136,46 @@ def test_ensure_login_raises_without_creds() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_pet_kippy_list_maps_enable_gps(monkeypatch) -> None:
+    """enableGPSOnDefault is mapped to gpsOnDefault."""
+
+    api = KippyApi(MagicMock())
+    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.ensure_login = AsyncMock()  # type: ignore[assignment]
+
+    async def fake_post(path, payload, headers):
+        return {
+            "data": [
+                {"petID": 1, "enableGPSOnDefault": True},
+                {"petID": 2, "enableGPSOnDefault": False},
+            ]
+        }
+
+    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+
+    pets = await api.get_pet_kippy_list()
+    assert pets[0]["gpsOnDefault"] == 1
+    assert pets[1]["gpsOnDefault"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_pet_kippy_list_without_enable_gps(monkeypatch) -> None:
+    """Pets lacking enableGPSOnDefault remain unchanged."""
+
+    api = KippyApi(MagicMock())
+    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.ensure_login = AsyncMock()  # type: ignore[assignment]
+
+    async def fake_post(path, payload, headers):
+        return {"data": [{"petID": 3}]}
+
+    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+
+    pets = await api.get_pet_kippy_list()
+    assert "gpsOnDefault" not in pets[0]
+
+
+@pytest.mark.asyncio
 async def test_modify_kippy_settings_calls_post(monkeypatch) -> None:
     """modify_kippy_settings posts expected payload."""
 
