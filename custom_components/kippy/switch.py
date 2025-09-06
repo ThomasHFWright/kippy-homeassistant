@@ -186,6 +186,10 @@ class KippyLiveTrackingSwitch(
         self._pet_name = pet_name
         self._pet_data = pet
         self._attr_translation_key = "toggle_live_tracking"
+        self._attr_available = (
+            coordinator.data.get("operating_status")
+            != OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+        )
 
     @property
     def is_on(self) -> bool:
@@ -193,6 +197,13 @@ class KippyLiveTrackingSwitch(
             self.coordinator.data.get("operating_status")
             == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
         )
+
+    def _handle_coordinator_update(self) -> None:
+        self._attr_available = (
+            self.coordinator.data.get("operating_status")
+            != OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+        )
+        super()._handle_coordinator_update()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         data = await self.coordinator.api.kippymap_action(
