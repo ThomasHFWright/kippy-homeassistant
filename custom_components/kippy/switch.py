@@ -32,8 +32,8 @@ async def async_setup_entry(
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[SwitchEntity] = []
     for pet in coordinator.data.get("pets", []):
-        entities.append(KippyEnergySavingSwitch(coordinator, pet))
         map_coord = map_coordinators[pet["petID"]]
+        entities.append(KippyEnergySavingSwitch(coordinator, pet, map_coord))
         entities.append(KippyLiveTrackingSwitch(map_coord, pet))
         entities.append(KippyIgnoreLBSSwitch(map_coord, pet))
     async_add_entities(entities)
@@ -44,7 +44,12 @@ class KippyEnergySavingSwitch(
 ):
     """Switch for energy saving mode."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        coordinator: KippyDataUpdateCoordinator,
+        pet: dict[str, Any],
+        map_coordinator: KippyMapDataUpdateCoordinator,
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
@@ -53,6 +58,10 @@ class KippyEnergySavingSwitch(
         )
         self._attr_unique_id = f"{self._pet_id}_energy_saving"
         self._pet_data = pet
+        self._map_coordinator = map_coordinator
+        self.async_on_remove(
+            map_coordinator.async_add_listener(self._handle_map_update)
+        )
 
     @property
     def is_on(self) -> bool:
@@ -72,6 +81,16 @@ class KippyEnergySavingSwitch(
                 self._pet_data = pet
                 break
         super()._handle_coordinator_update()
+
+    def _handle_map_update(self) -> None:
+        if (
+            self._map_coordinator.data
+            and self._map_coordinator.data.get("operating_status")
+            == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+        ):
+            if int(self._pet_data.get("energySavingMode", 0)) != 1:
+                self._pet_data["energySavingMode"] = 1
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
