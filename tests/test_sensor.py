@@ -175,7 +175,9 @@ def test_base_entity_updates_and_device_info() -> None:
     sensor.hass = MagicMock()
     sensor.entity_id = "sensor.test"
     coord.data = {"pets": [{"petID": 1, "petName": "Max", "kippyID": 3}]}
+    sensor.async_write_ha_state = MagicMock()
     sensor._handle_coordinator_update()
+    sensor.async_write_ha_state.assert_called_once()
     assert sensor.device_info["name"] == "Kippy Max"
     assert sensor.native_value == 3
 
