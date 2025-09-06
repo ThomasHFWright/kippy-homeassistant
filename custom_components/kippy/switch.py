@@ -32,7 +32,9 @@ async def async_setup_entry(
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[SwitchEntity] = []
     for pet in coordinator.data.get("pets", []):
-        map_coord = map_coordinators[pet["petID"]]
+        map_coord = map_coordinators.get(pet["petID"])
+        if not map_coord:
+            continue
         entities.append(KippyEnergySavingSwitch(coordinator, pet, map_coord))
         entities.append(KippyLiveTrackingSwitch(map_coord, pet))
         entities.append(KippyIgnoreLBSSwitch(map_coord, pet))

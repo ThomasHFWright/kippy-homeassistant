@@ -1,6 +1,8 @@
 """The Kippy integration."""
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
@@ -31,8 +33,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator = KippyDataUpdateCoordinator(hass, entry, api)
         await coordinator.async_config_entry_first_refresh()
 
-        map_coordinators = {}
+        map_coordinators: dict[int, KippyMapDataUpdateCoordinator] = {}
         pet_ids: list[int] = []
+        pets: list[dict[str, Any]] = []
         for pet in coordinator.data.get("pets", []):
             expired_days = pet.get("expired_days")
             try:
@@ -48,6 +51,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await map_coordinator.async_config_entry_first_refresh()
             map_coordinators[pet["petID"]] = map_coordinator
             pet_ids.append(pet["petID"])
+            pets.append(pet)
+
+        coordinator.data["pets"] = pets
 
         activity_coordinator = KippyActivityCategoriesDataUpdateCoordinator(
             hass, entry, api, pet_ids

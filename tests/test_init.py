@@ -124,3 +124,4 @@ async def test_async_setup_entry_skips_expired_pet() -> None:
     assert result is True
     map_cls.assert_called_once_with(hass, entry, api, 1)
     act_cls.assert_called_once_with(hass, entry, api, [1])
+    assert data_coord.data["pets"] == [{"petID": 1, "kippyID": 1, "expired_days": -1}]

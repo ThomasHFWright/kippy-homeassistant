@@ -25,7 +25,9 @@ async def async_setup_entry(
     entities: list[NumberEntity] = []
     for pet in base_coordinator.data.get("pets", []):
         entities.append(KippyUpdateFrequencyNumber(base_coordinator, pet))
-        map_coord = map_coordinators[pet["petID"]]
+        map_coord = map_coordinators.get(pet["petID"])
+        if not map_coord:
+            continue
         entities.append(KippyIdleUpdateFrequencyNumber(map_coord, pet))
         entities.append(KippyLiveUpdateFrequencyNumber(map_coord, pet))
     async_add_entities(entities)
