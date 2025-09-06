@@ -130,6 +130,7 @@ class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Type" if pet_name else "Pet Type"
         self._attr_unique_id = f"{self._pet_id}_type"
+        self._attr_translation_key = "pet_type"
 
     @property
     def native_value(self) -> str | None:
@@ -546,14 +547,20 @@ class KippyOperatingStatusSensor(
         self._pet_name = pet.get("petName")
         self._pet_data = pet
         self._attr_name = (
-            f"{self._pet_name} Operating Status" if self._pet_name else "Operating Status"
+            f"{self._pet_name} Operating Status"
+            if self._pet_name
+            else "Operating Status"
         )
         self._attr_unique_id = f"{self._pet_id}_operating_status"
         self._attr_translation_key = "operating_status"
 
     @property
     def native_value(self) -> Any:
-        return self.coordinator.data.get("operating_status") if self.coordinator.data else None
+        return (
+            self.coordinator.data.get("operating_status")
+            if self.coordinator.data
+            else None
+        )
 
     @property
     def device_info(self) -> DeviceInfo:

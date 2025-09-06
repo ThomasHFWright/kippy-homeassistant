@@ -34,6 +34,13 @@
           "idle": "Idle",
           "energy_saving": "Energy saving"
         }
+      },
+      "pet_type": {
+        "name": "Pet type",
+        "state": {
+          "dog": "Dog",
+          "cat": "Cat"
+        }
       }
     },
     "switch": {
