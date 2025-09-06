@@ -14,14 +14,20 @@ from custom_components.kippy.number import (
 @pytest.mark.asyncio
 async def test_update_frequency_number() -> None:
     """Ensure native value and setting value update pet data."""
-    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5}
+    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5, "kippyID": 2}
     coordinator = MagicMock()
     coordinator.data = {"pets": [pet]}
     coordinator.async_add_listener = MagicMock()
+    coordinator.api.modify_kippy_settings = AsyncMock(
+        return_value={"update_frequency": 10}
+    )
     number = KippyUpdateFrequencyNumber(coordinator, pet)
     assert number.native_value == 5.0
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(10)
+    coordinator.api.modify_kippy_settings.assert_awaited_once_with(
+        2, update_frequency=10
+    )
     assert pet["updateFrequency"] == 10
     number.async_write_ha_state.assert_called_once()
     coordinator.data = {"pets": [{"petID": 1, "updateFrequency": 20}]}
@@ -44,6 +50,40 @@ async def test_update_frequency_number_missing() -> None:
     assert number.native_value is None
     info = number.device_info
     assert (DOMAIN, "1") in info["identifiers"]
+
+
+@pytest.mark.asyncio
+async def test_update_frequency_number_api_error() -> None:
+    """API errors are propagated and state not updated."""
+
+    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5, "kippyID": 2}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock()
+    coordinator.api.modify_kippy_settings = AsyncMock(side_effect=RuntimeError)
+    number = KippyUpdateFrequencyNumber(coordinator, pet)
+    number.async_write_ha_state = MagicMock()
+    with pytest.raises(RuntimeError):
+        await number.async_set_native_value(10)
+    assert pet["updateFrequency"] == 5
+    number.async_write_ha_state.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_frequency_number_no_kippy_id() -> None:
+    """Setting value when kippy ID missing updates local data only."""
+
+    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock()
+    coordinator.api.modify_kippy_settings = AsyncMock()
+    number = KippyUpdateFrequencyNumber(coordinator, pet)
+    number.async_write_ha_state = MagicMock()
+    await number.async_set_native_value(8)
+    assert pet["updateFrequency"] == 8
+    coordinator.api.modify_kippy_settings.assert_not_called()
+    number.async_write_ha_state.assert_called_once()
 
 
 @pytest.mark.asyncio

@@ -131,3 +131,38 @@ def test_ensure_login_raises_without_creds() -> None:
     api = KippyApi(MagicMock())
     with pytest.raises(RuntimeError):
         asyncio.get_event_loop().run_until_complete(api.ensure_login())
+
+
+@pytest.mark.asyncio
+async def test_modify_kippy_settings_calls_post(monkeypatch) -> None:
+    """modify_kippy_settings posts expected payload."""
+
+    api = KippyApi(MagicMock())
+    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.ensure_login = AsyncMock()  # type: ignore[assignment]
+
+    async def fake_post(path, payload, headers):
+        assert path == "/v2/kippymap_modifyKippySettings.php"
+        assert payload["modify_kippy_id"] == 5
+        assert payload["update_frequency"] == 2.0
+        assert payload["app_code"] == "1"
+        assert payload["app_verification_code"] == "2"
+        return {"ok": True}
+
+    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+
+    result = await api.modify_kippy_settings(5, update_frequency=2)
+    assert result["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_modify_kippy_settings_propagates_error() -> None:
+    """Exceptions from _post_with_refresh are raised."""
+
+    api = KippyApi(MagicMock())
+    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.ensure_login = AsyncMock()  # type: ignore[assignment]
+    api._post_with_refresh = AsyncMock(side_effect=RuntimeError)
+
+    with pytest.raises(RuntimeError):
+        await api.modify_kippy_settings(1, gps_on_default=True)

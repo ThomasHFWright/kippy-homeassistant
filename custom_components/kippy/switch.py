@@ -32,6 +32,7 @@ async def async_setup_entry(
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[SwitchEntity] = []
     for pet in coordinator.data.get("pets", []):
+        entities.append(KippyGpsDefaultSwitch(coordinator, pet))
         map_coord = map_coordinators.get(pet["petID"])
         if not map_coord:
             continue
@@ -39,6 +40,62 @@ async def async_setup_entry(
         entities.append(KippyLiveTrackingSwitch(map_coord, pet))
         entities.append(KippyIgnoreLBSSwitch(map_coord, pet))
     async_add_entities(entities)
+
+
+class KippyGpsDefaultSwitch(
+    CoordinatorEntity[KippyDataUpdateCoordinator], SwitchEntity
+):
+    """Switch to enable or disable GPS tracking by default."""
+
+    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        pet_name = pet.get("petName")
+        self._attr_name = f"{pet_name} GPS tracking" if pet_name else "GPS tracking"
+        self._attr_unique_id = f"{self._pet_id}_gps_on_default"
+        self._pet_data = pet
+        self._attr_translation_key = "gps_on_default"
+
+    @property
+    def is_on(self) -> bool:
+        value = self._pet_data.get("gpsOnDefault")
+        if value is None:
+            value = self._pet_data.get("gps_on_default")
+        try:
+            return bool(int(value))
+        except (TypeError, ValueError):
+            return bool(value)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
+        if kippy_id is not None:
+            await self.coordinator.api.modify_kippy_settings(
+                int(kippy_id), gps_on_default=True
+            )
+        self._pet_data["gpsOnDefault"] = 1
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
+        if kippy_id is not None:
+            await self.coordinator.api.modify_kippy_settings(
+                int(kippy_id), gps_on_default=False
+            )
+        self._pet_data["gpsOnDefault"] = 0
+        self.async_write_ha_state()
+
+    def _handle_coordinator_update(self) -> None:
+        for pet in self.coordinator.data.get("pets", []):
+            if pet.get("petID") == self._pet_id:
+                self._pet_data = pet
+                break
+        super()._handle_coordinator_update()
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
 
 
 class KippyEnergySavingSwitch(
@@ -70,10 +127,20 @@ class KippyEnergySavingSwitch(
         return bool(int(self._pet_data.get("energySavingMode", 0)))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
+        if kippy_id is not None:
+            await self.coordinator.api.modify_kippy_settings(
+                int(kippy_id), energy_saving_mode=True
+            )
         self._pet_data["energySavingMode"] = 1
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
+        if kippy_id is not None:
+            await self.coordinator.api.modify_kippy_settings(
+                int(kippy_id), energy_saving_mode=False
+            )
         self._pet_data["energySavingMode"] = 0
         self.async_write_ha_state()
 
