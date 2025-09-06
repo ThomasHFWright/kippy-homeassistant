@@ -83,8 +83,8 @@ async def test_async_setup_entry_success_and_unload() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_skips_expired_pet() -> None:
-    """Expired pets are not set up for map or activity coordinators."""
+async def test_async_setup_entry_handles_expired_pet() -> None:
+    """Expired pets are excluded from map and activity coordinators but remain in data."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     hass.data = {}
@@ -124,3 +124,7 @@ async def test_async_setup_entry_skips_expired_pet() -> None:
     assert result is True
     map_cls.assert_called_once_with(hass, entry, api, 1)
     act_cls.assert_called_once_with(hass, entry, api, [1])
+    assert data_coord.data["pets"] == [
+        {"petID": 1, "kippyID": 1, "expired_days": -1},
+        {"petID": 2, "kippyID": 2, "expired_days": 0},
+    ]
