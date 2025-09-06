@@ -492,7 +492,8 @@ class KippyApi:
             "modify_kippy_id": kippy_id,
         }
         if update_frequency is not None:
-            payload["update_frequency"] = float(update_frequency)
+            # Ensure a single decimal place (e.g. ``1.0``) as required by the API
+            payload["update_frequency"] = float(f"{float(update_frequency):.1f}")
         if gps_on_default is not None:
             payload["gps_on_default"] = bool(gps_on_default)
         if energy_saving_mode is not None:

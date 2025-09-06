@@ -14,7 +14,13 @@ from custom_components.kippy.number import (
 @pytest.mark.asyncio
 async def test_update_frequency_number() -> None:
     """Ensure native value and setting value update pet data."""
-    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5, "kippyID": 2}
+    pet = {
+        "petID": 1,
+        "petName": "Rex",
+        "updateFrequency": 5,
+        "kippyID": 2,
+        "gpsOnDefault": 1,
+    }
     coordinator = MagicMock()
     coordinator.data = {"pets": [pet]}
     coordinator.async_add_listener = MagicMock()
@@ -26,7 +32,7 @@ async def test_update_frequency_number() -> None:
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(10)
     coordinator.api.modify_kippy_settings.assert_awaited_once_with(
-        2, update_frequency=10
+        2, update_frequency=10.0, gps_on_default=True
     )
     assert pet["updateFrequency"] == 10
     number.async_write_ha_state.assert_called_once()
@@ -67,6 +73,33 @@ async def test_update_frequency_number_api_error() -> None:
         await number.async_set_native_value(10)
     assert pet["updateFrequency"] == 5
     number.async_write_ha_state.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_frequency_number_sends_current_gps() -> None:
+    """Both True and False GPS defaults are forwarded when updating."""
+
+    pet = {
+        "petID": 1,
+        "petName": "Rex",
+        "updateFrequency": 5,
+        "kippyID": 2,
+        "gpsOnDefault": 0,
+    }
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock()
+    coordinator.api.modify_kippy_settings = AsyncMock(
+        return_value={"update_frequency": 6}
+    )
+    number = KippyUpdateFrequencyNumber(coordinator, pet)
+    number.async_write_ha_state = MagicMock()
+    await number.async_set_native_value(6)
+    coordinator.api.modify_kippy_settings.assert_awaited_once_with(
+        2, update_frequency=6.0, gps_on_default=False
+    )
+    assert pet["updateFrequency"] == 6
+    number.async_write_ha_state.assert_called_once()
 
 
 @pytest.mark.asyncio
