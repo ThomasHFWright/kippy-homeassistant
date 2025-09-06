@@ -16,6 +16,20 @@
       }
     }
   },
+  "exceptions": {
+    "no_credentials": {
+      "message": "No stored credentials; call login() first"
+    },
+    "auth_failure": {
+      "message": "Unexpected authentication failure"
+    },
+    "no_auth_data": {
+      "message": "No authentication data available"
+    },
+    "expired": {
+      "message": "Expired"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "firmware_upgrade_available": {

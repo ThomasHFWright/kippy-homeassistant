@@ -91,10 +91,10 @@ with resources.files(__package__).joinpath("translations/en.json").open(
 ) as _trans_file:
     _TRANSLATIONS = json.load(_trans_file)
 
-ERROR_NO_CREDENTIALS = "No stored credentials; call login() first"
-ERROR_UNEXPECTED_AUTH_FAILURE = "Unexpected authentication failure"
-ERROR_NO_AUTH_DATA = "No authentication data available"
-LABEL_EXPIRED = "Expired"
+ERROR_NO_CREDENTIALS = _TRANSLATIONS["exceptions"]["no_credentials"]["message"]
+ERROR_UNEXPECTED_AUTH_FAILURE = _TRANSLATIONS["exceptions"]["auth_failure"]["message"]
+ERROR_NO_AUTH_DATA = _TRANSLATIONS["exceptions"]["no_auth_data"]["message"]
+LABEL_EXPIRED = _TRANSLATIONS["exceptions"]["expired"]["message"]
 
 # Mapping of operating status codes returned by the API.
 OPERATING_STATUS = SimpleNamespace(
