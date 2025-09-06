@@ -5,7 +5,9 @@ import pytest
 from custom_components.kippy.button import (
     KippyActivityCategoriesButton,
     KippyPressButton,
+    async_setup_entry,
 )
+from custom_components.kippy.const import DOMAIN
 
 
 @pytest.mark.asyncio
@@ -55,3 +57,52 @@ async def test_activity_button_propagates_error() -> None:
     button = KippyActivityCategoriesButton(coordinator, pet)
     with pytest.raises(RuntimeError):
         await button.async_press()
+
+
+@pytest.mark.asyncio
+async def test_button_async_setup_entry_creates_entities() -> None:
+    """async_setup_entry adds press and activity buttons for each pet."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [{"petID": 1}]}
+    map_coord = MagicMock()
+    activity_coord = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": coordinator,
+                "map_coordinators": {1: map_coord},
+                "activity_coordinator": activity_coord,
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert any(isinstance(e, KippyPressButton) for e in entities)
+    assert any(isinstance(e, KippyActivityCategoriesButton) for e in entities)
+
+
+@pytest.mark.asyncio
+async def test_button_async_setup_entry_no_pets() -> None:
+    """No buttons added when there are no pets."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    coordinator = MagicMock()
+    coordinator.data = {"pets": []}
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": coordinator,
+                "map_coordinators": {},
+                "activity_coordinator": MagicMock(),
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])

@@ -2,12 +2,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.kippy.const import LABEL_EXPIRED, PET_KIND_TO_TYPE
-from custom_components.kippy.const import OPERATING_STATUS, OPERATING_STATUS_MAP
+from custom_components.kippy.const import (
+    DOMAIN,
+    LABEL_EXPIRED,
+    OPERATING_STATUS,
+    OPERATING_STATUS_MAP,
+    PET_KIND_TO_TYPE,
+)
 from custom_components.kippy.sensor import (
     KippyExpiredDaysSensor,
     KippyOperatingStatusSensor,
     KippyPetTypeSensor,
+    async_setup_entry,
 )
 
 
@@ -61,7 +67,52 @@ async def test_operating_status_sensor_returns_string() -> None:
     coordinator.async_add_listener = MagicMock()
     sensor = KippyOperatingStatusSensor(coordinator, pet)
 
-    assert (
-        sensor.native_value
-        == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
-    )
+    assert sensor.native_value == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+
+
+@pytest.mark.asyncio
+async def test_sensor_async_setup_entry_creates_entities() -> None:
+    """async_setup_entry adds sensors for each pet."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [{"petID": 1}]}
+    map_coordinator = MagicMock()
+    activity_coord = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": coordinator,
+                "map_coordinators": {1: map_coordinator},
+                "activity_coordinator": activity_coord,
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
+
+
+@pytest.mark.asyncio
+async def test_sensor_async_setup_entry_no_pets() -> None:
+    """No sensors added when there are no pets."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    coordinator = MagicMock()
+    coordinator.data = {"pets": []}
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": coordinator,
+                "map_coordinators": {},
+                "activity_coordinator": MagicMock(),
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])

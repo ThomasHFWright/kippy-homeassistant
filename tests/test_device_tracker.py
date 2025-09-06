@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.kippy.const import PET_KIND_TO_TYPE
-from custom_components.kippy.device_tracker import KippyPetTracker
+from custom_components.kippy.const import DOMAIN, PET_KIND_TO_TYPE
+from custom_components.kippy.device_tracker import KippyPetTracker, async_setup_entry
 
 
 @pytest.mark.asyncio
@@ -58,3 +58,58 @@ async def test_tracker_handles_invalid_values() -> None:
     assert tracker.battery_level is None
     assert tracker.latitude is None
     assert tracker.longitude is None
+
+
+@pytest.mark.asyncio
+async def test_device_tracker_async_setup_entry_creates_entities() -> None:
+    """async_setup_entry adds tracker entities for each pet."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": [{"petID": 1}]}
+    map_coordinator = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": base_coordinator,
+                "map_coordinators": {1: map_coordinator},
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert len(entities) == 1
+    assert isinstance(entities[0], KippyPetTracker)
+
+
+@pytest.mark.asyncio
+async def test_device_tracker_async_setup_entry_no_pets() -> None:
+    """No trackers added when there are no pets."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": []}
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])
+
+
+@pytest.mark.asyncio
+async def test_tracker_device_info_returns_identifiers() -> None:
+    """Tracker exposes device identifiers from helper."""
+    pet = {"petID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {}
+    coordinator.async_add_listener = MagicMock()
+    tracker = KippyPetTracker(coordinator, pet)
+    info = tracker.device_info
+    assert (DOMAIN, "1") in info["identifiers"]
