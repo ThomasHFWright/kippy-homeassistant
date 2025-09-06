@@ -28,7 +28,11 @@ if SECRETS_FILE.exists():
 EMAIL = os.getenv("KIPPY_EMAIL")
 PASSWORD = os.getenv("KIPPY_PASSWORD")
 
-if any(value in MISSING_CREDENTIAL_PLACEHOLDERS for value in (EMAIL, PASSWORD)):
+if (
+    not EMAIL
+    or not PASSWORD
+    or any(value in MISSING_CREDENTIAL_PLACEHOLDERS for value in (EMAIL, PASSWORD))
+):
     pytest.skip(
         "Kippy credentials are missing or redacted; skipping real API tests",
         allow_module_level=True,
@@ -146,6 +150,7 @@ async def test_kippymap_action_and_activity_categories_no_pets(
     monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
 
     with pytest.raises(pytest.skip.Exception):
+        await test_kippymap_action_and_activity_categories(api)
 
 
 @pytest.mark.asyncio
@@ -160,6 +165,7 @@ async def test_kippymap_action_and_activity_categories_no_kippy_id(
     monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
 
     with pytest.raises(pytest.skip.Exception):
+        await test_kippymap_action_and_activity_categories(api)
 
 
 @pytest.mark.asyncio
