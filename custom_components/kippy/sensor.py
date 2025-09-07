@@ -16,6 +16,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.location import distance as location_distance
+from homeassistant.util.unit_conversion import DistanceConverter
 
 from .const import (
     DOMAIN,
@@ -662,7 +663,8 @@ class KippyHomeDistanceSensor(
 
     @property
     def native_unit_of_measurement(self) -> str:
-        return UnitOfLength.METERS
+        unit = self.hass.config.units.length_unit
+        return UnitOfLength.METERS if unit == UnitOfLength.KILOMETERS else unit
 
     @property
     def native_value(self) -> float | None:
@@ -677,9 +679,12 @@ class KippyHomeDistanceSensor(
             lon_f = float(lon)
         except (TypeError, ValueError):
             return None
-        dist_m = location_distance(
+        dist_km = location_distance(
             self.hass.config.latitude, self.hass.config.longitude, lat_f, lon_f
         )
-        if dist_m is None:
+        if dist_km is None:
             return None
-        return dist_m
+        target_unit = self.native_unit_of_measurement
+        return DistanceConverter.convert(
+            dist_km, UnitOfLength.KILOMETERS, target_unit
+        )
