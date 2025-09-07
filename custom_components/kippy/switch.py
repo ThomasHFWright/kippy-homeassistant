@@ -142,7 +142,7 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 1
         self.async_write_ha_state()
-        await self._notify_next_call_time()
+        self._notify_next_call_time()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
@@ -152,9 +152,9 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 0
         self.async_write_ha_state()
-        await self._notify_next_call_time()
+        self._notify_next_call_time()
 
-    async def _notify_next_call_time(self) -> None:
+    def _notify_next_call_time(self) -> None:
         """Notify user that change will apply at next call time."""
         await self._map_coordinator.async_request_refresh()
         if not self._map_coordinator.data:
@@ -168,6 +168,7 @@ class KippyEnergySavingSwitch(
         hours = max(int((next_call - now).total_seconds() // 3600), 0)
         local_time = dt_util.as_local(next_call)
         message = f"This change will apply in {hours} hours at {local_time.isoformat()}"
+        persistent_notification.async_create(self.hass, message, title=self.name)
         await self.hass.services.async_call(
             persistent_notification.DOMAIN,
             "create",
