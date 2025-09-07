@@ -121,7 +121,7 @@ async def test_energy_saving_switch_calls_api() -> None:
     switch.hass = MagicMock()
     switch.async_write_ha_state = MagicMock()
     with (
-        patch("homeassistant.components.persistent_notification.async_create", AsyncMock()) as notify,
+        patch("homeassistant.components.persistent_notification.async_create", MagicMock()) as notify,
         patch("homeassistant.util.dt.utcnow", return_value=now),
     ):
         await switch.async_turn_on()
@@ -287,7 +287,7 @@ async def test_energy_saving_switch_no_kippy_id() -> None:
     switch.hass = MagicMock()
     switch.async_write_ha_state = MagicMock()
     with (
-        patch("homeassistant.components.persistent_notification.async_create", AsyncMock()),
+        patch("homeassistant.components.persistent_notification.async_create", MagicMock()),
         patch("homeassistant.util.dt.utcnow", return_value=now),
     ):
         await switch.async_turn_on()
