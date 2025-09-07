@@ -1,5 +1,6 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, call
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -113,10 +114,21 @@ async def test_energy_saving_switch_calls_api() -> None:
     coordinator.api.modify_kippy_settings = AsyncMock()
     map_coordinator = MagicMock()
     map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    now = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    next_call = now + timedelta(hours=1)
+    map_coordinator.data = {"next_call_time": int(next_call.timestamp())}
     switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
+    switch.hass = MagicMock()
     switch.async_write_ha_state = MagicMock()
-    await switch.async_turn_on()
-    await switch.async_turn_off()
+    with (
+        patch("homeassistant.components.persistent_notification.async_create", AsyncMock()) as notify,
+        patch("homeassistant.util.dt.utcnow", return_value=now),
+    ):
+        await switch.async_turn_on()
+        await switch.async_turn_off()
+        assert notify.call_count == 2
+        message = notify.call_args[0][1]
+        assert "1 hours" in message
     coordinator.api.modify_kippy_settings.assert_has_awaits(
         [
             call(1, energy_saving_mode=True),
@@ -268,9 +280,17 @@ async def test_energy_saving_switch_no_kippy_id() -> None:
     coordinator.api.modify_kippy_settings = AsyncMock()
     map_coordinator = MagicMock()
     map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    now = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    next_call = now + timedelta(hours=1)
+    map_coordinator.data = {"next_call_time": int(next_call.timestamp())}
     switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
+    switch.hass = MagicMock()
     switch.async_write_ha_state = MagicMock()
-    await switch.async_turn_on()
+    with (
+        patch("homeassistant.components.persistent_notification.async_create", AsyncMock()),
+        patch("homeassistant.util.dt.utcnow", return_value=now),
+    ):
+        await switch.async_turn_on()
     assert pet["energySavingMode"] == 1
     coordinator.api.modify_kippy_settings.assert_not_called()
     switch.async_write_ha_state.assert_called_once()

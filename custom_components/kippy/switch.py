@@ -1,17 +1,20 @@
 """Switch entities for Kippy pets."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
+from homeassistant.components import persistent_notification
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
-
-from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import dt as dt_util
+
+from .helpers import build_device_info
 
 from .const import (
     DOMAIN,
@@ -135,6 +138,7 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 1
         self.async_write_ha_state()
+        await self._notify_next_call_time()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
@@ -144,6 +148,27 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 0
         self.async_write_ha_state()
+        await self._notify_next_call_time()
+
+    async def _notify_next_call_time(self) -> None:
+        """Notify user that change will apply at next call time."""
+        if not self._map_coordinator.data:
+            return
+        ts = self._map_coordinator.data.get("next_call_time")
+        try:
+            next_call = datetime.fromtimestamp(int(ts), timezone.utc)
+        except (TypeError, ValueError, OSError):
+            return
+        now = dt_util.utcnow()
+        hours = max(int((next_call - now).total_seconds() // 3600), 0)
+        local_time = dt_util.as_local(next_call)
+        message = (
+            f"This change will apply in {hours} hours at "
+            f"{local_time.isoformat()}"
+        )
+        await persistent_notification.async_create(
+            self.hass, message, title=self.name
+        )
 
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):
