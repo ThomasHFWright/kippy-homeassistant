@@ -10,11 +10,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfTime
+from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util.location import distance as location_distance
+from homeassistant.util.unit_conversion import DistanceConverter
 
 from .const import (
     DOMAIN,
@@ -66,6 +68,7 @@ async def async_setup_entry(
                 entities.append(KippyGpsTimeSensor(map_coord, pet))
                 entities.append(KippyLbsTimeSensor(map_coord, pet))
                 entities.append(KippyOperatingStatusSensor(map_coord, pet))
+                entities.append(KippyHomeDistanceSensor(map_coord, pet))
 
             entities.extend(
                 [
@@ -629,3 +632,56 @@ class KippyOperatingStatusSensor(
     def device_info(self) -> DeviceInfo:
         name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
+
+
+class KippyHomeDistanceSensor(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], SensorEntity
+):
+    """Sensor for distance from Home Assistant's configured location."""
+
+    _attr_device_class = SensorDeviceClass.DISTANCE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "distance_from_home"
+
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        self._pet_data = pet
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Distance from Home" if pet_name else "Distance from Home"
+        )
+        self._attr_unique_id = f"{self._pet_id}_distance_from_home"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return self.hass.config.units.length_unit
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        lat = self.coordinator.data.get("gps_latitude")
+        lon = self.coordinator.data.get("gps_longitude")
+        if lat is None or lon is None:
+            return None
+        try:
+            lat_f = float(lat)
+            lon_f = float(lon)
+        except (TypeError, ValueError):
+            return None
+        dist_m = location_distance(
+            self.hass.config.latitude, self.hass.config.longitude, lat_f, lon_f
+        )
+        if dist_m is None:
+            return None
+        unit = self.hass.config.units.length_unit
+        return DistanceConverter.convert(dist_m, UnitOfLength.METERS, unit)

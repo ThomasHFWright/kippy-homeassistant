@@ -2,6 +2,9 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from homeassistant.const import UnitOfLength
+from homeassistant.util.location import distance as location_distance
+from homeassistant.util.unit_conversion import DistanceConverter
 
 from custom_components.kippy.const import (
     DOMAIN,
@@ -22,6 +25,7 @@ from custom_components.kippy.sensor import (
     KippyLbsTimeSensor,
     KippyLocalizationTechnologySensor,
     KippyOperatingStatusSensor,
+    KippyHomeDistanceSensor,
     KippyPetTypeSensor,
     KippyStepsSensor,
     async_setup_entry,
@@ -83,6 +87,24 @@ async def test_operating_status_sensor_returns_string() -> None:
 
 
 @pytest.mark.asyncio
+async def test_home_distance_sensor_calculates_distance() -> None:
+    """Home distance sensor should calculate distance in system units."""
+    hass = MagicMock()
+    hass.config.units.length_unit = UnitOfLength.KILOMETERS
+    hass.config.latitude = 0
+    hass.config.longitude = 0
+    coordinator = MagicMock()
+    coordinator.data = {"gps_latitude": 0, "gps_longitude": 1}
+    sensor = KippyHomeDistanceSensor(coordinator, {"petID": "1"})
+    sensor.hass = hass
+    expected = DistanceConverter.convert(
+        location_distance(0, 0, 0, 1), UnitOfLength.METERS, UnitOfLength.KILOMETERS
+    )
+    assert sensor.native_value == pytest.approx(expected)
+    assert sensor.native_unit_of_measurement == UnitOfLength.KILOMETERS
+
+
+@pytest.mark.asyncio
 async def test_sensor_async_setup_entry_creates_entities() -> None:
     """async_setup_entry adds sensors for each pet."""
     hass = MagicMock()
@@ -107,6 +129,7 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
     entities = async_add_entities.call_args[0][0]
     assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
     assert any(isinstance(e, KippyNextCallTimeSensor) for e in entities)
+    assert any(isinstance(e, KippyHomeDistanceSensor) for e in entities)
 
 
 @pytest.mark.asyncio
