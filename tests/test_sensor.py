@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 import pytest
 from homeassistant.const import UnitOfLength
 from homeassistant.util.location import distance as location_distance
-from homeassistant.util.unit_conversion import DistanceConverter
 
 from custom_components.kippy.const import (
     DOMAIN,
@@ -88,7 +87,7 @@ async def test_operating_status_sensor_returns_string() -> None:
 
 @pytest.mark.asyncio
 async def test_home_distance_sensor_calculates_distance() -> None:
-    """Home distance sensor should calculate distance in system units."""
+    """Home distance sensor should calculate distance in meters."""
     hass = MagicMock()
     hass.config.units.length_unit = UnitOfLength.KILOMETERS
     hass.config.latitude = 0
@@ -97,11 +96,9 @@ async def test_home_distance_sensor_calculates_distance() -> None:
     coordinator.data = {"gps_latitude": 0, "gps_longitude": 1}
     sensor = KippyHomeDistanceSensor(coordinator, {"petID": "1"})
     sensor.hass = hass
-    expected = DistanceConverter.convert(
-        location_distance(0, 0, 0, 1), UnitOfLength.METERS, UnitOfLength.KILOMETERS
-    )
+    expected = location_distance(0, 0, 0, 1)
     assert sensor.native_value == pytest.approx(expected)
-    assert sensor.native_unit_of_measurement == UnitOfLength.KILOMETERS
+    assert sensor.native_unit_of_measurement == UnitOfLength.METERS
 
 
 @pytest.mark.asyncio
