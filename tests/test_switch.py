@@ -114,6 +114,7 @@ async def test_energy_saving_switch_calls_api() -> None:
     coordinator.api.modify_kippy_settings = AsyncMock()
     map_coordinator = MagicMock()
     map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    map_coordinator.async_request_refresh = AsyncMock()
     now = datetime(2024, 1, 1, tzinfo=timezone.utc)
     next_call = now + timedelta(hours=1)
     map_coordinator.data = {"next_call_time": int(next_call.timestamp())}
@@ -137,6 +138,7 @@ async def test_energy_saving_switch_calls_api() -> None:
             call(1, energy_saving_mode=False),
         ]
     )
+    assert map_coordinator.async_request_refresh.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -282,6 +284,7 @@ async def test_energy_saving_switch_no_kippy_id() -> None:
     coordinator.api.modify_kippy_settings = AsyncMock()
     map_coordinator = MagicMock()
     map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    map_coordinator.async_request_refresh = AsyncMock()
     now = datetime(2024, 1, 1, tzinfo=timezone.utc)
     next_call = now + timedelta(hours=1)
     map_coordinator.data = {"next_call_time": int(next_call.timestamp())}
@@ -404,6 +407,7 @@ def test_energy_saving_switch_turn_on_off_and_device_info() -> None:
     coordinator.api.modify_kippy_settings = AsyncMock()
     map_coord = MagicMock()
     map_coord.async_add_listener = MagicMock(return_value=MagicMock())
+    map_coord.async_request_refresh = AsyncMock()
     map_coord.data = {}
     switch = KippyEnergySavingSwitch(coordinator, pet, map_coord)
     switch.async_write_ha_state = MagicMock()
