@@ -102,15 +102,36 @@ async def test_map_coordinator_update_failure() -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_data_without_existing_data_strips_lbs() -> None:
-    """LBS update with no previous data drops GPS keys."""
+async def test_process_data_without_existing_data_accepts_lbs() -> None:
+    """LBS update with no previous data uses provided GPS keys."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
     coord.ignore_lbs = True
-    data = {"localization_technology": LOCALIZATION_TECHNOLOGY_LBS, "gps_latitude": 1}
+    data = {
+        "localization_technology": LOCALIZATION_TECHNOLOGY_LBS,
+        "gps_latitude": 1,
+        "gps_longitude": 2,
+    }
     processed = coord._process_data(data)
-    assert "gps_latitude" not in processed
+    assert processed["gps_latitude"] == 1 and processed["gps_longitude"] == 2
+
+
+@pytest.mark.asyncio
+async def test_process_data_without_existing_location_accepts_lbs() -> None:
+    """LBS update accepted when existing data lacks GPS coordinates."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord.ignore_lbs = True
+    coord.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
+    data = {
+        "localization_technology": LOCALIZATION_TECHNOLOGY_LBS,
+        "gps_latitude": 3,
+        "gps_longitude": 4,
+    }
+    processed = coord._process_data(data)
+    assert processed["gps_latitude"] == 3 and processed["gps_longitude"] == 4
 
 
 @pytest.mark.asyncio
