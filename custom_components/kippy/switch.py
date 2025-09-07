@@ -11,6 +11,7 @@ from homeassistant.helpers.entity import EntityCategory
 
 from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
     DOMAIN,
@@ -194,18 +195,50 @@ class KippyLiveTrackingSwitch(
             == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
         )
 
+    @property
+    def available(self) -> bool:
+        return (
+            self.coordinator.data.get("operating_status")
+            != OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+            and super().available
+        )
+
     async def async_turn_on(self, **kwargs: Any) -> None:
+        if not self.available:
+            self.async_write_ha_state()
+            raise HomeAssistantError(
+                "Live tracking cannot be enabled in energy saving mode"
+            )
         data = await self.coordinator.api.kippymap_action(
             self.coordinator.kippy_id, app_action=1
         )
         self.coordinator.process_new_data(data)
+        if (
+            self.coordinator.data.get("operating_status")
+            == OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
+        ):
+            self.coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
+                OPERATING_STATUS.LIVE
+            ]
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        if not self.available:
+            self.async_write_ha_state()
+            raise HomeAssistantError(
+                "Live tracking cannot be disabled in energy saving mode"
+            )
         data = await self.coordinator.api.kippymap_action(
             self.coordinator.kippy_id, app_action=1
         )
         self.coordinator.process_new_data(data)
+        if (
+            self.coordinator.data.get("operating_status")
+            == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+        ):
+            self.coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
+                OPERATING_STATUS.IDLE
+            ]
         self.async_write_ha_state()
 
     @property
