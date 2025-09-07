@@ -58,6 +58,9 @@
       },
       "next_call_time": {
         "name": "Next call time"
+      },
+      "distance_from_home": {
+        "name": "Distance from home"
       }
     },
     "switch": {

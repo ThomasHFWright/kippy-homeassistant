@@ -2,6 +2,9 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from homeassistant.const import UnitOfLength, UnitOfTime
+from homeassistant.util.location import distance as location_distance
+from homeassistant.util.unit_conversion import DistanceConverter, DurationConverter
 
 from custom_components.kippy.const import (
     DOMAIN,
@@ -22,7 +25,9 @@ from custom_components.kippy.sensor import (
     KippyLbsTimeSensor,
     KippyLocalizationTechnologySensor,
     KippyOperatingStatusSensor,
+    KippyHomeDistanceSensor,
     KippyPetTypeSensor,
+    KippyRunSensor,
     KippyStepsSensor,
     async_setup_entry,
 )
@@ -36,6 +41,9 @@ async def test_expired_days_sensor_returns_expired() -> None:
     coordinator.data = {"pets": [pet]}
     coordinator.async_add_listener = MagicMock()
     sensor = KippyExpiredDaysSensor(coordinator, pet)
+    hass = MagicMock()
+    hass.config.units.get_converted_unit.return_value = None
+    sensor.hass = hass
 
     assert sensor.native_value == LABEL_EXPIRED
 
@@ -51,8 +59,27 @@ async def test_expired_days_sensor_returns_positive_days() -> None:
     coordinator.data = {"pets": [pet]}
     coordinator.async_add_listener = MagicMock()
     sensor = KippyExpiredDaysSensor(coordinator, pet)
+    hass = MagicMock()
+    hass.config.units.get_converted_unit.return_value = None
+    sensor.hass = hass
 
     assert sensor.native_value == 3
+
+
+@pytest.mark.asyncio
+async def test_expired_days_sensor_uses_configured_unit() -> None:
+    """Expired days sensor converts to configured time unit."""
+    pet = {"petID": "1", "expired_days": -2}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock()
+    sensor = KippyExpiredDaysSensor(coordinator, pet)
+    hass = MagicMock()
+    hass.config.units.get_converted_unit.return_value = UnitOfTime.HOURS
+    sensor.hass = hass
+    expected = DurationConverter.convert(2, UnitOfTime.DAYS, UnitOfTime.HOURS)
+    assert sensor.native_unit_of_measurement == UnitOfTime.HOURS
+    assert sensor.native_value == expected
 
 
 @pytest.mark.asyncio
@@ -83,6 +110,59 @@ async def test_operating_status_sensor_returns_string() -> None:
 
 
 @pytest.mark.asyncio
+async def test_home_distance_sensor_calculates_distance() -> None:
+    """Home distance sensor should calculate distance in meters."""
+    hass = MagicMock()
+    hass.config.units.length_unit = UnitOfLength.KILOMETERS
+    hass.config.latitude = 0
+    hass.config.longitude = 0
+    coordinator = MagicMock()
+    coordinator.data = {"gps_latitude": 0, "gps_longitude": 1}
+    sensor = KippyHomeDistanceSensor(coordinator, {"petID": "1"})
+    sensor.hass = hass
+    expected_m = location_distance(0, 0, 0, 1)
+    expected = DistanceConverter.convert(
+        expected_m, UnitOfLength.METERS, UnitOfLength.METERS
+    )
+    assert sensor.native_value == pytest.approx(expected)
+    assert sensor.native_unit_of_measurement == UnitOfLength.METERS
+
+
+@pytest.mark.asyncio
+async def test_home_distance_sensor_uses_configured_unit() -> None:
+    """Distance sensor converts to configured length unit."""
+    hass = MagicMock()
+    hass.config.units.length_unit = UnitOfLength.MILES
+    hass.config.latitude = 0
+    hass.config.longitude = 0
+    coordinator = MagicMock()
+    coordinator.data = {"gps_latitude": 0, "gps_longitude": 1}
+    sensor = KippyHomeDistanceSensor(coordinator, {"petID": "1"})
+    sensor.hass = hass
+    expected_m = location_distance(0, 0, 0, 1)
+    expected = DistanceConverter.convert(
+        expected_m, UnitOfLength.METERS, UnitOfLength.MILES
+    )
+    assert sensor.native_value == pytest.approx(expected)
+    assert sensor.native_unit_of_measurement == UnitOfLength.MILES
+
+
+@pytest.mark.asyncio
+async def test_run_sensor_uses_configured_unit() -> None:
+    """Run sensor converts minutes to configured time unit."""
+    hass = MagicMock()
+    hass.config.units.get_converted_unit.return_value = UnitOfTime.HOURS
+    coord = MagicMock()
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    coord.get_activities.return_value = [{"date": today, "run": 60}]
+    sensor = KippyRunSensor(coord, {"petID": 1})
+    sensor.hass = hass
+    expected = DurationConverter.convert(60, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    assert sensor.native_unit_of_measurement == UnitOfTime.HOURS
+    assert sensor.native_value == expected
+
+
+@pytest.mark.asyncio
 async def test_sensor_async_setup_entry_creates_entities() -> None:
     """async_setup_entry adds sensors for each pet."""
     hass = MagicMock()
@@ -107,6 +187,7 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
     entities = async_add_entities.call_args[0][0]
     assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
     assert any(isinstance(e, KippyNextCallTimeSensor) for e in entities)
+    assert any(isinstance(e, KippyHomeDistanceSensor) for e in entities)
 
 
 @pytest.mark.asyncio
@@ -191,6 +272,9 @@ def test_expired_days_invalid_and_none() -> None:
     coord.data = {"pets": [pet]}
     coord.async_add_listener = MagicMock()
     sensor = KippyExpiredDaysSensor(coord, pet)
+    hass = MagicMock()
+    hass.config.units.get_converted_unit.return_value = None
+    sensor.hass = hass
     assert sensor.native_value is None
     pet["expired_days"] = None
     assert sensor.native_value is None
