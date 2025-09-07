@@ -679,12 +679,12 @@ class KippyHomeDistanceSensor(
             lon_f = float(lon)
         except (TypeError, ValueError):
             return None
-        dist_km = location_distance(
+        dist_m = location_distance(
             self.hass.config.latitude, self.hass.config.longitude, lat_f, lon_f
         )
-        if dist_km is None:
+        if dist_m is None:
             return None
         target_unit = self.native_unit_of_measurement
         return DistanceConverter.convert(
-            dist_km, UnitOfLength.KILOMETERS, target_unit
+            dist_m, UnitOfLength.METERS, target_unit
         )
