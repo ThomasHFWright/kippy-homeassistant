@@ -123,14 +123,13 @@ async def test_energy_saving_switch_calls_api() -> None:
     with (
         patch(
             "homeassistant.components.persistent_notification.async_create",
-            AsyncMock(),
         ) as notify,
         patch("homeassistant.util.dt.utcnow", return_value=now),
     ):
         await switch.async_turn_on()
         await switch.async_turn_off()
-        assert notify.await_count == 2
-        message = notify.await_args[0][1]
+        assert notify.call_count == 2
+        message = notify.call_args_list[0][0][1]
         assert "1 hours" in message
     coordinator.api.modify_kippy_settings.assert_has_awaits(
         [
@@ -292,7 +291,6 @@ async def test_energy_saving_switch_no_kippy_id() -> None:
     with (
         patch(
             "homeassistant.components.persistent_notification.async_create",
-            AsyncMock(),
         ),
         patch("homeassistant.util.dt.utcnow", return_value=now),
     ):
