@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -61,7 +61,7 @@ async def async_setup_entry(
                 entities.append(KippyBatterySensor(map_coord, pet))
                 entities.append(KippyLocalizationTechnologySensor(map_coord, pet))
                 entities.append(KippyContactTimeSensor(map_coord, pet))
-                entities.append(KippyNextCallTimeSensor(map_coord, pet))
+                entities.append(KippyNextCallTimeSensor(map_coord, coordinator, pet))
                 entities.append(KippyFixTimeSensor(map_coord, pet))
                 entities.append(KippyGpsTimeSensor(map_coord, pet))
                 entities.append(KippyLbsTimeSensor(map_coord, pet))
@@ -486,9 +486,17 @@ class KippyNextCallTimeSensor(_KippyBaseMapEntity, SensorEntity):
     """Sensor for the next scheduled contact time."""
 
     def __init__(
-        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+        self,
+        coordinator: KippyMapDataUpdateCoordinator,
+        base_coordinator: KippyDataUpdateCoordinator,
+        pet: dict[str, Any],
     ) -> None:
         super().__init__(coordinator, pet)
+        self._base_coordinator = base_coordinator
+        self._base_unsub: Callable[[], None] | None = None
+        self._base_unsub = base_coordinator.async_add_listener(
+            self._handle_base_update
+        )
         pet_name = pet.get("petName")
         self._attr_name = (
             f"{pet_name} Next Call Time" if pet_name else "Next Call Time"
@@ -497,6 +505,19 @@ class KippyNextCallTimeSensor(_KippyBaseMapEntity, SensorEntity):
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_translation_key = "next_call_time"
+
+    def _handle_base_update(self) -> None:
+        for pet in self._base_coordinator.data.get("pets", []):
+            if pet.get("petID") == self._pet_id:
+                self._pet_data = pet
+                break
+        self.async_write_ha_state()
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._base_unsub:
+            self._base_unsub()
+            self._base_unsub = None
+        await super().async_will_remove_from_hass()
 
     @property
     def native_value(self) -> datetime | None:
