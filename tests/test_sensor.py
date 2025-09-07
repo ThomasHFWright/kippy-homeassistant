@@ -240,17 +240,21 @@ def test_localization_and_time_sensors() -> None:
 
 
 def test_next_call_time_sensor_native_value() -> None:
-    """Next call time combines contact and next call values."""
+    """Next call time uses contact time and update frequency."""
     coord = MagicMock()
-    coord.data = {"contact_time": 10, "next_call_time": 5}
-    pet = {"petID": 1, "petName": "Rex"}
+    coord.data = {"contact_time": 10}
+    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5}
     sensor = KippyNextCallTimeSensor(coord, pet)
-    assert sensor.native_value == datetime.fromtimestamp(15, timezone.utc)
+    assert sensor.native_value == datetime.fromtimestamp(10 + 5 * 3600, timezone.utc)
 
-    coord.data = {"contact_time": None, "next_call_time": None}
+    coord.data = {"contact_time": None}
     assert sensor.native_value is None
 
-    coord.data = {"contact_time": "bad", "next_call_time": "1"}
+    coord.data = {"contact_time": 10}
+    pet["updateFrequency"] = None
+    assert sensor.native_value is None
+
+    pet["updateFrequency"] = "bad"
     assert sensor.native_value is None
 
 

@@ -503,19 +503,15 @@ class KippyNextCallTimeSensor(_KippyBaseMapEntity, SensorEntity):
         contact = (
             self.coordinator.data.get("contact_time") if self.coordinator.data else None
         )
-        next_call = (
-            self.coordinator.data.get("next_call_time")
-            if self.coordinator.data
-            else None
-        )
-        if contact and next_call:
-            try:
-                return datetime.fromtimestamp(
-                    int(contact) + int(next_call), timezone.utc
-                )
-            except (TypeError, ValueError, OSError):
-                return None
-        return None
+        update_frequency = self._pet_data.get("updateFrequency")
+        if contact is None or update_frequency is None:
+            return None
+        try:
+            return datetime.fromtimestamp(
+                int(contact) + int(update_frequency) * 3600, timezone.utc
+            )
+        except (TypeError, ValueError, OSError):
+            return None
 
 
 class KippyFixTimeSensor(_KippyBaseMapEntity, SensorEntity):
