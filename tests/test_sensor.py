@@ -13,6 +13,7 @@ from custom_components.kippy.const import (
 from custom_components.kippy.sensor import (
     KippyBatterySensor,
     KippyContactTimeSensor,
+    KippyNextCallTimeSensor,
     KippyExpiredDaysSensor,
     KippyFixTimeSensor,
     KippyGpsTimeSensor,
@@ -105,6 +106,7 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
     assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
+    assert any(isinstance(e, KippyNextCallTimeSensor) for e in entities)
 
 
 @pytest.mark.asyncio
@@ -235,6 +237,21 @@ def test_localization_and_time_sensors() -> None:
     assert gps.native_value == datetime.utcfromtimestamp(2).replace(tzinfo=timezone.utc)
     lbs = KippyLbsTimeSensor(coord, pet)
     assert lbs.native_value == datetime.utcfromtimestamp(3).replace(tzinfo=timezone.utc)
+
+
+def test_next_call_time_sensor_native_value() -> None:
+    """Next call time combines contact and next call values."""
+    coord = MagicMock()
+    coord.data = {"contact_time": 10, "next_call_time": 5}
+    pet = {"petID": 1, "petName": "Rex"}
+    sensor = KippyNextCallTimeSensor(coord, pet)
+    assert sensor.native_value == datetime.fromtimestamp(15, timezone.utc)
+
+    coord.data = {"contact_time": None, "next_call_time": None}
+    assert sensor.native_value is None
+
+    coord.data = {"contact_time": "bad", "next_call_time": "1"}
+    assert sensor.native_value is None
 
 
 def test_activity_sensor_handles_cat_and_dog_data() -> None:

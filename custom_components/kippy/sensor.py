@@ -61,6 +61,7 @@ async def async_setup_entry(
                 entities.append(KippyBatterySensor(map_coord, pet))
                 entities.append(KippyLocalizationTechnologySensor(map_coord, pet))
                 entities.append(KippyContactTimeSensor(map_coord, pet))
+                entities.append(KippyNextCallTimeSensor(map_coord, pet))
                 entities.append(KippyFixTimeSensor(map_coord, pet))
                 entities.append(KippyGpsTimeSensor(map_coord, pet))
                 entities.append(KippyLbsTimeSensor(map_coord, pet))
@@ -479,6 +480,42 @@ class KippyContactTimeSensor(_KippyBaseMapEntity, SensorEntity):
     @property
     def native_value(self) -> datetime | None:
         return self._get_datetime("contact_time")
+
+
+class KippyNextCallTimeSensor(_KippyBaseMapEntity, SensorEntity):
+    """Sensor for the next scheduled contact time."""
+
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Next Call Time" if pet_name else "Next Call Time"
+        )
+        self._attr_unique_id = f"{self._pet_id}_next_call_time"
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_translation_key = "next_call_time"
+
+    @property
+    def native_value(self) -> datetime | None:
+        contact = (
+            self.coordinator.data.get("contact_time") if self.coordinator.data else None
+        )
+        next_call = (
+            self.coordinator.data.get("next_call_time")
+            if self.coordinator.data
+            else None
+        )
+        if contact and next_call:
+            try:
+                return datetime.fromtimestamp(
+                    int(contact) + int(next_call), timezone.utc
+                )
+            except (TypeError, ValueError, OSError):
+                return None
+        return None
 
 
 class KippyFixTimeSensor(_KippyBaseMapEntity, SensorEntity):

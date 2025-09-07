@@ -55,6 +55,9 @@
           "dog": "Dog",
           "cat": "Cat"
         }
+      },
+      "next_call_time": {
+        "name": "Next call time"
       }
     },
     "switch": {
