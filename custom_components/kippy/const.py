@@ -1,4 +1,5 @@
 """Constants for the Kippy integration."""
+
 import json
 from importlib import resources
 from types import SimpleNamespace
@@ -110,6 +111,12 @@ OPERATING_STATUS_MAP: dict[int, str] = {
     OPERATING_STATUS.LIVE: "live",
     OPERATING_STATUS.ENERGY_SAVING: "energy_saving",
 }
+
+# Map action identifiers used by the API.
+MAP_ACTION = SimpleNamespace(
+    TURN_LIVE_TRACKING_ON=2,
+    TURN_LIVE_TRACKING_OFF=1,
+)
 
 # Names used by the API for location technologies.
 LOCALIZATION_TECHNOLOGY_LBS = "LBS (Low accuracy)"
