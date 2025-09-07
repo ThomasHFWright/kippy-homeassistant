@@ -421,7 +421,6 @@ class KippyApi:
         do_sms: bool = True,
         app_action: int | None = None,
         geofence_id: int | None = None,
-        map_action: int | None = None,
     ) -> Dict[str, Any]:
         """Perform a kippymap action for a specific device."""
 
@@ -441,8 +440,6 @@ class KippyApi:
             payload["app_action"] = app_action
         if geofence_id is not None:
             payload["geofence_id"] = geofence_id
-        if map_action is not None:
-            payload["map_action"] = map_action
 
         data = await self._post_with_refresh(
             KIPPYMAP_ACTION_PATH, payload, REQUEST_HEADERS
