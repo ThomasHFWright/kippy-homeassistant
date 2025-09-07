@@ -86,6 +86,7 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
         else:
             self._pet_data["updateFrequency"] = int(value)
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):

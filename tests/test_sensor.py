@@ -13,6 +13,7 @@ from custom_components.kippy.const import (
 from custom_components.kippy.sensor import (
     KippyBatterySensor,
     KippyContactTimeSensor,
+    KippyNextCallTimeSensor,
     KippyExpiredDaysSensor,
     KippyFixTimeSensor,
     KippyGpsTimeSensor,
@@ -105,6 +106,7 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
     assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
+    assert any(isinstance(e, KippyNextCallTimeSensor) for e in entities)
 
 
 @pytest.mark.asyncio
@@ -235,6 +237,57 @@ def test_localization_and_time_sensors() -> None:
     assert gps.native_value == datetime.utcfromtimestamp(2).replace(tzinfo=timezone.utc)
     lbs = KippyLbsTimeSensor(coord, pet)
     assert lbs.native_value == datetime.utcfromtimestamp(3).replace(tzinfo=timezone.utc)
+
+
+def test_next_call_time_sensor_native_value() -> None:
+    """Next call time uses contact time and update frequency."""
+    coord = MagicMock()
+    coord.data = {"contact_time": 10}
+    base_coord = MagicMock()
+    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5}
+    base_coord.data = {"pets": [pet]}
+
+    def add_listener(cb):
+        base_coord.listener = cb
+        return MagicMock()
+
+    base_coord.async_add_listener.side_effect = add_listener
+    sensor = KippyNextCallTimeSensor(coord, base_coord, pet)
+    assert sensor.native_value == datetime.fromtimestamp(10 + 5 * 3600, timezone.utc)
+
+    coord.data = {"contact_time": None}
+    assert sensor.native_value is None
+
+    coord.data = {"contact_time": 10}
+    pet["updateFrequency"] = None
+    assert sensor.native_value is None
+
+    pet["updateFrequency"] = "bad"
+    assert sensor.native_value is None
+
+
+def test_next_call_time_sensor_updates_on_frequency_change() -> None:
+    """Sensor updates when the GPS update frequency changes."""
+    coord = MagicMock()
+    coord.data = {"contact_time": 10}
+    base_coord = MagicMock()
+    pet = {"petID": 1, "petName": "Rex", "updateFrequency": 5}
+    base_coord.data = {"pets": [pet]}
+
+    def add_listener(cb):
+        base_coord.listener = cb
+        return MagicMock()
+
+    base_coord.async_add_listener.side_effect = add_listener
+    sensor = KippyNextCallTimeSensor(coord, base_coord, pet)
+    sensor.hass = MagicMock()
+    sensor.async_write_ha_state = MagicMock()
+    assert sensor.native_value == datetime.fromtimestamp(10 + 5 * 3600, timezone.utc)
+
+    pet["updateFrequency"] = 6
+    base_coord.data = {"pets": [pet]}
+    base_coord.listener()
+    assert sensor.native_value == datetime.fromtimestamp(10 + 6 * 3600, timezone.utc)
 
 
 def test_activity_sensor_handles_cat_and_dog_data() -> None:
