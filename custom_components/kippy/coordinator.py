@@ -94,8 +94,11 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             self.ignore_lbs
             and data.get("localization_technology") == LOCALIZATION_TECHNOLOGY_LBS
         ):
-            _LOGGER.debug("Ignoring LBS location update for %s", self.kippy_id)
-            if self.data:
+            has_location = self.data and any(
+                key in self.data for key in ("gps_latitude", "gps_longitude")
+            )
+            if has_location:
+                _LOGGER.debug("Ignoring LBS location update for %s", self.kippy_id)
                 for key in (
                     "gps_latitude",
                     "gps_longitude",
@@ -107,13 +110,10 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                     else:
                         data.pop(key, None)
             else:
-                for key in (
-                    "gps_latitude",
-                    "gps_longitude",
-                    "gps_accuracy",
-                    "gps_altitude",
-                ):
-                    data.pop(key, None)
+                _LOGGER.debug(
+                    "Accepting LBS location update for %s as current location is unknown",
+                    self.kippy_id,
+                )
 
         operating_status = data.get("operating_status")
         try:
