@@ -187,10 +187,6 @@ class KippyLiveTrackingSwitch(
         self._pet_name = pet_name
         self._pet_data = pet
         self._attr_translation_key = "toggle_live_tracking"
-        self._read_only = (
-            coordinator.data.get("operating_status")
-            == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
-        )
 
     @property
     def is_on(self) -> bool:
@@ -199,15 +195,16 @@ class KippyLiveTrackingSwitch(
             == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
         )
 
-    def _handle_coordinator_update(self) -> None:
-        self._read_only = (
+    @property
+    def available(self) -> bool:
+        return (
             self.coordinator.data.get("operating_status")
-            == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+            != OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+            and super().available
         )
-        super()._handle_coordinator_update()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        if self._read_only:
+        if not self.available:
             self.async_write_ha_state()
             raise HomeAssistantError(
                 "Live tracking cannot be enabled in energy saving mode"
@@ -223,11 +220,10 @@ class KippyLiveTrackingSwitch(
             self.coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
                 OPERATING_STATUS.LIVE
             ]
-        self._read_only = False
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        if self._read_only:
+        if not self.available:
             self.async_write_ha_state()
             raise HomeAssistantError(
                 "Live tracking cannot be disabled in energy saving mode"
@@ -243,7 +239,6 @@ class KippyLiveTrackingSwitch(
             self.coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
                 OPERATING_STATUS.IDLE
             ]
-        self._read_only = False
         self.async_write_ha_state()
 
     @property

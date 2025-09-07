@@ -41,7 +41,7 @@ async def test_energy_saving_switch_updates_from_operating_status() -> None:
 
 
 def test_live_tracking_switch_operating_status() -> None:
-    """Live tracking switch follows operating status and read-only state."""
+    """Live tracking switch follows operating status and availability."""
     pet = {"petID": 1}
     coordinator = MagicMock()
     coordinator.data = {
@@ -55,24 +55,24 @@ def test_live_tracking_switch_operating_status() -> None:
     switch.async_write_ha_state = MagicMock()
 
     assert switch.is_on
-    assert not switch._read_only
+    assert switch.available
 
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
     switch._handle_coordinator_update()
     assert not switch.is_on
-    assert not switch._read_only
+    assert switch.available
 
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
         OPERATING_STATUS.ENERGY_SAVING
     ]
     switch._handle_coordinator_update()
     assert not switch.is_on
-    assert switch._read_only
+    assert not switch.available
 
 
 @pytest.mark.asyncio
-async def test_live_tracking_switch_read_only_energy_saving() -> None:
-    """Live tracking switch blocks toggling in energy saving mode."""
+async def test_live_tracking_switch_unavailable_energy_saving() -> None:
+    """Live tracking switch is unavailable and blocks toggling in energy saving mode."""
     pet = {"petID": 1}
     coordinator = MagicMock()
     coordinator.data = {
@@ -87,7 +87,7 @@ async def test_live_tracking_switch_read_only_energy_saving() -> None:
     switch.async_write_ha_state = MagicMock()
 
     assert not switch.is_on
-    assert switch._read_only
+    assert not switch.available
 
     with pytest.raises(HomeAssistantError):
         await switch.async_turn_on()
