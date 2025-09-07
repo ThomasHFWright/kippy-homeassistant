@@ -61,8 +61,8 @@
       }
     },
     "switch": {
-      "toggle_live_tracking": {
-        "name": "Toggle live tracking",
+      "live_tracking": {
+        "name": "Live tracking",
         "state": {
           "on": "On",
           "off": "Off"

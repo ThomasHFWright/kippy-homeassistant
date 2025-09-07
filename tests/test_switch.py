@@ -2,16 +2,21 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.kippy.const import DOMAIN, OPERATING_STATUS, OPERATING_STATUS_MAP
+from custom_components.kippy.const import (
+    APP_ACTION,
+    DOMAIN,
+    OPERATING_STATUS,
+    OPERATING_STATUS_MAP,
+)
 from custom_components.kippy.switch import (
     KippyEnergySavingSwitch,
+    KippyGpsDefaultSwitch,
     KippyIgnoreLBSSwitch,
     KippyLiveTrackingSwitch,
-    KippyGpsDefaultSwitch,
     async_setup_entry,
 )
-from homeassistant.exceptions import HomeAssistantError
 
 
 @pytest.mark.asyncio
@@ -44,9 +49,7 @@ def test_live_tracking_switch_operating_status() -> None:
     """Live tracking switch follows operating status and availability."""
     pet = {"petID": 1}
     coordinator = MagicMock()
-    coordinator.data = {
-        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
-    }
+    coordinator.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
     coordinator.async_add_listener = MagicMock()
     coordinator.last_update_success = True
     switch = KippyLiveTrackingSwitch(coordinator, pet)
@@ -130,9 +133,7 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     """Live tracking switch calls API and processes data."""
     pet = {"petID": 1, "petName": "Rex"}
     coordinator = MagicMock()
-    coordinator.data = {
-        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
-    }
+    coordinator.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]}
     coordinator.kippy_id = 1
     coordinator.api.kippymap_action = AsyncMock(
         return_value={"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
@@ -144,8 +145,10 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     switch.entity_id = "switch.live"
     switch.async_write_ha_state = MagicMock()
     await switch.async_turn_on()
-    coordinator.api.kippymap_action.assert_called()
-    coordinator.process_new_data.assert_called()
+    coordinator.api.kippymap_action.assert_called_once_with(
+        1, app_action=APP_ACTION.TURN_LIVE_TRACKING_ON
+    )
+    coordinator.process_new_data.assert_called_once()
     assert (
         coordinator.data.get("operating_status")
         == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
@@ -157,8 +160,10 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     }
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
     await switch.async_turn_off()
-    coordinator.api.kippymap_action.assert_called()
-    coordinator.process_new_data.assert_called()
+    coordinator.api.kippymap_action.assert_called_once_with(
+        1, app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF
+    )
+    coordinator.process_new_data.assert_called_once()
     assert (
         coordinator.data.get("operating_status")
         == OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
@@ -361,7 +366,9 @@ async def test_switch_async_setup_entry_missing_map() -> None:
     base_coordinator = MagicMock()
     base_coordinator.data = {"pets": [{"petID": 1}]}
     hass.data = {
-        DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}
+        DOMAIN: {
+            entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}
+        }
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)

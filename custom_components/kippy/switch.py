@@ -1,4 +1,5 @@
 """Switch entities for Kippy pets."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -6,14 +7,13 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
-
-from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
+    APP_ACTION,
     DOMAIN,
     LOCALIZATION_TECHNOLOGY_LBS,
     OPERATING_STATUS,
@@ -23,6 +23,7 @@ from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
+from .helpers import build_device_info
 
 
 async def async_setup_entry(
@@ -48,7 +49,9 @@ class KippyGpsDefaultSwitch(
 ):
     """Switch to enable or disable GPS tracking by default."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
@@ -113,9 +116,7 @@ class KippyEnergySavingSwitch(
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
-        self._attr_name = (
-            f"{pet_name} Energy Saving" if pet_name else "Energy Saving"
-        )
+        self._attr_name = f"{pet_name} Energy Saving" if pet_name else "Energy Saving"
         self._attr_unique_id = f"{self._pet_id}_energy_saving"
         self._pet_data = pet
         self._map_coordinator = map_coordinator
@@ -172,7 +173,7 @@ class KippyEnergySavingSwitch(
 class KippyLiveTrackingSwitch(
     CoordinatorEntity[KippyMapDataUpdateCoordinator], SwitchEntity
 ):
-    """Switch to toggle live tracking."""
+    """Switch for live tracking."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -180,13 +181,11 @@ class KippyLiveTrackingSwitch(
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
-        self._attr_name = (
-            f"{pet_name} Toggle live tracking" if pet_name else "Toggle live tracking"
-        )
-        self._attr_unique_id = f"{self._pet_id}_toggle_live_tracking"
+        self._attr_name = f"{pet_name} Live tracking" if pet_name else "Live tracking"
+        self._attr_unique_id = f"{self._pet_id}_live_tracking"
         self._pet_name = pet_name
         self._pet_data = pet
-        self._attr_translation_key = "toggle_live_tracking"
+        self._attr_translation_key = "live_tracking"
 
     @property
     def is_on(self) -> bool:
@@ -210,7 +209,8 @@ class KippyLiveTrackingSwitch(
                 "Live tracking cannot be enabled in energy saving mode"
             )
         data = await self.coordinator.api.kippymap_action(
-            self.coordinator.kippy_id, app_action=1
+            self.coordinator.kippy_id,
+            app_action=APP_ACTION.TURN_LIVE_TRACKING_ON,
         )
         self.coordinator.process_new_data(data)
         if (
@@ -229,7 +229,8 @@ class KippyLiveTrackingSwitch(
                 "Live tracking cannot be disabled in energy saving mode"
             )
         data = await self.coordinator.api.kippymap_action(
-            self.coordinator.kippy_id, app_action=1
+            self.coordinator.kippy_id,
+            app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF,
         )
         self.coordinator.process_new_data(data)
         if (
@@ -284,4 +285,3 @@ class KippyIgnoreLBSSwitch(
     def device_info(self) -> DeviceInfo:
         name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
-
