@@ -16,7 +16,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.location import distance as location_distance
-from homeassistant.util.unit_conversion import DistanceConverter
+from homeassistant.util.unit_conversion import DistanceConverter, DurationConverter
 
 from .const import (
     DOMAIN,
@@ -120,6 +120,24 @@ class KippyExpiredDaysSensor(_KippyBaseEntity, SensorEntity):
             f"{pet_name} Days Until Expiry" if pet_name else "Days Until Expiry"
         )
         self._attr_unique_id = f"{self._pet_id}_expired_days"
+        self._source_unit = UnitOfTime.DAYS
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        days = self._pet_data.get("expired_days")
+        try:
+            days = int(days)
+        except (TypeError, ValueError):
+            return None
+        if days >= 0:
+            return None
+        if self.hass:
+            unit = self.hass.config.units.get_converted_unit(
+                SensorDeviceClass.DURATION, self._source_unit
+            )
+            if unit:
+                return unit
+        return self._source_unit
 
     @property
     def native_value(self) -> Any:
@@ -130,7 +148,15 @@ class KippyExpiredDaysSensor(_KippyBaseEntity, SensorEntity):
             days = int(days)
         except (TypeError, ValueError):
             return None
-        return abs(days) if days < 0 else LABEL_EXPIRED
+        if days >= 0:
+            return LABEL_EXPIRED
+        remaining = abs(days)
+        target_unit = self.native_unit_of_measurement or self._source_unit
+        if target_unit != self._source_unit:
+            return DurationConverter.convert(
+                remaining, self._source_unit, target_unit
+            )
+        return remaining
 
 
 class KippyPetTypeSensor(_KippyBaseEntity, SensorEntity):
@@ -197,6 +223,7 @@ class _KippyActivitySensor(
         metric: str,
         name: str,
         unit: str | None = None,
+        device_class: SensorDeviceClass | str | None = None,
     ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
@@ -205,8 +232,11 @@ class _KippyActivitySensor(
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} {name}" if pet_name else name
         self._attr_unique_id = f"{self._pet_id}_{metric}"
+        self._source_unit = unit
         self._attr_native_unit_of_measurement = unit
         self._attr_state_class = SensorStateClass.MEASUREMENT
+        if device_class:
+            self._attr_device_class = device_class
         self._date: str | None = None
 
     @property
@@ -298,12 +328,46 @@ class _KippyActivitySensor(
         if value is None:
             return None
         try:
-            return int(value)
+            numeric: float | int = int(value)
         except (TypeError, ValueError):
             try:
-                return float(value)
+                numeric = float(value)
             except (TypeError, ValueError):
                 return None
+        if self._source_unit in {
+            UnitOfTime.MICROSECONDS,
+            UnitOfTime.MILLISECONDS,
+            UnitOfTime.SECONDS,
+            UnitOfTime.MINUTES,
+            UnitOfTime.HOURS,
+            UnitOfTime.DAYS,
+            UnitOfTime.WEEKS,
+        }:
+            target_unit = self.native_unit_of_measurement
+            if target_unit != self._source_unit:
+                return DurationConverter.convert(
+                    numeric, self._source_unit, target_unit
+                )
+        return numeric
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        if self._source_unit in {
+            UnitOfTime.MICROSECONDS,
+            UnitOfTime.MILLISECONDS,
+            UnitOfTime.SECONDS,
+            UnitOfTime.MINUTES,
+            UnitOfTime.HOURS,
+            UnitOfTime.DAYS,
+            UnitOfTime.WEEKS,
+        }:
+            if self.hass:
+                unit = self.hass.config.units.get_converted_unit(
+                    SensorDeviceClass.DURATION, self._source_unit
+                )
+                if unit:
+                    return unit
+        return self._source_unit
 
 
 class KippyStepsSensor(_KippyActivitySensor):
@@ -336,7 +400,14 @@ class KippyRunSensor(_KippyActivitySensor):
         coordinator: KippyActivityCategoriesDataUpdateCoordinator,
         pet: dict[str, Any],
     ) -> None:
-        super().__init__(coordinator, pet, "run", "Run", UnitOfTime.MINUTES)
+        super().__init__(
+            coordinator,
+            pet,
+            "run",
+            "Run",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
 
 
 class KippyWalkSensor(_KippyActivitySensor):
@@ -347,7 +418,14 @@ class KippyWalkSensor(_KippyActivitySensor):
         coordinator: KippyActivityCategoriesDataUpdateCoordinator,
         pet: dict[str, Any],
     ) -> None:
-        super().__init__(coordinator, pet, "walk", "Walk", UnitOfTime.MINUTES)
+        super().__init__(
+            coordinator,
+            pet,
+            "walk",
+            "Walk",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
 
 
 class KippySleepSensor(_KippyActivitySensor):
@@ -358,7 +436,14 @@ class KippySleepSensor(_KippyActivitySensor):
         coordinator: KippyActivityCategoriesDataUpdateCoordinator,
         pet: dict[str, Any],
     ) -> None:
-        super().__init__(coordinator, pet, "sleep", "Sleep", UnitOfTime.MINUTES)
+        super().__init__(
+            coordinator,
+            pet,
+            "sleep",
+            "Sleep",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
 
 
 class KippyRestSensor(_KippyActivitySensor):
@@ -369,7 +454,14 @@ class KippyRestSensor(_KippyActivitySensor):
         coordinator: KippyActivityCategoriesDataUpdateCoordinator,
         pet: dict[str, Any],
     ) -> None:
-        super().__init__(coordinator, pet, "rest", "Rest", UnitOfTime.MINUTES)
+        super().__init__(
+            coordinator,
+            pet,
+            "rest",
+            "Rest",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
 
 
 class KippyBatterySensor(
