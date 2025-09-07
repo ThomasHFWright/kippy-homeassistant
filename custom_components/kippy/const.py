@@ -112,8 +112,8 @@ OPERATING_STATUS_MAP: dict[int, str] = {
     OPERATING_STATUS.ENERGY_SAVING: "energy_saving",
 }
 
-# Map action identifiers used by the API.
-MAP_ACTION = SimpleNamespace(
+# App action identifiers used by the API.
+APP_ACTION = SimpleNamespace(
     TURN_LIVE_TRACKING_ON=2,
     TURN_LIVE_TRACKING_OFF=1,
 )

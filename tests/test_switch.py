@@ -6,8 +6,8 @@ import pytest
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.kippy.const import (
+    APP_ACTION,
     DOMAIN,
-    MAP_ACTION,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
@@ -159,7 +159,7 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     switch.async_write_ha_state = MagicMock()
     await switch.async_turn_on()
     coordinator.api.kippymap_action.assert_called_once_with(
-        1, app_action=MAP_ACTION.TURN_LIVE_TRACKING_ON
+        1, app_action=APP_ACTION.TURN_LIVE_TRACKING_ON
     )
     coordinator.process_new_data.assert_called_once()
     assert (
@@ -174,7 +174,7 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
     await switch.async_turn_off()
     coordinator.api.kippymap_action.assert_called_once_with(
-        1, map_action=MAP_ACTION.TURN_LIVE_TRACKING_OFF
+        1, app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF
     )
     coordinator.process_new_data.assert_called_once()
     assert (

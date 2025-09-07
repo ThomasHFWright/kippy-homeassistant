@@ -19,9 +19,9 @@ from homeassistant.util import dt as dt_util
 from .helpers import build_device_info
 
 from .const import (
+    APP_ACTION,
     DOMAIN,
     LOCALIZATION_TECHNOLOGY_LBS,
-    MAP_ACTION,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
@@ -243,7 +243,7 @@ class KippyLiveTrackingSwitch(
             )
         data = await self.coordinator.api.kippymap_action(
             self.coordinator.kippy_id,
-            app_action=MAP_ACTION.TURN_LIVE_TRACKING_ON,
+            app_action=APP_ACTION.TURN_LIVE_TRACKING_ON,
         )
         self.coordinator.process_new_data(data)
         if (
@@ -263,7 +263,7 @@ class KippyLiveTrackingSwitch(
             )
         data = await self.coordinator.api.kippymap_action(
             self.coordinator.kippy_id,
-            map_action=MAP_ACTION.TURN_LIVE_TRACKING_OFF,
+            app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF,
         )
         self.coordinator.process_new_data(data)
         if (
