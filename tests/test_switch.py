@@ -130,8 +130,10 @@ async def test_energy_saving_switch_calls_api() -> None:
         await switch.async_turn_on()
         await switch.async_turn_off()
     assert switch.hass.services.async_call.await_count == 2
-    message = switch.hass.services.async_call.await_args_list[0].args[2]["message"]
-    assert "1 hours" in message
+    message_on = switch.hass.services.async_call.await_args_list[0].args[2]["message"]
+    message_off = switch.hass.services.async_call.await_args_list[1].args[2]["message"]
+    assert "1 hours" in message_on
+    assert "1 hours" in message_off
     coordinator.api.modify_kippy_settings.assert_has_awaits(
         [
             call(1, energy_saving_mode=True),

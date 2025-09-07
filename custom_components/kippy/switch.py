@@ -13,10 +13,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
-
-from .helpers import build_device_info
 
 from .const import (
     APP_ACTION,
@@ -142,7 +139,7 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 1
         self.async_write_ha_state()
-        await self._notify_next_call_time()
+        await self._async_notify_next_call_time()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
@@ -152,9 +149,9 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 0
         self.async_write_ha_state()
-        self._notify_next_call_time()
+        await self._async_notify_next_call_time()
 
-    def _notify_next_call_time(self) -> None:
+    async def _async_notify_next_call_time(self) -> None:
         """Notify user that change will apply at next call time."""
         await self._map_coordinator.async_request_refresh()
         if not self._map_coordinator.data:
