@@ -204,7 +204,7 @@ class KippyEnergySavingSwitch(
 class KippyLiveTrackingSwitch(
     CoordinatorEntity[KippyMapDataUpdateCoordinator], SwitchEntity
 ):
-    """Switch to toggle live tracking."""
+    """Switch for live tracking."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -212,13 +212,11 @@ class KippyLiveTrackingSwitch(
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
-        self._attr_name = (
-            f"{pet_name} Toggle live tracking" if pet_name else "Toggle live tracking"
-        )
-        self._attr_unique_id = f"{self._pet_id}_toggle_live_tracking"
+        self._attr_name = f"{pet_name} Live tracking" if pet_name else "Live tracking"
+        self._attr_unique_id = f"{self._pet_id}_live_tracking"
         self._pet_name = pet_name
         self._pet_data = pet
-        self._attr_translation_key = "toggle_live_tracking"
+        self._attr_translation_key = "live_tracking"
 
     @property
     def is_on(self) -> bool:
