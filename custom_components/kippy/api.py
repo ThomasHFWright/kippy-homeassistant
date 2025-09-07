@@ -1,4 +1,5 @@
 """Simple API client for Kippy."""
+
 from __future__ import annotations
 
 import asyncio
@@ -116,7 +117,9 @@ def _treat_401_as_success(path: str, data: Dict[str, Any]) -> bool:
     """Determine if a 401 response should be treated as a success."""
     return_code = _get_return_code(data)
     if return_code is None:
-        _LOGGER.debug("%s returned HTTP 401 without return code, treating as failure", path)
+        _LOGGER.debug(
+            "%s returned HTTP 401 without return code, treating as failure", path
+        )
         return False
     if isinstance(return_code, bool):
         if return_code:
@@ -315,9 +318,7 @@ class KippyApi:
         for attempt in range(2):
             try:
                 if _LOGGER.isEnabledFor(logging.DEBUG):
-                    _LOGGER.debug(
-                        "%s request: %s", path, json.dumps(_redact(payload))
-                    )
+                    _LOGGER.debug("%s request: %s", path, json.dumps(_redact(payload)))
                 async with self._session.post(
                     self._url(path),
                     data=json.dumps(payload),
@@ -420,6 +421,7 @@ class KippyApi:
         do_sms: bool = True,
         app_action: int | None = None,
         geofence_id: int | None = None,
+        map_action: int | None = None,
     ) -> Dict[str, Any]:
         """Perform a kippymap action for a specific device."""
 
@@ -439,6 +441,8 @@ class KippyApi:
             payload["app_action"] = app_action
         if geofence_id is not None:
             payload["geofence_id"] = geofence_id
+        if map_action is not None:
+            payload["map_action"] = map_action
 
         data = await self._post_with_refresh(
             KIPPYMAP_ACTION_PATH, payload, REQUEST_HEADERS

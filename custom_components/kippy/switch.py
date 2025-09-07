@@ -1,4 +1,5 @@
 """Switch entities for Kippy pets."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -8,6 +9,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -19,6 +21,7 @@ from .helpers import build_device_info
 from .const import (
     DOMAIN,
     LOCALIZATION_TECHNOLOGY_LBS,
+    MAP_ACTION,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
@@ -26,6 +29,7 @@ from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
+from .helpers import build_device_info
 
 
 async def async_setup_entry(
@@ -51,7 +55,9 @@ class KippyGpsDefaultSwitch(
 ):
     """Switch to enable or disable GPS tracking by default."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
@@ -116,9 +122,7 @@ class KippyEnergySavingSwitch(
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
-        self._attr_name = (
-            f"{pet_name} Energy Saving" if pet_name else "Energy Saving"
-        )
+        self._attr_name = f"{pet_name} Energy Saving" if pet_name else "Energy Saving"
         self._attr_unique_id = f"{self._pet_id}_energy_saving"
         self._pet_data = pet
         self._map_coordinator = map_coordinator
@@ -163,10 +167,7 @@ class KippyEnergySavingSwitch(
         now = dt_util.utcnow()
         hours = max(int((next_call - now).total_seconds() // 3600), 0)
         local_time = dt_util.as_local(next_call)
-        message = (
-            f"This change will apply in {hours} hours at "
-            f"{local_time.isoformat()}"
-        )
+        message = f"This change will apply in {hours} hours at {local_time.isoformat()}"
         await self.hass.services.async_call(
             persistent_notification.DOMAIN,
             "create",
@@ -241,7 +242,8 @@ class KippyLiveTrackingSwitch(
                 "Live tracking cannot be enabled in energy saving mode"
             )
         data = await self.coordinator.api.kippymap_action(
-            self.coordinator.kippy_id, app_action=1
+            self.coordinator.kippy_id,
+            app_action=MAP_ACTION.TURN_LIVE_TRACKING_ON,
         )
         self.coordinator.process_new_data(data)
         if (
@@ -260,7 +262,8 @@ class KippyLiveTrackingSwitch(
                 "Live tracking cannot be disabled in energy saving mode"
             )
         data = await self.coordinator.api.kippymap_action(
-            self.coordinator.kippy_id, app_action=1
+            self.coordinator.kippy_id,
+            map_action=MAP_ACTION.TURN_LIVE_TRACKING_OFF,
         )
         self.coordinator.process_new_data(data)
         if (
@@ -315,4 +318,3 @@ class KippyIgnoreLBSSwitch(
     def device_info(self) -> DeviceInfo:
         name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
-
