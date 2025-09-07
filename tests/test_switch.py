@@ -120,18 +120,16 @@ async def test_energy_saving_switch_calls_api() -> None:
     map_coordinator.data = {"next_call_time": int(next_call.timestamp())}
     switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
     switch.hass = MagicMock()
+    switch.hass.services.async_call = AsyncMock()
     switch.async_write_ha_state = MagicMock()
-    with (
-        patch(
-            "homeassistant.components.persistent_notification.async_create",
-        ) as notify,
-        patch("homeassistant.util.dt.utcnow", return_value=now),
-    ):
+    with patch("homeassistant.util.dt.utcnow", return_value=now):
         await switch.async_turn_on()
         await switch.async_turn_off()
-        assert notify.call_count == 2
-        message = notify.call_args_list[0][0][1]
-        assert "1 hours" in message
+    assert switch.hass.services.async_call.await_count == 2
+    first_call = switch.hass.services.async_call.call_args_list[0]
+    assert first_call[0][0] == "persistent_notification"
+    assert first_call[0][1] == "create"
+    assert "1 hours" in first_call[0][2]["message"]
     coordinator.api.modify_kippy_settings.assert_has_awaits(
         [
             call(1, energy_saving_mode=True),
@@ -290,14 +288,14 @@ async def test_energy_saving_switch_no_kippy_id() -> None:
     map_coordinator.data = {"next_call_time": int(next_call.timestamp())}
     switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
     switch.hass = MagicMock()
+    switch.hass.services.async_call = AsyncMock()
     switch.async_write_ha_state = MagicMock()
-    with (
-        patch(
-            "homeassistant.components.persistent_notification.async_create",
-        ),
-        patch("homeassistant.util.dt.utcnow", return_value=now),
-    ):
+    with patch("homeassistant.util.dt.utcnow", return_value=now):
         await switch.async_turn_on()
+    assert switch.hass.services.async_call.await_count == 1
+    args = switch.hass.services.async_call.call_args[0]
+    assert args[0] == "persistent_notification"
+    assert args[1] == "create"
     assert pet["energySavingMode"] == 1
     coordinator.api.modify_kippy_settings.assert_not_called()
     switch.async_write_ha_state.assert_called_once()

@@ -4,7 +4,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from homeassistant.components import persistent_notification
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -167,8 +166,10 @@ class KippyEnergySavingSwitch(
             f"This change will apply in {hours} hours at "
             f"{local_time.isoformat()}"
         )
-        persistent_notification.async_create(
-            self.hass, message, title=self.name
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {"message": message, "title": self.name},
         )
 
     def _handle_coordinator_update(self) -> None:
