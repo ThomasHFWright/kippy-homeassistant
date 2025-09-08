@@ -45,6 +45,36 @@ async def test_energy_saving_switch_updates_from_operating_status() -> None:
     assert pet["energySavingMode"] == 1
 
 
+@pytest.mark.asyncio
+async def test_energy_saving_switch_preserves_pending_off() -> None:
+    """Energy saving switch keeps pending off when still energy saving."""
+    pet = {"petID": "1", "energySavingMode": 1}
+
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    coordinator.async_set_updated_data = MagicMock()
+
+    map_coordinator = MagicMock()
+    map_coordinator.data = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
+    }
+    map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+
+    switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
+    switch.async_write_ha_state = MagicMock()
+
+    await switch.async_turn_off()
+    assert pet["energySavingMode"] == 0
+    assert pet["energySavingModePending"]
+    coordinator.async_set_updated_data.reset_mock()
+
+    switch._handle_map_update()
+    assert pet["energySavingMode"] == 0
+    assert pet["energySavingModePending"]
+    coordinator.async_set_updated_data.assert_not_called()
+
+
 def test_live_tracking_switch_operating_status() -> None:
     """Live tracking switch follows operating status and availability."""
     pet = {"petID": 1}

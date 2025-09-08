@@ -57,6 +57,7 @@ async def async_setup_entry(
             pass
 
         if not is_expired:
+            entities.append(KippyEnergySavingStatusSensor(coordinator, pet))
             entities.append(KippyPetTypeSensor(coordinator, pet))
             map_coord = map_coordinators.get(pet["petID"])
             if map_coord:
@@ -97,6 +98,13 @@ class _KippyBaseEntity(CoordinatorEntity[KippyDataUpdateCoordinator]):
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):
             if pet.get("petID") == self._pet_id:
+                if (
+                    self._pet_data.get("energySavingModePending")
+                    and "energySavingModePending" not in pet
+                ):
+                    pet["energySavingModePending"] = self._pet_data[
+                        "energySavingModePending"
+                    ]
                 self._pet_data = pet
                 break
         super()._handle_coordinator_update()
@@ -720,6 +728,34 @@ class KippyOperatingStatusSensor(
     def device_info(self) -> DeviceInfo:
         name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
+
+
+class KippyEnergySavingStatusSensor(_KippyBaseEntity, SensorEntity):
+    """Sensor indicating energy saving status."""
+
+    _attr_translation_key = "energy_saving_status"
+
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
+        super().__init__(coordinator, pet)
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Energy Saving Status" if pet_name else "Energy Saving Status"
+        )
+        self._attr_unique_id = f"{self._pet_id}_energy_saving_status"
+
+    @property
+    def native_value(self) -> str:
+        pending = bool(self._pet_data.get("energySavingModePending"))
+        value = self._pet_data.get("energySavingMode")
+        try:
+            is_on = bool(int(value))
+        except (TypeError, ValueError):
+            is_on = bool(value)
+        if pending:
+            return "on_pending" if is_on else "off_pending"
+        return "on" if is_on else "off"
 
 
 class KippyHomeDistanceSensor(

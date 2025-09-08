@@ -49,6 +49,15 @@
           "energy_saving": "Energy saving"
         }
       },
+      "energy_saving_status": {
+        "name": "Energy saving status",
+        "state": {
+          "on": "On",
+          "off": "Off",
+          "on_pending": "On (Pending Next Contact)",
+          "off_pending": "Off (Pending Next Contact)"
+        }
+      },
       "pet_type": {
         "name": "Pet type",
         "state": {

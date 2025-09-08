@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.const import UnitOfLength, UnitOfTime
@@ -25,12 +25,14 @@ from custom_components.kippy.sensor import (
     KippyLastLbsFixSensor,
     KippyLocalizationTechnologySensor,
     KippyOperatingStatusSensor,
+    KippyEnergySavingStatusSensor,
     KippyHomeDistanceSensor,
     KippyPetTypeSensor,
     KippyRunSensor,
     KippyStepsSensor,
     async_setup_entry,
 )
+from custom_components.kippy.switch import KippyEnergySavingSwitch
 
 
 @pytest.mark.asyncio
@@ -400,3 +402,71 @@ def test_activity_sensor_handles_cat_and_dog_data() -> None:
 
     coord.get_activities.return_value = None
     assert sensor.native_value is None
+
+
+@pytest.mark.asyncio
+async def test_energy_saving_status_sensor_pending_and_updates() -> None:
+    """Energy saving status sensor reflects pending and confirmed states."""
+    pet = {"petID": "1", "energySavingMode": 0, "kippyID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock()
+    coordinator.api.modify_kippy_settings = AsyncMock()
+    coordinator.async_set_updated_data = MagicMock()
+    map_coordinator = MagicMock()
+    map_coordinator.data = {}
+    map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
+    switch.async_write_ha_state = MagicMock()
+    sensor = KippyEnergySavingStatusSensor(coordinator, pet)
+
+    assert sensor.native_value == "off"
+
+    await switch.async_turn_on()
+    assert sensor.native_value == "on_pending"
+
+    map_coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
+        OPERATING_STATUS.ENERGY_SAVING
+    ]
+    switch._handle_map_update()
+    assert sensor.native_value == "on"
+
+    await switch.async_turn_off()
+    assert sensor.native_value == "off_pending"
+
+    switch._handle_map_update()
+    assert sensor.native_value == "off_pending"
+
+    map_coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
+        OPERATING_STATUS.IDLE
+    ]
+    switch._handle_map_update()
+    assert sensor.native_value == "off"
+
+
+@pytest.mark.asyncio
+async def test_energy_saving_status_sensor_cancel_pending() -> None:
+    """Toggling again cancels pending state for energy saving status sensor."""
+    pet = {"petID": "1", "energySavingMode": 0, "kippyID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock()
+    coordinator.api.modify_kippy_settings = AsyncMock()
+    coordinator.async_set_updated_data = MagicMock()
+    map_coordinator = MagicMock()
+    map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
+    switch.async_write_ha_state = MagicMock()
+    sensor = KippyEnergySavingStatusSensor(coordinator, pet)
+
+    await switch.async_turn_on()
+    assert sensor.native_value == "on_pending"
+
+    await switch.async_turn_off()
+    assert sensor.native_value == "off"
+
+    await switch.async_turn_off()
+    assert sensor.native_value == "off_pending"
+
+    await switch.async_turn_on()
+    assert sensor.native_value == "on"
