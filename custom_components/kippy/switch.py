@@ -175,11 +175,15 @@ class KippyEnergySavingSwitch(
             return
         operating_status = self._map_coordinator.data.get("operating_status")
         if operating_status == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]:
-            if int(self._pet_data.get("energySavingMode", 0)) != 1:
-                self._pet_data["energySavingMode"] = 1
-            if self._pet_data.get("energySavingModePending"):
-                self._pet_data["energySavingModePending"] = False
-                self.coordinator.async_set_updated_data(self.coordinator.data)
+            if not (
+                self._pet_data.get("energySavingModePending")
+                and int(self._pet_data.get("energySavingMode", 0)) == 0
+            ):
+                if int(self._pet_data.get("energySavingMode", 0)) != 1:
+                    self._pet_data["energySavingMode"] = 1
+                if self._pet_data.get("energySavingModePending"):
+                    self._pet_data["energySavingModePending"] = False
+                    self.coordinator.async_set_updated_data(self.coordinator.data)
         elif (
             self._pet_data.get("energySavingModePending")
             and int(self._pet_data.get("energySavingMode", 0)) == 0

@@ -434,6 +434,9 @@ async def test_energy_saving_status_sensor_pending_and_updates() -> None:
     await switch.async_turn_off()
     assert sensor.native_value == "off_pending"
 
+    switch._handle_map_update()
+    assert sensor.native_value == "off_pending"
+
     map_coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
         OPERATING_STATUS.IDLE
     ]
