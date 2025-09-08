@@ -1,8 +1,14 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, call
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+from homeassistant.components import persistent_notification as pn
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
+from homeassistant.setup import async_setup_component
+from homeassistant.util import dt as dt_util
 
 from custom_components.kippy.const import (
     APP_ACTION,
@@ -10,6 +16,7 @@ from custom_components.kippy.const import (
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
+from custom_components.kippy.sensor import KippyNextCallTimeSensor
 from custom_components.kippy.switch import (
     KippyEnergySavingSwitch,
     KippyGpsDefaultSwitch,
@@ -126,6 +133,52 @@ async def test_energy_saving_switch_calls_api() -> None:
             call(1, energy_saving_mode=False),
         ]
     )
+
+
+@pytest.mark.asyncio
+async def test_energy_saving_switch_notifies_delay(hass: HomeAssistant) -> None:
+    """Energy saving switch notifies how long until changes apply."""
+    await async_setup_component(hass, pn.DOMAIN, {})
+    now = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    pet = {
+        "petID": "1",
+        "energySavingMode": 0,
+        "kippyID": 1,
+        "updateFrequency": 1,
+    }
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    coordinator.api.modify_kippy_settings = AsyncMock()
+    map_coordinator = MagicMock()
+    map_coordinator.data = {"contact_time": int(now.timestamp())}
+    map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    next_call = KippyNextCallTimeSensor(map_coordinator, coordinator, pet).native_value
+    assert next_call
+    switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
+    switch.hass = hass
+    switch.entity_id = "switch.energy"
+    switch.async_write_ha_state = MagicMock()
+
+    entity_reg = er.async_get(hass)
+    entity_reg.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{pet['petID']}_next_call_time",
+        suggested_object_id="next_call",
+    )
+    hass.states.async_set("sensor.next_call", next_call.isoformat())
+
+    with patch("homeassistant.util.dt.now", return_value=now):
+        expected = dt_util.get_time_remaining(next_call)
+        await switch.async_turn_on()
+    await hass.async_block_till_done()
+
+    notifications = pn._async_get_or_create_notifications(hass)
+    assert len(notifications) == 1
+    notification = list(notifications.values())[0]
+    assert notification[pn.ATTR_MESSAGE] == f"Update will apply in {expected}."
+    assert notification[pn.ATTR_TITLE] == switch.name
 
 
 @pytest.mark.asyncio

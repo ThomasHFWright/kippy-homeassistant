@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.components.persistent_notification import DOMAIN as PN_DOMAIN
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import (
     APP_ACTION,
@@ -136,6 +140,7 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 1
         self.async_write_ha_state()
+        await self._notify_update_delay()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
@@ -145,6 +150,38 @@ class KippyEnergySavingSwitch(
             )
         self._pet_data["energySavingMode"] = 0
         self.async_write_ha_state()
+        await self._notify_update_delay()
+
+    async def _notify_update_delay(self) -> None:
+        if not self.hass:
+            return
+
+        ent_reg = er.async_get(self.hass)
+        entity_id = ent_reg.async_get_entity_id(
+            "sensor", DOMAIN, f"{self._pet_id}_next_call_time"
+        )
+        if not entity_id:
+            return
+
+        state = self.hass.states.get(entity_id)
+        if not state or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+
+        next_call = dt_util.parse_datetime(state.state)
+        if not next_call:
+            return
+
+        try:
+            time_text = dt_util.get_time_remaining(next_call)
+        except ValueError:
+            return
+
+        await self.hass.services.async_call(
+            PN_DOMAIN,
+            "create",
+            {"title": self.name, "message": f"Update will apply in {time_text}."},
+            blocking=False,
+        )
 
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):
