@@ -38,13 +38,15 @@ async def async_setup_entry(
         map_coord = map_coordinators.get(pet["petID"])
         if not map_coord:
             continue
-        entities.append(KippyPressButton(map_coord, pet))
+        entities.append(KippyRefreshMapAttributesButton(map_coord, pet))
         entities.append(KippyActivityCategoriesButton(activity_coordinator, pet))
     async_add_entities(entities)
 
 
-class KippyPressButton(CoordinatorEntity[KippyMapDataUpdateCoordinator], ButtonEntity):
-    """Button to trigger an immediate kippymap action."""
+class KippyRefreshMapAttributesButton(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], ButtonEntity
+):
+    """Button to refresh Kippy map attributes immediately."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -52,12 +54,14 @@ class KippyPressButton(CoordinatorEntity[KippyMapDataUpdateCoordinator], ButtonE
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
-        self._attr_name = f"{pet_name} Press" if pet_name else "Press"
-        self._attr_unique_id = f"{self._pet_id}_press"
+        self._attr_name = (
+            f"{pet_name} Refresh Map Attributes" if pet_name else "Refresh Map Attributes"
+        )
+        self._attr_unique_id = f"{self._pet_id}_refresh_map_attributes"
         self._pet_name = pet_name
         self._pet_data = pet
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        self._attr_translation_key = "press"
+        self._attr_translation_key = "refresh_map_attributes"
 
     async def async_press(self) -> None:
         data = await self.coordinator.api.kippymap_action(self.coordinator.kippy_id)

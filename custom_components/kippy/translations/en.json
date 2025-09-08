@@ -56,8 +56,8 @@
           "cat": "Cat"
         }
       },
-      "next_call_time": {
-        "name": "Next call time"
+      "next_contact": {
+        "name": "Next contact"
       },
       "distance_from_home": {
         "name": "Distance from home"
@@ -87,8 +87,8 @@
       }
     },
     "button": {
-      "press": {
-        "name": "Press"
+      "refresh_map_attributes": {
+        "name": "Refresh map attributes"
       },
       "refresh_activities": {
         "name": "Refresh activities"

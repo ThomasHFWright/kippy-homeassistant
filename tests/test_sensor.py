@@ -15,14 +15,14 @@ from custom_components.kippy.const import (
 )
 from custom_components.kippy.sensor import (
     KippyBatterySensor,
-    KippyContactTimeSensor,
-    KippyNextCallTimeSensor,
+    KippyLastContactSensor,
+    KippyNextContactSensor,
     KippyExpiredDaysSensor,
-    KippyFixTimeSensor,
-    KippyGpsTimeSensor,
+    KippyLastFixSensor,
+    KippyLastGpsFixSensor,
     KippyIDSensor,
     KippyIMEISensor,
-    KippyLbsTimeSensor,
+    KippyLastLbsFixSensor,
     KippyLocalizationTechnologySensor,
     KippyOperatingStatusSensor,
     KippyHomeDistanceSensor,
@@ -186,7 +186,7 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
     assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
-    assert any(isinstance(e, KippyNextCallTimeSensor) for e in entities)
+    assert any(isinstance(e, KippyNextContactSensor) for e in entities)
     assert any(isinstance(e, KippyHomeDistanceSensor) for e in entities)
 
 
@@ -310,21 +310,21 @@ def test_localization_and_time_sensors() -> None:
     loc = KippyLocalizationTechnologySensor(coord, pet)
     assert loc.native_value == "GPS"
     assert loc.device_info["name"] == "Kippy Rex"
-    contact = KippyContactTimeSensor(coord, pet)
+    contact = KippyLastContactSensor(coord, pet)
     assert contact.native_value == datetime.utcfromtimestamp(1).replace(
         tzinfo=timezone.utc
     )
     assert contact.device_info["name"] == "Kippy Rex"
-    fix = KippyFixTimeSensor(coord, pet)
+    fix = KippyLastFixSensor(coord, pet)
     assert fix.native_value is None
-    gps = KippyGpsTimeSensor(coord, pet)
+    gps = KippyLastGpsFixSensor(coord, pet)
     assert gps.native_value == datetime.utcfromtimestamp(2).replace(tzinfo=timezone.utc)
-    lbs = KippyLbsTimeSensor(coord, pet)
+    lbs = KippyLastLbsFixSensor(coord, pet)
     assert lbs.native_value == datetime.utcfromtimestamp(3).replace(tzinfo=timezone.utc)
 
 
-def test_next_call_time_sensor_native_value() -> None:
-    """Next call time uses contact time and update frequency."""
+def test_next_contact_sensor_native_value() -> None:
+    """Next contact uses contact time and update frequency."""
     coord = MagicMock()
     coord.data = {"contact_time": 10}
     base_coord = MagicMock()
@@ -336,7 +336,7 @@ def test_next_call_time_sensor_native_value() -> None:
         return MagicMock()
 
     base_coord.async_add_listener.side_effect = add_listener
-    sensor = KippyNextCallTimeSensor(coord, base_coord, pet)
+    sensor = KippyNextContactSensor(coord, base_coord, pet)
     assert sensor.native_value == datetime.fromtimestamp(10 + 5 * 3600, timezone.utc)
 
     coord.data = {"contact_time": None}
@@ -350,7 +350,7 @@ def test_next_call_time_sensor_native_value() -> None:
     assert sensor.native_value is None
 
 
-def test_next_call_time_sensor_updates_on_frequency_change() -> None:
+def test_next_contact_sensor_updates_on_frequency_change() -> None:
     """Sensor updates when the GPS update frequency changes."""
     coord = MagicMock()
     coord.data = {"contact_time": 10}
@@ -363,7 +363,7 @@ def test_next_call_time_sensor_updates_on_frequency_change() -> None:
         return MagicMock()
 
     base_coord.async_add_listener.side_effect = add_listener
-    sensor = KippyNextCallTimeSensor(coord, base_coord, pet)
+    sensor = KippyNextContactSensor(coord, base_coord, pet)
     sensor.hass = MagicMock()
     sensor.async_write_ha_state = MagicMock()
     assert sensor.native_value == datetime.fromtimestamp(10 + 5 * 3600, timezone.utc)
