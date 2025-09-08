@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.persistent_notification import DOMAIN as PN_DOMAIN
+from homeassistant.components.frontend import DOMAIN as FRONTEND_DOMAIN
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -177,8 +177,8 @@ class KippyEnergySavingSwitch(
             return
 
         await self.hass.services.async_call(
-            PN_DOMAIN,
-            "create",
+            FRONTEND_DOMAIN,
+            "show-toast",
             {"title": self.name, "message": f"Update will apply in {time_text}."},
             blocking=False,
         )

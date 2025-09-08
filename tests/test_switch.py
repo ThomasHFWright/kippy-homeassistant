@@ -3,11 +3,9 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-from homeassistant.components import persistent_notification as pn
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
-from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 
 from custom_components.kippy.const import (
@@ -138,7 +136,6 @@ async def test_energy_saving_switch_calls_api() -> None:
 @pytest.mark.asyncio
 async def test_energy_saving_switch_notifies_delay(hass: HomeAssistant) -> None:
     """Energy saving switch notifies how long until changes apply."""
-    await async_setup_component(hass, pn.DOMAIN, {})
     now = datetime(2024, 1, 1, tzinfo=timezone.utc)
     pet = {
         "petID": "1",
@@ -171,14 +168,18 @@ async def test_energy_saving_switch_notifies_delay(hass: HomeAssistant) -> None:
 
     with patch("homeassistant.util.dt.now", return_value=now):
         expected = dt_util.get_time_remaining(next_call)
-        await switch.async_turn_on()
-    await hass.async_block_till_done()
+        with patch(
+            "homeassistant.core.ServiceRegistry.async_call", AsyncMock()
+        ) as mock_call:
+            await switch.async_turn_on()
+            await hass.async_block_till_done()
 
-    notifications = pn._async_get_or_create_notifications(hass)
-    assert len(notifications) == 1
-    notification = list(notifications.values())[0]
-    assert notification[pn.ATTR_MESSAGE] == f"Update will apply in {expected}."
-    assert notification[pn.ATTR_TITLE] == switch.name
+    mock_call.assert_awaited_once_with(
+        "frontend",
+        "show-toast",
+        {"title": switch.name, "message": f"Update will apply in {expected}."},
+        blocking=False,
+    )
 
 
 @pytest.mark.asyncio
