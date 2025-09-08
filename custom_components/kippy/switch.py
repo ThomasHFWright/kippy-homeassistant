@@ -135,6 +135,11 @@ class KippyEnergySavingSwitch(
                 int(kippy_id), energy_saving_mode=True
             )
         self._pet_data["energySavingMode"] = 1
+        if self._pet_data.get("energySavingModePending"):
+            self._pet_data["energySavingModePending"] = False
+        else:
+            self._pet_data["energySavingModePending"] = True
+        self.coordinator.async_set_updated_data(self.coordinator.data)
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -144,23 +149,43 @@ class KippyEnergySavingSwitch(
                 int(kippy_id), energy_saving_mode=False
             )
         self._pet_data["energySavingMode"] = 0
+        if self._pet_data.get("energySavingModePending"):
+            self._pet_data["energySavingModePending"] = False
+        else:
+            self._pet_data["energySavingModePending"] = True
+        self.coordinator.async_set_updated_data(self.coordinator.data)
         self.async_write_ha_state()
 
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):
             if pet.get("petID") == self._pet_id:
+                if (
+                    self._pet_data.get("energySavingModePending")
+                    and "energySavingModePending" not in pet
+                ):
+                    pet["energySavingModePending"] = self._pet_data[
+                        "energySavingModePending"
+                    ]
                 self._pet_data = pet
                 break
         super()._handle_coordinator_update()
 
     def _handle_map_update(self) -> None:
-        if (
-            self._map_coordinator.data
-            and self._map_coordinator.data.get("operating_status")
-            == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
-        ):
+        if not self._map_coordinator.data:
+            return
+        operating_status = self._map_coordinator.data.get("operating_status")
+        if operating_status == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]:
             if int(self._pet_data.get("energySavingMode", 0)) != 1:
                 self._pet_data["energySavingMode"] = 1
+            if self._pet_data.get("energySavingModePending"):
+                self._pet_data["energySavingModePending"] = False
+                self.coordinator.async_set_updated_data(self.coordinator.data)
+        elif (
+            self._pet_data.get("energySavingModePending")
+            and int(self._pet_data.get("energySavingMode", 0)) == 0
+        ):
+            self._pet_data["energySavingModePending"] = False
+            self.coordinator.async_set_updated_data(self.coordinator.data)
         self.async_write_ha_state()
 
     @property
