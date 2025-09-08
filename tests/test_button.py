@@ -7,7 +7,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.kippy.button import (
     KippyActivityCategoriesButton,
-    KippyPressButton,
+    KippyRefreshMapAttributesButton,
     KippyRefreshPetsButton,
     async_setup_entry,
 )
@@ -15,28 +15,28 @@ from custom_components.kippy.const import DOMAIN
 
 
 @pytest.mark.asyncio
-async def test_press_button_calls_api_and_processes_data() -> None:
-    """Pressing button triggers API call and processes returned data."""
+async def test_refresh_map_attributes_button_calls_api_and_processes_data() -> None:
+    """Refresh Map Attributes button triggers API call and processes returned data."""
     coordinator = MagicMock()
     coordinator.api.kippymap_action = AsyncMock(return_value={"ok": True})
     coordinator.process_new_data = MagicMock()
     coordinator.kippy_id = 5
     pet = {"petID": 5, "petName": "Rex"}
-    button = KippyPressButton(coordinator, pet)
+    button = KippyRefreshMapAttributesButton(coordinator, pet)
     await button.async_press()
     coordinator.api.kippymap_action.assert_called_once_with(5)
     coordinator.process_new_data.assert_called_once_with({"ok": True})
 
 
 @pytest.mark.asyncio
-async def test_press_button_propagates_error() -> None:
+async def test_refresh_map_attributes_button_propagates_error() -> None:
     """Exceptions from API are not swallowed."""
     coordinator = MagicMock()
     coordinator.api.kippymap_action = AsyncMock(side_effect=RuntimeError)
     coordinator.process_new_data = MagicMock()
     coordinator.kippy_id = 5
     pet = {"petID": 5}
-    button = KippyPressButton(coordinator, pet)
+    button = KippyRefreshMapAttributesButton(coordinator, pet)
     with pytest.raises(RuntimeError):
         await button.async_press()
 
@@ -65,7 +65,7 @@ async def test_activity_button_propagates_error() -> None:
 
 @pytest.mark.asyncio
 async def test_button_async_setup_entry_creates_entities() -> None:
-    """async_setup_entry adds press and activity buttons for each pet."""
+    """async_setup_entry adds refresh map attributes and activity buttons for each pet."""
     hass = MagicMock()
     entry = MagicMock()
     entry.entry_id = "1"
@@ -86,7 +86,7 @@ async def test_button_async_setup_entry_creates_entities() -> None:
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
-    assert any(isinstance(e, KippyPressButton) for e in entities)
+    assert any(isinstance(e, KippyRefreshMapAttributesButton) for e in entities)
     assert any(isinstance(e, KippyActivityCategoriesButton) for e in entities)
     assert any(isinstance(e, KippyRefreshPetsButton) for e in entities)
 
@@ -176,8 +176,8 @@ def test_button_device_info_properties() -> None:
     """Device info includes pet identifiers and name."""
     coordinator = MagicMock()
     pet = {"petID": 7, "kippyID": 9, "petName": "Rex"}
-    press = KippyPressButton(coordinator, pet)
-    info = press.device_info
+    refresh = KippyRefreshMapAttributesButton(coordinator, pet)
+    info = refresh.device_info
     assert info["name"] == "Kippy Rex"
     assert (DOMAIN, "7") in info["identifiers"]
 
