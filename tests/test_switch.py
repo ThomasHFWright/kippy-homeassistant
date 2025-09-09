@@ -237,7 +237,7 @@ async def test_ignore_lbs_switch_toggles_coordinator() -> None:
 
 @pytest.mark.asyncio
 async def test_gps_switch_calls_api() -> None:
-    """GPS tracking switch toggles via API."""
+    """GPS activation switch toggles via API."""
     pet = {"petID": 1, "petName": "Rex", "gpsOnDefault": 1, "kippyID": 1}
     coordinator = MagicMock()
     coordinator.data = {"pets": [pet]}
@@ -277,7 +277,7 @@ async def test_energy_saving_switch_api_error() -> None:
 
 @pytest.mark.asyncio
 async def test_gps_switch_api_error() -> None:
-    """Errors from API propagate for GPS switch."""
+    """Errors from API propagate for GPS activation switch."""
 
     pet = {"petID": 1, "gpsOnDefault": 1, "kippyID": 1}
     coordinator = MagicMock()
@@ -313,7 +313,7 @@ async def test_energy_saving_switch_no_kippy_id() -> None:
 
 @pytest.mark.asyncio
 async def test_gps_switch_no_kippy_id() -> None:
-    """GPS switch toggles without API when kippy ID missing."""
+    """GPS activation switch toggles without API when kippy ID missing."""
 
     pet = {"petID": 1, "gpsOnDefault": 0}
     coordinator = MagicMock()

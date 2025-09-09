@@ -86,7 +86,7 @@
         }
       },
       "gps_on_default": {
-        "name": "GPS tracking",
+        "name": "GPS Activation",
         "state": {
           "on": "On",
           "off": "Off"
