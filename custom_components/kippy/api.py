@@ -8,6 +8,7 @@ import json
 import logging
 import ssl
 from datetime import datetime, timedelta
+from homeassistant.util import dt as dt_util
 from typing import Any, Dict, Optional, cast
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
@@ -528,12 +529,10 @@ class KippyApi:
         start = datetime.strptime(from_date, "%Y-%m-%d")
         end = datetime.strptime(to_date, "%Y-%m-%d")
 
-        start_ts = int(
-            start.replace(tzinfo=datetime.now().astimezone().tzinfo).timestamp()
-        )
-        end_ts = int(end.replace(tzinfo=datetime.now().astimezone().tzinfo).timestamp())
+        start_ts = int(start.replace(tzinfo=dt_util.now().tzinfo).timestamp())
+        end_ts = int(end.replace(tzinfo=dt_util.now().tzinfo).timestamp())
 
-        tz_hours = _tz_hours(start.replace(tzinfo=datetime.now().astimezone().tzinfo))
+        tz_hours = _tz_hours(start.replace(tzinfo=dt_util.now().tzinfo))
 
         weeks_param = _weeks_param(start, end)
 
