@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Ensure system trust store is present for network operations
 apt-get update
-apt-get install -y ca-certificates
+apt-get install -y ca-certificates libturbojpeg
 update-ca-certificates
 
 PY_VERSION="3.13.3"
