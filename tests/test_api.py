@@ -9,7 +9,7 @@ fake API live in ``test_api_fake.py``.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -121,7 +121,7 @@ async def test_kippymap_action_and_activity_categories(api) -> None:
     assert isinstance(location, dict)
 
     pet_id = pet.get("petID") or pet.get("id")
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
     to_date = today.strftime("%Y-%m-%d")
     activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
@@ -164,7 +164,7 @@ async def test_kippymap_action_and_activity_categories_inactive_subscription(api
     assert isinstance(location, dict)
 
     pet_id = inactive.get("petID") or inactive.get("id")
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
     to_date = today.strftime("%Y-%m-%d")
     activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)

@@ -155,7 +155,7 @@ async def test_run_sensor_uses_configured_unit() -> None:
     hass = MagicMock()
     hass.config.units.get_converted_unit.return_value = UnitOfTime.HOURS
     coord = MagicMock()
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coord.get_activities.return_value = [{"date": today, "run": 60}]
     sensor = KippyRunSensor(coord, {"petID": 1})
     sensor.hass = hass
@@ -381,7 +381,7 @@ def test_activity_sensor_handles_cat_and_dog_data() -> None:
     api_coord = MagicMock()
     api_coord.get_activities = MagicMock()
     coord = MagicMock()
-    today = datetime.utcnow()
+    today = datetime.now(timezone.utc)
     today_code = today.strftime("%Y%m%d")
     coord.get_activities = MagicMock(
         return_value=[

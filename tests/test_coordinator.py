@@ -1,6 +1,6 @@
 import asyncio
-from datetime import timedelta
-from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -153,14 +153,28 @@ async def test_activity_coordinator_update_and_refresh() -> None:
     api.get_activity_categories = AsyncMock(
         return_value={"activities": 1, "avg": 2, "health": 3}
     )
-    coord = KippyActivityCategoriesDataUpdateCoordinator(hass, MagicMock(), api, [1])
-    data = await coord._async_update_data()
-    assert data[1]["avg"] == 2
-    api.get_activity_categories.side_effect = Exception
-    with pytest.raises(UpdateFailed):
-        await coord._async_update_data()
-    api.get_activity_categories.side_effect = None
-    await coord.async_refresh_pet(1)
+    fake_now = datetime(2020, 1, 2, 12, 0, tzinfo=timezone.utc)
+
+    class FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fake_now if tz is None else fake_now.astimezone(tz)
+
+    with patch("custom_components.kippy.coordinator.datetime", FakeDatetime):
+        coord = KippyActivityCategoriesDataUpdateCoordinator(
+            hass, MagicMock(), api, [1]
+        )
+        data = await coord._async_update_data()
+        api.get_activity_categories.assert_awaited_with(
+            1, "2020-01-02", "2020-01-03", 1, 1
+        )
+        assert data[1]["avg"] == 2
+        api.get_activity_categories.side_effect = Exception
+        with pytest.raises(UpdateFailed):
+            await coord._async_update_data()
+        api.get_activity_categories.side_effect = None
+        await coord.async_refresh_pet(1)
+
     assert coord.get_activities(1) == 1
     assert coord.get_avg(1) == 2
     assert coord.get_health(1) == 3

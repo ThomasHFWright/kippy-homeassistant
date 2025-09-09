@@ -14,9 +14,9 @@ async def test_pet_setup_end_to_end(
     hass: HomeAssistant, enable_custom_integrations
 ) -> None:
     """Test full integration setup and sensor values for a pet."""
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
-    now = datetime.utcnow()
-    ts = int(now.timestamp())
+    today = datetime.now(timezone.utc)
+    today_str = today.strftime("%Y-%m-%d")
+    ts = int(today.timestamp())
 
     pets = [
         {
