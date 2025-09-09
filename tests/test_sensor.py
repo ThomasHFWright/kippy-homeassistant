@@ -15,19 +15,20 @@ from custom_components.kippy.const import (
 )
 from custom_components.kippy.sensor import (
     KippyBatterySensor,
-    KippyLastContactSensor,
-    KippyNextContactSensor,
+    KippyEnergySavingStatusSensor,
     KippyExpiredDaysSensor,
-    KippyLastFixSensor,
-    KippyLastGpsFixSensor,
+    KippyHomeDistanceSensor,
     KippyIDSensor,
     KippyIMEISensor,
+    KippyLastContactSensor,
+    KippyLastFixSensor,
+    KippyLastGpsFixSensor,
     KippyLastLbsFixSensor,
     KippyLocalizationTechnologySensor,
+    KippyNextContactSensor,
     KippyOperatingStatusSensor,
-    KippyEnergySavingStatusSensor,
-    KippyHomeDistanceSensor,
     KippyPetTypeSensor,
+    KippyPlaySensor,
     KippyRunSensor,
     KippyStepsSensor,
     async_setup_entry,
@@ -151,17 +152,18 @@ async def test_home_distance_sensor_uses_configured_unit() -> None:
 
 @pytest.mark.asyncio
 async def test_run_sensor_uses_configured_unit() -> None:
-    """Run sensor converts minutes to configured time unit."""
+    """Run sensor converts minutes to configured time unit and suggests hours."""
     hass = MagicMock()
     hass.config.units.get_converted_unit.return_value = UnitOfTime.HOURS
     coord = MagicMock()
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     coord.get_activities.return_value = [{"date": today, "run": 60}]
     sensor = KippyRunSensor(coord, {"petID": 1})
     sensor.hass = hass
     expected = DurationConverter.convert(60, UnitOfTime.MINUTES, UnitOfTime.HOURS)
     assert sensor.native_unit_of_measurement == UnitOfTime.HOURS
     assert sensor.native_value == expected
+    assert sensor.suggested_unit_of_measurement == UnitOfTime.HOURS
 
 
 @pytest.mark.asyncio
@@ -190,6 +192,7 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
     assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
     assert any(isinstance(e, KippyNextContactSensor) for e in entities)
     assert any(isinstance(e, KippyHomeDistanceSensor) for e in entities)
+    assert any(isinstance(e, KippyPlaySensor) for e in entities)
 
 
 @pytest.mark.asyncio
@@ -381,7 +384,7 @@ def test_activity_sensor_handles_cat_and_dog_data() -> None:
     api_coord = MagicMock()
     api_coord.get_activities = MagicMock()
     coord = MagicMock()
-    today = datetime.utcnow()
+    today = datetime.now(timezone.utc)
     today_code = today.strftime("%Y%m%d")
     coord.get_activities = MagicMock(
         return_value=[
