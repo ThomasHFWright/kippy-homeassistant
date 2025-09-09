@@ -29,6 +29,7 @@ from custom_components.kippy.sensor import (
     KippyHomeDistanceSensor,
     KippyPetTypeSensor,
     KippyRunSensor,
+    KippyPlaySensor,
     KippyStepsSensor,
     async_setup_entry,
 )
@@ -190,6 +191,7 @@ async def test_sensor_async_setup_entry_creates_entities() -> None:
     assert any(isinstance(e, KippyExpiredDaysSensor) for e in entities)
     assert any(isinstance(e, KippyNextContactSensor) for e in entities)
     assert any(isinstance(e, KippyHomeDistanceSensor) for e in entities)
+    assert any(isinstance(e, KippyPlaySensor) for e in entities)
 
 
 @pytest.mark.asyncio

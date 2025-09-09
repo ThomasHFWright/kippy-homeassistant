@@ -79,6 +79,13 @@ async def async_setup_entry(
                     KippyWalkSensor(activity_coordinator, pet),
                     KippySleepSensor(activity_coordinator, pet),
                     KippyRestSensor(activity_coordinator, pet),
+                    KippyPlaySensor(activity_coordinator, pet),
+                    KippyRelaxSensor(activity_coordinator, pet),
+                    KippyJumpsSensor(activity_coordinator, pet),
+                    KippyClimbSensor(activity_coordinator, pet),
+                    KippyGroomingSensor(activity_coordinator, pet),
+                    KippyEatSensor(activity_coordinator, pet),
+                    KippyDrinkSensor(activity_coordinator, pet),
                 ]
             )
 
@@ -467,6 +474,125 @@ class KippyRestSensor(_KippyActivitySensor):
             pet,
             "rest",
             "Rest",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
+
+
+class KippyPlaySensor(_KippyActivitySensor):
+    """Sensor for daily play minutes."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        super().__init__(
+            coordinator,
+            pet,
+            "play",
+            "Play",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
+
+
+class KippyRelaxSensor(_KippyActivitySensor):
+    """Sensor for daily relax minutes."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        super().__init__(
+            coordinator,
+            pet,
+            "relax",
+            "Relax",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
+
+
+class KippyJumpsSensor(_KippyActivitySensor):
+    """Sensor for daily jump count."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        super().__init__(coordinator, pet, "jumps", "Jumps", "jumps")
+
+
+class KippyClimbSensor(_KippyActivitySensor):
+    """Sensor for daily climb minutes."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        super().__init__(
+            coordinator,
+            pet,
+            "climb",
+            "Climb",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
+
+
+class KippyGroomingSensor(_KippyActivitySensor):
+    """Sensor for daily grooming minutes."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        super().__init__(
+            coordinator,
+            pet,
+            "grooming",
+            "Grooming",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
+
+
+class KippyEatSensor(_KippyActivitySensor):
+    """Sensor for daily eating minutes."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        super().__init__(
+            coordinator,
+            pet,
+            "eat",
+            "Eat",
+            UnitOfTime.MINUTES,
+            SensorDeviceClass.DURATION,
+        )
+
+
+class KippyDrinkSensor(_KippyActivitySensor):
+    """Sensor for daily drinking minutes."""
+
+    def __init__(
+        self,
+        coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet: dict[str, Any],
+    ) -> None:
+        super().__init__(
+            coordinator,
+            pet,
+            "drink",
+            "Drink",
             UnitOfTime.MINUTES,
             SensorDeviceClass.DURATION,
         )

@@ -60,6 +60,13 @@ async def test_pet_setup_end_to_end(
                 "walk": 20,
                 "sleep": 30,
                 "rest": 40,
+                "play": 50,
+                "relax": 60,
+                "jumps": 70,
+                "climb": 80,
+                "grooming": 90,
+                "eat": 100,
+                "drink": 110,
             }
         ]
     }
@@ -110,6 +117,13 @@ async def test_pet_setup_end_to_end(
         "sensor.rex_walk": "20",
         "sensor.rex_sleep": "30",
         "sensor.rex_rest": "40",
+        "sensor.rex_play": "50",
+        "sensor.rex_relax": "60",
+        "sensor.rex_jumps": "70",
+        "sensor.rex_climb": "80",
+        "sensor.rex_grooming": "90",
+        "sensor.rex_eat": "100",
+        "sensor.rex_drink": "110",
     }
 
     for entity_id, value in expected_states.items():
