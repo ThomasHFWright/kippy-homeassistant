@@ -124,7 +124,7 @@ async def test_kippymap_action_and_activity_categories(api) -> None:
     today = datetime.now(timezone.utc).date()
     from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
     to_date = today.strftime("%Y-%m-%d")
-    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
+    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 2, 1)
     assert isinstance(activity, dict)
 
 @pytest.mark.asyncio
@@ -167,7 +167,7 @@ async def test_kippymap_action_and_activity_categories_inactive_subscription(api
     today = datetime.now(timezone.utc).date()
     from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
     to_date = today.strftime("%Y-%m-%d")
-    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 1, 1)
+    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 2, 1)
     assert isinstance(activity, dict)
 
 @pytest.mark.asyncio

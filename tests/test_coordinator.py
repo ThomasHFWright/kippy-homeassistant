@@ -166,7 +166,7 @@ async def test_activity_coordinator_update_and_refresh() -> None:
         )
         data = await coord._async_update_data()
         api.get_activity_categories.assert_awaited_with(
-            1, "2020-01-02", "2020-01-03", 1, 1
+            1, "2020-01-02", "2020-01-03", 2, 1
         )
         assert data[1]["avg"] == 2
         api.get_activity_categories.side_effect = Exception

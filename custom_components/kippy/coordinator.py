@@ -183,7 +183,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             for pet_id in self.pet_ids:
                 data[pet_id] = await self.api.get_activity_categories(
-                    pet_id, from_date, to_date, 1, 1
+                    pet_id, from_date, to_date, 2, 1
                 )
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"Error communicating with API: {err}") from err
@@ -195,7 +195,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         from_date = now.strftime("%Y-%m-%d")
         to_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
         result = await self.api.get_activity_categories(
-            pet_id, from_date, to_date, 1, 1
+            pet_id, from_date, to_date, 2, 1
         )
         new_data = dict(self.data or {})
         new_data[pet_id] = result

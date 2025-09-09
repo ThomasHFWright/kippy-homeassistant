@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
@@ -85,7 +85,9 @@ async def test_pet_setup_end_to_end(
     api.login.assert_awaited_once_with("a", "b")
     api.get_pet_kippy_list.assert_awaited_once()
     api.kippymap_action.assert_awaited_once_with(123)
-    api.get_activity_categories.assert_awaited_once()
+    api.get_activity_categories.assert_awaited_once_with(
+        1, today_str, (today + timedelta(days=1)).strftime("%Y-%m-%d"), 2, 1
+    )
 
     data = hass.data[DOMAIN][entry.entry_id]
     assert set(data["map_coordinators"].keys()) == {1}
