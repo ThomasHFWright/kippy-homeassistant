@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
@@ -14,9 +14,9 @@ async def test_pet_setup_end_to_end(
     hass: HomeAssistant, enable_custom_integrations
 ) -> None:
     """Test full integration setup and sensor values for a pet."""
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
-    now = datetime.utcnow()
-    ts = int(now.timestamp())
+    today = datetime.now(timezone.utc)
+    today_str = today.strftime("%Y-%m-%d")
+    ts = int(today.timestamp())
 
     pets = [
         {
@@ -60,6 +60,13 @@ async def test_pet_setup_end_to_end(
                 "walk": 20,
                 "sleep": 30,
                 "rest": 40,
+                "play": 50,
+                "relax": 60,
+                "jumps": 70,
+                "climb": 80,
+                "grooming": 90,
+                "eat": 100,
+                "drink": 110,
             }
         ]
     }
@@ -85,7 +92,9 @@ async def test_pet_setup_end_to_end(
     api.login.assert_awaited_once_with("a", "b")
     api.get_pet_kippy_list.assert_awaited_once()
     api.kippymap_action.assert_awaited_once_with(123)
-    api.get_activity_categories.assert_awaited_once()
+    api.get_activity_categories.assert_awaited_once_with(
+        1, today_str, (today + timedelta(days=1)).strftime("%Y-%m-%d"), 2, 1
+    )
 
     data = hass.data[DOMAIN][entry.entry_id]
     assert set(data["map_coordinators"].keys()) == {1}
@@ -108,6 +117,13 @@ async def test_pet_setup_end_to_end(
         "sensor.rex_walk": "20",
         "sensor.rex_sleep": "30",
         "sensor.rex_rest": "40",
+        "sensor.rex_play": "50",
+        "sensor.rex_relax": "60",
+        "sensor.rex_jumps": "70",
+        "sensor.rex_climb": "80",
+        "sensor.rex_grooming": "90",
+        "sensor.rex_eat": "100",
+        "sensor.rex_drink": "110",
     }
 
     for entity_id, value in expected_states.items():
