@@ -15,19 +15,20 @@ from custom_components.kippy.const import (
 )
 from custom_components.kippy.sensor import (
     KippyBatterySensor,
-    KippyLastContactSensor,
-    KippyNextContactSensor,
+    KippyEnergySavingStatusSensor,
     KippyExpiredDaysSensor,
-    KippyLastFixSensor,
-    KippyLastGpsFixSensor,
+    KippyHomeDistanceSensor,
     KippyIDSensor,
     KippyIMEISensor,
+    KippyLastContactSensor,
+    KippyLastFixSensor,
+    KippyLastGpsFixSensor,
     KippyLastLbsFixSensor,
     KippyLocalizationTechnologySensor,
+    KippyNextContactSensor,
     KippyOperatingStatusSensor,
-    KippyEnergySavingStatusSensor,
-    KippyHomeDistanceSensor,
     KippyPetTypeSensor,
+    KippyPlaySensor,
     KippyRunSensor,
     KippyPlaySensor,
     KippyStepsSensor,
@@ -152,7 +153,7 @@ async def test_home_distance_sensor_uses_configured_unit() -> None:
 
 @pytest.mark.asyncio
 async def test_run_sensor_uses_configured_unit() -> None:
-    """Run sensor converts minutes to configured time unit."""
+    """Run sensor converts minutes to configured time unit and suggests hours."""
     hass = MagicMock()
     hass.config.units.get_converted_unit.return_value = UnitOfTime.HOURS
     coord = MagicMock()
@@ -163,6 +164,7 @@ async def test_run_sensor_uses_configured_unit() -> None:
     expected = DurationConverter.convert(60, UnitOfTime.MINUTES, UnitOfTime.HOURS)
     assert sensor.native_unit_of_measurement == UnitOfTime.HOURS
     assert sensor.native_value == expected
+    assert sensor.suggested_unit_of_measurement == UnitOfTime.HOURS
 
 
 @pytest.mark.asyncio

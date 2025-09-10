@@ -1,4 +1,5 @@
 """Sensor platform for Kippy pets."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -17,14 +18,9 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.location import distance as location_distance
 from homeassistant.util.unit_conversion import DistanceConverter, DurationConverter
+from homeassistant.util import dt as dt_util
 
-from .const import (
-    DOMAIN,
-    LABEL_EXPIRED,
-    LOCALIZATION_TECHNOLOGY_GPS,
-    LOCALIZATION_TECHNOLOGY_LBS,
-    PET_KIND_TO_TYPE,
-)
+from .const import DOMAIN, LABEL_EXPIRED, LOCALIZATION_TECHNOLOGY_GPS, PET_KIND_TO_TYPE
 from .coordinator import (
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
@@ -168,9 +164,7 @@ class KippyExpiredDaysSensor(_KippyBaseEntity, SensorEntity):
         remaining = abs(days)
         target_unit = self.native_unit_of_measurement or self._source_unit
         if target_unit != self._source_unit:
-            return DurationConverter.convert(
-                remaining, self._source_unit, target_unit
-            )
+            return DurationConverter.convert(remaining, self._source_unit, target_unit)
         return remaining
 
 
@@ -252,6 +246,8 @@ class _KippyActivitySensor(
         self._attr_state_class = SensorStateClass.MEASUREMENT
         if device_class:
             self._attr_device_class = device_class
+        if device_class == SensorDeviceClass.DURATION:
+            self._attr_suggested_unit_of_measurement = UnitOfTime.HOURS
         self._date: str | None = None
 
     @property
@@ -271,7 +267,7 @@ class _KippyActivitySensor(
         activities = self.coordinator.get_activities(self._pet_id)
         if not activities:
             return None
-        today = datetime.now().astimezone()
+        today = dt_util.now()
         value: Any = None
 
         # Cat trackers return data grouped by activity rather than by day.
@@ -408,7 +404,7 @@ class KippyCaloriesSensor(_KippyActivitySensor):
 
 
 class KippyRunSensor(_KippyActivitySensor):
-    """Sensor for daily running minutes."""
+    """Sensor for daily running time."""
 
     def __init__(
         self,
@@ -426,7 +422,7 @@ class KippyRunSensor(_KippyActivitySensor):
 
 
 class KippyWalkSensor(_KippyActivitySensor):
-    """Sensor for daily walking minutes."""
+    """Sensor for daily walking time."""
 
     def __init__(
         self,
@@ -444,7 +440,7 @@ class KippyWalkSensor(_KippyActivitySensor):
 
 
 class KippySleepSensor(_KippyActivitySensor):
-    """Sensor for daily sleep minutes."""
+    """Sensor for daily sleep time."""
 
     def __init__(
         self,
@@ -462,7 +458,7 @@ class KippySleepSensor(_KippyActivitySensor):
 
 
 class KippyRestSensor(_KippyActivitySensor):
-    """Sensor for daily rest minutes."""
+    """Sensor for daily rest time."""
 
     def __init__(
         self,
@@ -480,7 +476,7 @@ class KippyRestSensor(_KippyActivitySensor):
 
 
 class KippyPlaySensor(_KippyActivitySensor):
-    """Sensor for daily play minutes."""
+    """Sensor for daily play time."""
 
     def __init__(
         self,
@@ -498,7 +494,7 @@ class KippyPlaySensor(_KippyActivitySensor):
 
 
 class KippyRelaxSensor(_KippyActivitySensor):
-    """Sensor for daily relax minutes."""
+    """Sensor for daily relax time."""
 
     def __init__(
         self,
@@ -527,7 +523,7 @@ class KippyJumpsSensor(_KippyActivitySensor):
 
 
 class KippyClimbSensor(_KippyActivitySensor):
-    """Sensor for daily climb minutes."""
+    """Sensor for daily climbing time."""
 
     def __init__(
         self,
@@ -545,7 +541,7 @@ class KippyClimbSensor(_KippyActivitySensor):
 
 
 class KippyGroomingSensor(_KippyActivitySensor):
-    """Sensor for daily grooming minutes."""
+    """Sensor for daily grooming time."""
 
     def __init__(
         self,
@@ -563,7 +559,7 @@ class KippyGroomingSensor(_KippyActivitySensor):
 
 
 class KippyEatSensor(_KippyActivitySensor):
-    """Sensor for daily eating minutes."""
+    """Sensor for daily eating time."""
 
     def __init__(
         self,
@@ -581,7 +577,7 @@ class KippyEatSensor(_KippyActivitySensor):
 
 
 class KippyDrinkSensor(_KippyActivitySensor):
-    """Sensor for daily drinking minutes."""
+    """Sensor for daily drinking time."""
 
     def __init__(
         self,
@@ -723,9 +719,7 @@ class KippyNextContactSensor(_KippyBaseMapEntity, SensorEntity):
         super().__init__(coordinator, pet)
         self._base_coordinator = base_coordinator
         self._base_unsub: Callable[[], None] | None = None
-        self._base_unsub = base_coordinator.async_add_listener(
-            self._handle_base_update
-        )
+        self._base_unsub = base_coordinator.async_add_listener(self._handle_base_update)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Next Contact" if pet_name else "Next Contact"
         self._attr_unique_id = f"{self._pet_id}_next_contact"
@@ -810,9 +804,7 @@ class KippyLastLbsFixSensor(_KippyBaseMapEntity, SensorEntity):
     ) -> None:
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
-        self._attr_name = (
-            f"{pet_name} Last LBS Fix" if pet_name else "Last LBS Fix"
-        )
+        self._attr_name = f"{pet_name} Last LBS Fix" if pet_name else "Last LBS Fix"
         self._attr_unique_id = f"{self._pet_id}_last_lbs_fix"
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -935,6 +927,4 @@ class KippyHomeDistanceSensor(
         if dist_m is None:
             return None
         target_unit = self.native_unit_of_measurement
-        return DistanceConverter.convert(
-            dist_m, UnitOfLength.METERS, target_unit
-        )
+        return DistanceConverter.convert(dist_m, UnitOfLength.METERS, target_unit)

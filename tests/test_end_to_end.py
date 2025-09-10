@@ -1,9 +1,10 @@
-import pytest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
-from datetime import datetime, timezone, timedelta
 
-from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+import pytest
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.util.unit_conversion import DurationConverter
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy.const import DOMAIN, OPERATING_STATUS, PET_KIND_TO_TYPE
@@ -99,6 +100,17 @@ async def test_pet_setup_end_to_end(
     data = hass.data[DOMAIN][entry.entry_id]
     assert set(data["map_coordinators"].keys()) == {1}
 
+    run = DurationConverter.convert(10, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    walk = DurationConverter.convert(20, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    sleep = DurationConverter.convert(30, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    rest = DurationConverter.convert(40, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    play = DurationConverter.convert(50, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    relax = DurationConverter.convert(60, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    climb = DurationConverter.convert(80, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    grooming = DurationConverter.convert(90, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    eat = DurationConverter.convert(100, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+    drink = DurationConverter.convert(110, UnitOfTime.MINUTES, UnitOfTime.HOURS)
+
     expected_states = {
         "sensor.rex_days_until_expiry": "5",
         "sensor.rex_kippy_id": "123",
@@ -108,28 +120,40 @@ async def test_pet_setup_end_to_end(
         "sensor.rex_localization_technology": "GPS",
         "sensor.rex_last_contact": datetime.fromtimestamp(ts, timezone.utc).isoformat(),
         "sensor.rex_last_fix": datetime.fromtimestamp(ts - 1, timezone.utc).isoformat(),
-        "sensor.rex_last_gps_fix": datetime.fromtimestamp(ts - 2, timezone.utc).isoformat(),
-        "sensor.rex_last_lbs_fix": datetime.fromtimestamp(ts - 3, timezone.utc).isoformat(),
+        "sensor.rex_last_gps_fix": datetime.fromtimestamp(
+            ts - 2, timezone.utc
+        ).isoformat(),
+        "sensor.rex_last_lbs_fix": datetime.fromtimestamp(
+            ts - 3, timezone.utc
+        ).isoformat(),
         "sensor.rex_operating_status": "idle",
         "sensor.rex_steps": "1000",
         "sensor.rex_calories": "200",
-        "sensor.rex_run": "10",
-        "sensor.rex_walk": "20",
-        "sensor.rex_sleep": "30",
-        "sensor.rex_rest": "40",
-        "sensor.rex_play": "50",
-        "sensor.rex_relax": "60",
         "sensor.rex_jumps": "70",
-        "sensor.rex_climb": "80",
-        "sensor.rex_grooming": "90",
-        "sensor.rex_eat": "100",
-        "sensor.rex_drink": "110",
     }
 
     for entity_id, value in expected_states.items():
         state = hass.states.get(entity_id)
         assert state is not None, f"Missing entity {entity_id}"
         assert state.state == value
+
+    time_states = {
+        "sensor.rex_run": run,
+        "sensor.rex_walk": walk,
+        "sensor.rex_sleep": sleep,
+        "sensor.rex_rest": rest,
+        "sensor.rex_play": play,
+        "sensor.rex_relax": relax,
+        "sensor.rex_climb": climb,
+        "sensor.rex_grooming": grooming,
+        "sensor.rex_eat": eat,
+        "sensor.rex_drink": drink,
+    }
+
+    for entity_id, value in time_states.items():
+        state = hass.states.get(entity_id)
+        assert state is not None, f"Missing entity {entity_id}"
+        assert float(state.state) == pytest.approx(value)
 
     assert hass.states.get("sensor.old_days_until_expiry").state == "Expired"
     assert hass.states.get("sensor.old_battery_level") is None

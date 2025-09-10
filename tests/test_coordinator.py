@@ -155,12 +155,7 @@ async def test_activity_coordinator_update_and_refresh() -> None:
     )
     fake_now = datetime(2020, 1, 2, 12, 0, tzinfo=timezone.utc)
 
-    class FakeDatetime(datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return fake_now if tz is None else fake_now.astimezone(tz)
-
-    with patch("custom_components.kippy.coordinator.datetime", FakeDatetime):
+    with patch("homeassistant.util.dt.now", return_value=fake_now):
         coord = KippyActivityCategoriesDataUpdateCoordinator(
             hass, MagicMock(), api, [1]
         )
