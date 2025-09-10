@@ -18,6 +18,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.location import distance as location_distance
 from homeassistant.util.unit_conversion import DistanceConverter, DurationConverter
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, LABEL_EXPIRED, LOCALIZATION_TECHNOLOGY_GPS, PET_KIND_TO_TYPE
 from .coordinator import (
@@ -266,7 +267,7 @@ class _KippyActivitySensor(
         activities = self.coordinator.get_activities(self._pet_id)
         if not activities:
             return None
-        today = datetime.now().astimezone()
+        today = dt_util.now()
         value: Any = None
 
         # Cat trackers return data grouped by activity rather than by day.

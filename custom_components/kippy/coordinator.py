@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import inspect
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -17,6 +17,7 @@ from .const import (
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
+from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict[int, dict[str, Any]]:
         """Fetch activity categories for all configured pets."""
-        now = datetime.now().astimezone()
+        now = dt_util.now()
         from_date = now.strftime("%Y-%m-%d")
         to_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
         data: dict[int, dict[str, Any]] = {}
@@ -191,7 +192,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_refresh_pet(self, pet_id: int) -> None:
         """Manually refresh activity data for a single pet."""
-        now = datetime.now().astimezone()
+        now = dt_util.now()
         from_date = now.strftime("%Y-%m-%d")
         to_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
         result = await self.api.get_activity_categories(
