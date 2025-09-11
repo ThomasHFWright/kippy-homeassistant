@@ -16,6 +16,15 @@
       }
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "activity_update_interval": "Activity update interval (minutes)"
+        }
+      }
+    }
+  },
   "exceptions": {
     "no_credentials": {
       "message": "No stored credentials; call login() first"

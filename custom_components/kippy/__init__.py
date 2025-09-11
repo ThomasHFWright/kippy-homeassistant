@@ -10,7 +10,12 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
-from .const import DOMAIN, PLATFORMS
+from .const import (
+    DOMAIN,
+    PLATFORMS,
+    CONF_ACTIVITY_UPDATE_INTERVAL,
+    DEFAULT_ACTIVITY_UPDATE_INTERVAL,
+)
 from .coordinator import (
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
@@ -52,8 +57,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             map_coordinators[pet["petID"]] = map_coordinator
             pet_ids.append(pet["petID"])
 
+        update_minutes = entry.options.get(
+            CONF_ACTIVITY_UPDATE_INTERVAL, DEFAULT_ACTIVITY_UPDATE_INTERVAL
+        )
         activity_coordinator = KippyActivityCategoriesDataUpdateCoordinator(
-            hass, entry, api, pet_ids
+            hass, entry, api, pet_ids, update_minutes
         )
         await activity_coordinator.async_config_entry_first_refresh()
     except Exception as err:  # noqa: BLE001

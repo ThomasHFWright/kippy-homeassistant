@@ -1303,3 +1303,13 @@ The script reads the same `homeassistant` version specified in
 - Runtime error strings reside in the `exceptions` section of
   `strings.json`/`translations/*` to keep them translatable while complying
   with hassfest.
+
+### SSL Certificate Failures
+
+- If a command fails with `urllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier>`,
+  network access is unavailable in this environment.
+- In that case, execute the offline fake API tests instead:
+
+```bash
+pytest tests/test_api_fake.py tests/test_api_unit.py
+```
