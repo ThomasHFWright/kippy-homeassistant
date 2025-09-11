@@ -161,7 +161,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         config_entry: ConfigEntry,
         api: KippyApi,
         pet_ids: list[int],
-        update_hours: int = 6,
+        update_minutes: int = 15,
     ) -> None:
         """Initialize the activity categories coordinator."""
         self.api = api
@@ -169,7 +169,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         self.pet_ids = pet_ids
         kwargs: dict[str, Any] = {
             "name": f"{DOMAIN}_activities",
-            "update_interval": timedelta(hours=update_hours),
+            "update_interval": timedelta(minutes=update_minutes),
         }
         if _HAS_CONFIG_ENTRY:
             kwargs["config_entry"] = config_entry

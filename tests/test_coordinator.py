@@ -159,6 +159,7 @@ async def test_activity_coordinator_update_and_refresh() -> None:
         coord = KippyActivityCategoriesDataUpdateCoordinator(
             hass, MagicMock(), api, [1]
         )
+        assert coord.update_interval == timedelta(minutes=15)
         data = await coord._async_update_data()
         api.get_activity_categories.assert_awaited_with(
             1, "2020-01-02", "2020-01-03", 2, 1
