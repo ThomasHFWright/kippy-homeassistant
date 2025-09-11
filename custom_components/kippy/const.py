@@ -6,9 +6,6 @@ from types import SimpleNamespace
 
 DOMAIN = "kippy"
 
-CONF_ACTIVITY_UPDATE_INTERVAL = "activity_update_interval"
-DEFAULT_ACTIVITY_UPDATE_INTERVAL = 15
-
 # The integration exposes multiple entity types. The list is kept
 # separate so ``async_forward_entry_setups`` can be used in ``__init__``.
 PLATFORMS: list[str] = [

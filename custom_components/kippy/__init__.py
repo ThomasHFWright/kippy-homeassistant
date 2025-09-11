@@ -1,20 +1,20 @@
 """The Kippy integration."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers.event import async_call_later
+from homeassistant.util import dt as dt_util
 
 from .api import KippyApi
 from .const import (
     DOMAIN,
     PLATFORMS,
-    CONF_ACTIVITY_UPDATE_INTERVAL,
-    DEFAULT_ACTIVITY_UPDATE_INTERVAL,
 )
 from .coordinator import (
     KippyActivityCategoriesDataUpdateCoordinator,
@@ -57,13 +57,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             map_coordinators[pet["petID"]] = map_coordinator
             pet_ids.append(pet["petID"])
 
-        update_minutes = entry.options.get(
-            CONF_ACTIVITY_UPDATE_INTERVAL, DEFAULT_ACTIVITY_UPDATE_INTERVAL
-        )
         activity_coordinator = KippyActivityCategoriesDataUpdateCoordinator(
-            hass, entry, api, pet_ids, update_minutes
+            hass, entry, api, pet_ids
         )
         await activity_coordinator.async_config_entry_first_refresh()
+
+        def _create_scheduler(pet_id: int, map_coord: KippyMapDataUpdateCoordinator) -> None:
+            cancel_cb: Callable[[], None] | None = None
+
+            def schedule() -> None:
+                nonlocal cancel_cb
+                if cancel_cb:
+                    cancel_cb()
+                    cancel_cb = None
+                contact = map_coord.data.get("contact_time") if map_coord.data else None
+                pet_data = next(
+                    (
+                        p
+                        for p in coordinator.data.get("pets", [])
+                        if p.get("petID") == pet_id
+                    ),
+                    {},
+                )
+                update_freq = pet_data.get("updateFrequency")
+                if contact is None or update_freq is None:
+                    return
+                try:
+                    next_ts = int(contact) + int(update_freq) * 3600 + map_coord.activity_refresh_delay
+                except (TypeError, ValueError):
+                    return
+                delay = max(0, next_ts - dt_util.utcnow().timestamp())
+
+                def _run(now):
+                    hass.async_create_task(activity_coordinator.async_refresh_pet(pet_id))
+                    hass.async_create_task(map_coord.async_request_refresh())
+
+                cancel_cb = async_call_later(hass, delay, _run)
+
+            map_coord.set_activity_refresh_scheduler(schedule)
+            map_coord.async_add_listener(schedule)
+            coordinator.async_add_listener(schedule)
+            entry.async_on_unload(lambda: cancel_cb() if cancel_cb else None)
+            schedule()
+
+        for pet_id, map_coord in map_coordinators.items():
+            _create_scheduler(pet_id, map_coord)
     except Exception as err:  # noqa: BLE001
         raise ConfigEntryNotReady from err
 

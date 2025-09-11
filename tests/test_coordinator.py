@@ -159,7 +159,7 @@ async def test_activity_coordinator_update_and_refresh() -> None:
         coord = KippyActivityCategoriesDataUpdateCoordinator(
             hass, MagicMock(), api, [1]
         )
-        assert coord.update_interval == timedelta(minutes=15)
+        assert coord.update_interval is None
         data = await coord._async_update_data()
         api.get_activity_categories.assert_awaited_with(
             1, "2020-01-02", "2020-01-03", 2, 1
@@ -174,6 +174,25 @@ async def test_activity_coordinator_update_and_refresh() -> None:
     assert coord.get_activities(1) == 1
     assert coord.get_avg(1) == 2
     assert coord.get_health(1) == 3
+
+
+@pytest.mark.asyncio
+async def test_activity_refresh_delay_calls_scheduler() -> None:
+    """Setting activity refresh delay invokes scheduler."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    api = MagicMock()
+    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), api, 1)
+    called = False
+
+    def schedule() -> None:
+        nonlocal called
+        called = True
+
+    coord.set_activity_refresh_scheduler(schedule)
+    await coord.async_set_activity_refresh_delay(180)
+    assert coord.activity_refresh_delay == 180
+    assert called
 
 
 def test_has_config_entry_branches(monkeypatch) -> None:

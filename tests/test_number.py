@@ -6,6 +6,7 @@ from custom_components.kippy.const import DOMAIN
 from custom_components.kippy.number import (
     KippyIdleUpdateFrequencyNumber,
     KippyLiveUpdateFrequencyNumber,
+    KippyActivityRefreshDelayNumber,
     KippyUpdateFrequencyNumber,
     async_setup_entry,
 )
@@ -149,6 +150,25 @@ async def test_idle_and_live_numbers() -> None:
 
 
 @pytest.mark.asyncio
+async def test_activity_refresh_delay_number() -> None:
+    """Activity refresh delay number interacts with coordinator."""
+    pet = {"petID": 1, "petName": "Rex"}
+    map_coordinator = MagicMock()
+    map_coordinator.activity_refresh_delay = 120
+    map_coordinator.async_set_activity_refresh_delay = AsyncMock()
+    map_coordinator.async_add_listener = MagicMock()
+
+    number = KippyActivityRefreshDelayNumber(map_coordinator, pet)
+    assert number.native_value == 2.0
+    number.async_write_ha_state = MagicMock()
+    await number.async_set_native_value(3)
+    map_coordinator.async_set_activity_refresh_delay.assert_awaited_once_with(180)
+    number.async_write_ha_state.assert_called_once()
+    info = number.device_info
+    assert (DOMAIN, "1") in info["identifiers"]
+
+
+@pytest.mark.asyncio
 async def test_number_async_setup_entry_creates_entities() -> None:
     """async_setup_entry adds number entities for each pet."""
     hass = MagicMock()
@@ -172,6 +192,7 @@ async def test_number_async_setup_entry_creates_entities() -> None:
     assert any(isinstance(e, KippyUpdateFrequencyNumber) for e in entities)
     assert any(isinstance(e, KippyIdleUpdateFrequencyNumber) for e in entities)
     assert any(isinstance(e, KippyLiveUpdateFrequencyNumber) for e in entities)
+    assert any(isinstance(e, KippyActivityRefreshDelayNumber) for e in entities)
 
 
 @pytest.mark.asyncio

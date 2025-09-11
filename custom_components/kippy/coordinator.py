@@ -4,7 +4,7 @@ from __future__ import annotations
 import inspect
 import logging
 from datetime import timedelta
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -73,6 +73,9 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.idle_refresh = idle_refresh
         self.live_refresh = live_refresh
         self.ignore_lbs = True
+        self.activity_refresh_delay = 120
+        self._activity_refresh_cb: Callable[[], None] | None = None
+        self._activity_refresh_unsub: Callable[[], None] | None = None
         kwargs: dict[str, Any] = {
             "name": f"{DOMAIN}_{kippy_id}_map",
             "update_interval": timedelta(seconds=self.idle_refresh),
@@ -151,6 +154,20 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             if operating_status == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
                 self.update_interval = timedelta(seconds=self.live_refresh)
 
+    def set_activity_refresh_scheduler(self, callback: Callable[[], None]) -> None:
+        """Register callback to schedule activity refresh."""
+        self._activity_refresh_cb = callback
+
+    def schedule_activity_refresh(self) -> None:
+        """Invoke the registered activity refresh scheduler."""
+        if self._activity_refresh_cb:
+            self._activity_refresh_cb()
+
+    async def async_set_activity_refresh_delay(self, value: int) -> None:
+        """Update activity refresh delay in seconds."""
+        self.activity_refresh_delay = value
+        self.schedule_activity_refresh()
+
 
 class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator to fetch activity category information."""
@@ -161,7 +178,6 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         config_entry: ConfigEntry,
         api: KippyApi,
         pet_ids: list[int],
-        update_minutes: int = 15,
     ) -> None:
         """Initialize the activity categories coordinator."""
         self.api = api
@@ -169,7 +185,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         self.pet_ids = pet_ids
         kwargs: dict[str, Any] = {
             "name": f"{DOMAIN}_activities",
-            "update_interval": timedelta(minutes=update_minutes),
+            "update_interval": None,
         }
         if _HAS_CONFIG_ENTRY:
             kwargs["config_entry"] = config_entry

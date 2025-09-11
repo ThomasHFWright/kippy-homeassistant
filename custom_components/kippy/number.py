@@ -39,6 +39,7 @@ async def async_setup_entry(
             continue
         entities.append(KippyIdleUpdateFrequencyNumber(map_coord, pet))
         entities.append(KippyLiveUpdateFrequencyNumber(map_coord, pet))
+        entities.append(KippyActivityRefreshDelayNumber(map_coord, pet))
     async_add_entities(entities)
 
 
@@ -167,6 +168,43 @@ class KippyLiveUpdateFrequencyNumber(
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_live_refresh(int(value))
+        self.async_write_ha_state()
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)
+
+
+class KippyActivityRefreshDelayNumber(
+    CoordinatorEntity[KippyMapDataUpdateCoordinator], NumberEntity
+):
+    """Number entity for activities refresh delay."""
+
+    _attr_native_min_value = 0
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = "min"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._pet_id = pet["petID"]
+        self._pet_data = pet
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Activities refresh delay (minutes)"
+            if pet_name
+            else "Activities refresh delay (minutes)"
+        )
+        self._attr_unique_id = f"{self._pet_id}_activities_refresh_delay"
+
+    @property
+    def native_value(self) -> float | None:
+        return float(self.coordinator.activity_refresh_delay) / 60
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self.coordinator.async_set_activity_refresh_delay(int(value * 60))
         self.async_write_ha_state()
 
     @property

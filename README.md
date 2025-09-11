@@ -21,7 +21,7 @@ Integrate [Kippy](https://www.kippy.eu/) pet trackers with Home Assistant. Track
 - Device tracker for each registered pet with profile picture
 - Sensors for activity, battery, and more
 - Buttons, numbers and switches for supported tracker actions
-- Configurable activity update interval
+- Configurable activities refresh delay
 - Automatic configuration through Home Assistant's UI
 
 ## Installation
@@ -42,7 +42,7 @@ Integrate [Kippy](https://www.kippy.eu/) pet trackers with Home Assistant. Track
 1. Navigate to _Settings → Devices & Services_.
 2. Click **Add Integration** and search for **Kippy**.
 3. Sign in with your Kippy account and select your tracker.
-4. Adjust the activity update interval (default 15 minutes) from the integration options if desired.
+4. Use the **Activities refresh delay** number entity under the device's configuration to adjust how many minutes after the next contact activities are refreshed (default 2 minutes).
 
 The integration will create a device tracker and associated sensors for each pet.
 

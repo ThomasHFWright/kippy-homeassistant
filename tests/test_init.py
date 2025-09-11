@@ -1,18 +1,13 @@
-from unittest.mock import AsyncMock, patch
-
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import async_setup_entry, async_unload_entry
-from custom_components.kippy.const import (
-    DOMAIN,
-    PLATFORMS,
-    CONF_ACTIVITY_UPDATE_INTERVAL,
-    DEFAULT_ACTIVITY_UPDATE_INTERVAL,
-)
+from custom_components.kippy.const import DOMAIN, PLATFORMS
 
 
 @pytest.mark.asyncio
@@ -125,17 +120,14 @@ async def test_async_setup_entry_handles_expired_pet(hass: HomeAssistant) -> Non
 
     assert result is True
     map_cls.assert_called_once_with(hass, entry, api, 1)
-    act_cls.assert_called_once_with(hass, entry, api, [1], DEFAULT_ACTIVITY_UPDATE_INTERVAL)
+    act_cls.assert_called_once_with(hass, entry, api, [1])
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_uses_option(hass: HomeAssistant) -> None:
-    """Custom activity update interval option is passed to coordinator."""
+async def test_activity_refresh_also_refreshes_map(hass: HomeAssistant) -> None:
+    """Scheduled activity refresh also requests map refresh."""
     entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={CONF_EMAIL: "a", CONF_PASSWORD: "b"},
-        options={CONF_ACTIVITY_UPDATE_INTERVAL: 30},
-        entry_id="1",
+        domain=DOMAIN, data={CONF_EMAIL: "a", CONF_PASSWORD: "b"}, entry_id="1"
     )
     entry.add_to_hass(hass)
 
@@ -143,14 +135,27 @@ async def test_async_setup_entry_uses_option(hass: HomeAssistant) -> None:
     api.login = AsyncMock()
     data_coord = AsyncMock()
     data_coord.async_config_entry_first_refresh = AsyncMock()
-    data_coord.data = {"pets": [{"petID": 1, "kippyID": 1}]}
+    data_coord.data = {"pets": [{"petID": 1, "kippyID": 1, "updateFrequency": "0"}]}
+    data_coord.async_add_listener = MagicMock()
     map_coord = AsyncMock()
     map_coord.async_config_entry_first_refresh = AsyncMock()
+    map_coord.data = {"contact_time": "0"}
+    map_coord.async_request_refresh = AsyncMock()
+    map_coord.async_add_listener = MagicMock()
+    map_coord.set_activity_refresh_scheduler = MagicMock()
+    map_coord.activity_refresh_delay = 0
     activity_coord = AsyncMock()
     activity_coord.async_config_entry_first_refresh = AsyncMock()
+    activity_coord.async_refresh_pet = AsyncMock()
     forward = AsyncMock()
 
-    with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
+    def immediate_call_later(hass, delay, action):
+        action(None)
+        return lambda: None
+
+    with patch(
+        "custom_components.kippy.aiohttp_client.async_get_clientsession"
+    ), patch(
         "custom_components.kippy.KippyApi.async_create", return_value=api
     ), patch(
         "custom_components.kippy.KippyDataUpdateCoordinator", return_value=data_coord
@@ -159,11 +164,12 @@ async def test_async_setup_entry_uses_option(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
         return_value=activity_coord,
-    ) as act_cls, patch.object(
+    ), patch(
+        "custom_components.kippy.async_call_later", side_effect=immediate_call_later
+    ), patch.object(
         hass.config_entries, "async_forward_entry_setups", forward
-    ):
-        result = await async_setup_entry(hass, entry)
+    ), patch.object(hass, "async_create_task", MagicMock()):
+        assert await async_setup_entry(hass, entry) is True
 
-    assert result is True
-    act_cls.assert_called_once_with(hass, entry, api, [1], 30)
-
+    map_coord.async_request_refresh.assert_called_once()
+    activity_coord.async_refresh_pet.assert_called_once_with(1)
