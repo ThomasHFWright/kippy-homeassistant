@@ -196,6 +196,29 @@ async def test_number_async_setup_entry_creates_entities() -> None:
 
 
 @pytest.mark.asyncio
+async def test_number_async_setup_entry_handles_string_ids() -> None:
+    """String pet IDs are handled when creating number entities."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": [{"petID": "1"}]}
+    map_coordinator = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": base_coordinator,
+                "map_coordinators": {1: map_coordinator},
+            }
+        }
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    entities = async_add_entities.call_args[0][0]
+    assert any(isinstance(e, KippyActivityRefreshDelayNumber) for e in entities)
+
+
+@pytest.mark.asyncio
 async def test_number_async_setup_entry_no_pets() -> None:
     """No number entities added when there are no pets."""
     hass = MagicMock()

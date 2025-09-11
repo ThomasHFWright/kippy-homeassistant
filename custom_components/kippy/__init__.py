@@ -54,8 +54,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 hass, entry, api, int(kippy_id)
             )
             await map_coordinator.async_config_entry_first_refresh()
-            map_coordinators[pet["petID"]] = map_coordinator
-            pet_ids.append(pet["petID"])
+            pet_id = int(pet["petID"])
+            map_coordinators[pet_id] = map_coordinator
+            pet_ids.append(pet_id)
 
         activity_coordinator = KippyActivityCategoriesDataUpdateCoordinator(
             hass, entry, api, pet_ids
@@ -75,7 +76,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     (
                         p
                         for p in coordinator.data.get("pets", [])
-                        if p.get("petID") == pet_id
+                        if int(p.get("petID")) == pet_id
                     ),
                     {},
                 )

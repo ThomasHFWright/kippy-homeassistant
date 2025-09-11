@@ -34,7 +34,8 @@ async def async_setup_entry(
         if not is_expired:
             entities.append(KippyUpdateFrequencyNumber(base_coordinator, pet))
 
-        map_coord = map_coordinators.get(pet["petID"])
+        pet_id = int(pet["petID"])
+        map_coord = map_coordinators.get(pet_id)
         if not map_coord:
             continue
         entities.append(KippyIdleUpdateFrequencyNumber(map_coord, pet))
