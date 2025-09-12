@@ -1,29 +1,32 @@
 """Coordinator for Kippy data updates."""
+
 from __future__ import annotations
 
 import inspect
 import logging
-from datetime import timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import KippyApi
 from .const import (
+    DEFAULT_ACTIVITY_REFRESH_DELAY,
     DOMAIN,
     LOCALIZATION_TECHNOLOGY_LBS,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
-from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-_HAS_CONFIG_ENTRY = "config_entry" in inspect.signature(
-    DataUpdateCoordinator.__init__
-).parameters
+_HAS_CONFIG_ENTRY = (
+    "config_entry" in inspect.signature(DataUpdateCoordinator.__init__).parameters
+)
 
 
 class KippyDataUpdateCoordinator(DataUpdateCoordinator):
@@ -112,7 +115,8 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                         data.pop(key, None)
             else:
                 _LOGGER.debug(
-                    "Accepting LBS location update for %s as current location is unknown",
+                    "Accepting LBS location update for %s "
+                    "as current location is unknown",
                     self.kippy_id,
                 )
 
@@ -161,7 +165,6 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         config_entry: ConfigEntry,
         api: KippyApi,
         pet_ids: list[int],
-        update_minutes: int = 15,
     ) -> None:
         """Initialize the activity categories coordinator."""
         self.api = api
@@ -169,7 +172,7 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         self.pet_ids = pet_ids
         kwargs: dict[str, Any] = {
             "name": f"{DOMAIN}_activities",
-            "update_interval": timedelta(minutes=update_minutes),
+            "update_interval": None,
         }
         if _HAS_CONFIG_ENTRY:
             kwargs["config_entry"] = config_entry
@@ -213,3 +216,80 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
     def get_health(self, pet_id: int):
         """Return cached health information for the given pet."""
         return (self.data or {}).get(pet_id, {}).get("health")
+
+
+class ActivityRefreshTimer:
+    """Schedule activity refreshes after the next contact time."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        base_coordinator: KippyDataUpdateCoordinator,
+        map_coordinator: KippyMapDataUpdateCoordinator,
+        activity_coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+        pet_id: int,
+        delay_minutes: int = DEFAULT_ACTIVITY_REFRESH_DELAY,
+    ) -> None:
+        """Initialize the timer."""
+        self.hass = hass
+        self.base_coordinator = base_coordinator
+        self.map_coordinator = map_coordinator
+        self.activity_coordinator = activity_coordinator
+        self.pet_id = pet_id
+        self.delay_minutes = delay_minutes
+        self._unsub_timer: Callable[[], None] | None = None
+        self._unsub_base = base_coordinator.async_add_listener(self._schedule_refresh)
+        self._unsub_map = map_coordinator.async_add_listener(self._schedule_refresh)
+        self._schedule_refresh()
+
+    def _get_update_frequency(self) -> int | None:
+        for pet in self.base_coordinator.data.get("pets", []):
+            if pet.get("petID") == self.pet_id:
+                return pet.get("updateFrequency")
+        return None
+
+    def _schedule_refresh(self) -> None:
+        if self._unsub_timer:
+            self._unsub_timer()
+            self._unsub_timer = None
+        contact = (
+            self.map_coordinator.data.get("contact_time")
+            if self.map_coordinator.data
+            else None
+        )
+        update_frequency = self._get_update_frequency()
+        if contact is None or update_frequency is None:
+            return
+        try:
+            when = datetime.fromtimestamp(
+                int(contact) + int(update_frequency) * 3600 + self.delay_minutes * 60,
+                timezone.utc,
+            )
+        except (TypeError, ValueError, OSError):
+            return
+        now = dt_util.utcnow()
+        if when <= now:
+            when = now + timedelta(minutes=self.delay_minutes)
+        self._unsub_timer = async_track_point_in_utc_time(
+            self.hass, self._handle_refresh, when
+        )
+
+    async def _handle_refresh(self, _now) -> None:
+        self._unsub_timer = None
+        await self.activity_coordinator.async_refresh_pet(self.pet_id)
+        await self.map_coordinator.async_request_refresh()
+
+    async def async_set_delay(self, minutes: int) -> None:
+        self.delay_minutes = minutes
+        self._schedule_refresh()
+
+    def async_cancel(self) -> None:
+        if self._unsub_timer:
+            self._unsub_timer()
+            self._unsub_timer = None
+        if self._unsub_base:
+            self._unsub_base()
+            self._unsub_base = None
+        if self._unsub_map:
+            self._unsub_map()
+            self._unsub_map = None

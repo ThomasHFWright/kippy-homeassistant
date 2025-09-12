@@ -11,6 +11,7 @@ from custom_components.kippy.const import (
     OPERATING_STATUS_MAP,
 )
 from custom_components.kippy.coordinator import (
+    ActivityRefreshTimer,
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
@@ -159,7 +160,7 @@ async def test_activity_coordinator_update_and_refresh() -> None:
         coord = KippyActivityCategoriesDataUpdateCoordinator(
             hass, MagicMock(), api, [1]
         )
-        assert coord.update_interval == timedelta(minutes=15)
+        assert coord.update_interval is None
         data = await coord._async_update_data()
         api.get_activity_categories.assert_awaited_with(
             1, "2020-01-02", "2020-01-03", 2, 1
@@ -198,3 +199,61 @@ def test_has_config_entry_branches(monkeypatch) -> None:
     KippyMapDataUpdateCoordinator(hass, MagicMock(), api, 1)
     KippyActivityCategoriesDataUpdateCoordinator(hass, MagicMock(), api, [])
     assert all("config_entry" in c for c in calls)
+
+
+@pytest.mark.asyncio
+async def test_activity_refresh_timer_triggers_refreshes() -> None:
+    """Timer calls both activity and map coordinators."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    base = MagicMock()
+    base.data = {"pets": [{"petID": 1, "updateFrequency": 0}]}
+    base.async_add_listener = MagicMock(return_value=lambda: None)
+    map_coord = MagicMock()
+    map_coord.data = {"contact_time": 0}
+    map_coord.async_add_listener = MagicMock(return_value=lambda: None)
+    map_coord.async_request_refresh = AsyncMock()
+    activity_coord = MagicMock()
+    activity_coord.async_refresh_pet = AsyncMock()
+
+    def fake_track(_hass, cb, when):
+        hass.loop.call_soon(asyncio.create_task, cb(when))
+        return lambda: None
+
+    with patch(
+        "custom_components.kippy.coordinator.async_track_point_in_utc_time", fake_track
+    ):
+        ActivityRefreshTimer(hass, base, map_coord, activity_coord, 1, 2)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    activity_coord.async_refresh_pet.assert_awaited_once_with(1)
+    map_coord.async_request_refresh.assert_awaited_once()
+
+
+def test_activity_refresh_timer_clamps_to_future() -> None:
+    """Timer clamps past timestamps to now + delay."""
+    hass = MagicMock()
+    base = MagicMock()
+    base.data = {"pets": [{"petID": 1, "updateFrequency": 0}]}
+    base.async_add_listener = MagicMock(return_value=lambda: None)
+    map_coord = MagicMock()
+    map_coord.data = {"contact_time": 0}
+    map_coord.async_add_listener = MagicMock(return_value=lambda: None)
+    activity_coord = MagicMock()
+
+    scheduled: dict[str, datetime] = {}
+
+    def fake_track(_hass, _cb, when):
+        scheduled["when"] = when
+        return lambda: None
+
+    now = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    with patch(
+        "custom_components.kippy.coordinator.dt_util.utcnow", return_value=now
+    ), patch(
+        "custom_components.kippy.coordinator.async_track_point_in_utc_time", fake_track
+    ):
+        ActivityRefreshTimer(hass, base, map_coord, activity_coord, 1, 5)
+
+    assert scheduled["when"] == now + timedelta(minutes=5)

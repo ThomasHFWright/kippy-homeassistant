@@ -1,4 +1,5 @@
 """Number entities for Kippy pets."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -8,12 +9,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
-
-from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_GPS
-from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
+from .coordinator import (
+    ActivityRefreshTimer,
+    KippyDataUpdateCoordinator,
+    KippyMapDataUpdateCoordinator,
+)
+from .helpers import build_device_info
 
 
 async def async_setup_entry(
@@ -22,6 +26,7 @@ async def async_setup_entry(
     """Set up Kippy number entities."""
     base_coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
+    activity_timers = hass.data[DOMAIN][entry.entry_id]["activity_timers"]
     entities: list[NumberEntity] = []
     for pet in base_coordinator.data.get("pets", []):
         expired_days = pet.get("expired_days")
@@ -39,10 +44,15 @@ async def async_setup_entry(
             continue
         entities.append(KippyIdleUpdateFrequencyNumber(map_coord, pet))
         entities.append(KippyLiveUpdateFrequencyNumber(map_coord, pet))
+        timer = activity_timers.get(pet["petID"])
+        if timer:
+            entities.append(KippyActivityRefreshDelayNumber(timer, pet))
     async_add_entities(entities)
 
 
-class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], NumberEntity):
+class KippyUpdateFrequencyNumber(
+    CoordinatorEntity[KippyDataUpdateCoordinator], NumberEntity
+):
     """Number entity for GPS automatic update frequency."""
 
     _attr_native_min_value = 1
@@ -50,12 +60,15 @@ class KippyUpdateFrequencyNumber(CoordinatorEntity[KippyDataUpdateCoordinator], 
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "h"
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} {LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency (hours)"
+            f"{pet_name} {LOCALIZATION_TECHNOLOGY_GPS} "
+            "Automatic update frequency (hours)"
             if pet_name
             else f"{LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency (hours)"
         )
@@ -112,7 +125,9 @@ class KippyIdleUpdateFrequencyNumber(
     _attr_native_unit_of_measurement = "min"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         self._pet_data = pet
@@ -149,7 +164,9 @@ class KippyLiveUpdateFrequencyNumber(
     _attr_native_unit_of_measurement = "s"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         self._pet_data = pet
@@ -175,3 +192,37 @@ class KippyLiveUpdateFrequencyNumber(
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
 
+
+class KippyActivityRefreshDelayNumber(NumberEntity):
+    """Number to control activity refresh delay."""
+
+    _attr_native_min_value = 0
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = "min"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, timer: ActivityRefreshTimer, pet: dict[str, Any]) -> None:
+        self.timer = timer
+        self._pet_id = pet["petID"]
+        self._pet_data = pet
+        pet_name = pet.get("petName")
+        self._attr_name = (
+            f"{pet_name} Activity refresh delay (minutes)"
+            if pet_name
+            else "Activity refresh delay (minutes)"
+        )
+        self._attr_unique_id = f"{self._pet_id}_activity_refresh_delay"
+
+    @property
+    def native_value(self) -> float | None:
+        return float(self.timer.delay_minutes)
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self.timer.async_set_delay(int(value))
+        self.async_write_ha_state()
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        pet_name = self._pet_data.get("petName")
+        name = f"Kippy {pet_name}" if pet_name else "Kippy"
+        return build_device_info(self._pet_id, self._pet_data, name)

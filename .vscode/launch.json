@@ -10,7 +10,9 @@
       "request": "launch",
       "module": "homeassistant",
       "justMyCode": false,
-      "args": ["--debug", "-c", "dev-config"]
+      "args": ["--debug", "-c", "dev-config"],
+      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
       "name": "Home Assistant (skip pip)",
@@ -18,7 +20,9 @@
       "request": "launch",
       "module": "homeassistant",
       "justMyCode": false,
-      "args": ["--debug", "-c", "dev-config", "--skip-pip"]
+      "args": ["--debug", "-c", "dev-config", "--skip-pip"],
+      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
       "name": "Home Assistant: Changed tests",
@@ -26,7 +30,9 @@
       "request": "launch",
       "module": "pytest",
       "justMyCode": false,
-      "args": ["--picked"]
+      "args": ["--picked"],
+      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
       "name": "Home Assistant: Debug Current Test File",
@@ -34,7 +40,9 @@
       "request": "launch",
       "module": "pytest",
       "console": "integratedTerminal",
-      "args": ["-vv", "${file}"]
+      "args": ["-vv", "${file}"],
+      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
       // Debug by attaching to local Home Assistant server using Remote Python Debugger.

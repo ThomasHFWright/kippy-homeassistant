@@ -4,6 +4,7 @@ import pytest
 
 from custom_components.kippy.const import DOMAIN
 from custom_components.kippy.number import (
+    KippyActivityRefreshDelayNumber,
     KippyIdleUpdateFrequencyNumber,
     KippyLiveUpdateFrequencyNumber,
     KippyUpdateFrequencyNumber,
@@ -149,6 +150,23 @@ async def test_idle_and_live_numbers() -> None:
 
 
 @pytest.mark.asyncio
+async def test_activity_refresh_delay_number() -> None:
+    """Activity refresh delay number interacts with timer."""
+    pet = {"petID": 1, "petName": "Rex"}
+    timer = MagicMock()
+    timer.delay_minutes = 2
+    timer.async_set_delay = AsyncMock()
+    number = KippyActivityRefreshDelayNumber(timer, pet)
+    assert number.native_value == 2.0
+    number.async_write_ha_state = MagicMock()
+    await number.async_set_native_value(5)
+    timer.async_set_delay.assert_awaited_once_with(5)
+    number.async_write_ha_state.assert_called_once()
+    info = number.device_info
+    assert (DOMAIN, "1") in info["identifiers"]
+
+
+@pytest.mark.asyncio
 async def test_number_async_setup_entry_creates_entities() -> None:
     """async_setup_entry adds number entities for each pet."""
     hass = MagicMock()
@@ -157,11 +175,13 @@ async def test_number_async_setup_entry_creates_entities() -> None:
     base_coordinator = MagicMock()
     base_coordinator.data = {"pets": [{"petID": 1}]}
     map_coordinator = MagicMock()
+    timer = MagicMock()
     hass.data = {
         DOMAIN: {
             entry.entry_id: {
                 "coordinator": base_coordinator,
                 "map_coordinators": {1: map_coordinator},
+                "activity_timers": {1: timer},
             }
         }
     }
@@ -172,6 +192,7 @@ async def test_number_async_setup_entry_creates_entities() -> None:
     assert any(isinstance(e, KippyUpdateFrequencyNumber) for e in entities)
     assert any(isinstance(e, KippyIdleUpdateFrequencyNumber) for e in entities)
     assert any(isinstance(e, KippyLiveUpdateFrequencyNumber) for e in entities)
+    assert any(isinstance(e, KippyActivityRefreshDelayNumber) for e in entities)
 
 
 @pytest.mark.asyncio
@@ -184,7 +205,11 @@ async def test_number_async_setup_entry_no_pets() -> None:
     base_coordinator.data = {"pets": []}
     hass.data = {
         DOMAIN: {
-            entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}
+            entry.entry_id: {
+                "coordinator": base_coordinator,
+                "map_coordinators": {},
+                "activity_timers": {},
+            }
         }
     }
     async_add_entities = MagicMock()
@@ -201,7 +226,13 @@ async def test_number_async_setup_entry_missing_map() -> None:
     base_coordinator = MagicMock()
     base_coordinator.data = {"pets": [{"petID": 1}]}
     hass.data = {
-        DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": base_coordinator,
+                "map_coordinators": {},
+                "activity_timers": {},
+            }
+        }
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
@@ -218,7 +249,15 @@ async def test_number_async_setup_entry_expired_pet() -> None:
     entry.entry_id = "1"
     base_coordinator = MagicMock()
     base_coordinator.data = {"pets": [{"petID": 1, "expired_days": 0}]}
-    hass.data = {DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}}
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {
+                "coordinator": base_coordinator,
+                "map_coordinators": {},
+                "activity_timers": {},
+            }
+        }
+    }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once_with([])
