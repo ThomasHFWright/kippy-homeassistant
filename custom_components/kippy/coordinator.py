@@ -267,6 +267,9 @@ class ActivityRefreshTimer:
             )
         except (TypeError, ValueError, OSError):
             return
+        now = dt_util.utcnow()
+        if when <= now:
+            when = now + timedelta(minutes=self.delay_minutes)
         self._unsub_timer = async_track_point_in_utc_time(
             self.hass, self._handle_refresh, when
         )

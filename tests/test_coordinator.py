@@ -229,3 +229,31 @@ async def test_activity_refresh_timer_triggers_refreshes() -> None:
 
     activity_coord.async_refresh_pet.assert_awaited_once_with(1)
     map_coord.async_request_refresh.assert_awaited_once()
+
+
+def test_activity_refresh_timer_clamps_to_future() -> None:
+    """Timer clamps past timestamps to now + delay."""
+    hass = MagicMock()
+    base = MagicMock()
+    base.data = {"pets": [{"petID": 1, "updateFrequency": 0}]}
+    base.async_add_listener = MagicMock(return_value=lambda: None)
+    map_coord = MagicMock()
+    map_coord.data = {"contact_time": 0}
+    map_coord.async_add_listener = MagicMock(return_value=lambda: None)
+    activity_coord = MagicMock()
+
+    scheduled: dict[str, datetime] = {}
+
+    def fake_track(_hass, _cb, when):
+        scheduled["when"] = when
+        return lambda: None
+
+    now = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    with patch(
+        "custom_components.kippy.coordinator.dt_util.utcnow", return_value=now
+    ), patch(
+        "custom_components.kippy.coordinator.async_track_point_in_utc_time", fake_track
+    ):
+        ActivityRefreshTimer(hass, base, map_coord, activity_coord, 1, 5)
+
+    assert scheduled["when"] == now + timedelta(minutes=5)
