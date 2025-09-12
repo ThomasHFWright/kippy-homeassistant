@@ -1,7 +1,6 @@
 """The Kippy integration."""
-from __future__ import annotations
 
-from typing import Any
+from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
@@ -10,13 +9,9 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
-from .const import (
-    DOMAIN,
-    PLATFORMS,
-    CONF_ACTIVITY_UPDATE_INTERVAL,
-    DEFAULT_ACTIVITY_UPDATE_INTERVAL,
-)
+from .const import DEFAULT_ACTIVITY_REFRESH_DELAY, DOMAIN, PLATFORMS
 from .coordinator import (
+    ActivityRefreshTimer,
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
@@ -41,6 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         map_coordinators: dict[int, KippyMapDataUpdateCoordinator] = {}
         pet_ids: list[int] = []
+        activity_timers: dict[int, ActivityRefreshTimer] = {}
         for pet in coordinator.data.get("pets", []):
             expired_days = pet.get("expired_days")
             try:
@@ -57,13 +53,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             map_coordinators[pet["petID"]] = map_coordinator
             pet_ids.append(pet["petID"])
 
-        update_minutes = entry.options.get(
-            CONF_ACTIVITY_UPDATE_INTERVAL, DEFAULT_ACTIVITY_UPDATE_INTERVAL
-        )
         activity_coordinator = KippyActivityCategoriesDataUpdateCoordinator(
-            hass, entry, api, pet_ids, update_minutes
+            hass, entry, api, pet_ids
         )
         await activity_coordinator.async_config_entry_first_refresh()
+
+        for pet_id, map_coord in map_coordinators.items():
+            activity_timers[pet_id] = ActivityRefreshTimer(
+                hass,
+                coordinator,
+                map_coord,
+                activity_coordinator,
+                pet_id,
+                DEFAULT_ACTIVITY_REFRESH_DELAY,
+            )
     except Exception as err:  # noqa: BLE001
         raise ConfigEntryNotReady from err
 
@@ -72,6 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
         "map_coordinators": map_coordinators,
         "activity_coordinator": activity_coordinator,
+        "activity_timers": activity_timers,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -82,5 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Kippy config entry."""
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    hass.data[DOMAIN].pop(entry.entry_id)
+    data = hass.data[DOMAIN].pop(entry.entry_id)
+    for timer in data.get("activity_timers", {}).values():
+        timer.async_cancel()
     return True
