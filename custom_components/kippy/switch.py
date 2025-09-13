@@ -34,6 +34,14 @@ async def async_setup_entry(
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[SwitchEntity] = []
     for pet in coordinator.data.get("pets", []):
+        expired_days = pet.get("expired_days")
+        is_expired = False
+        try:
+            is_expired = int(expired_days) >= 0
+        except (TypeError, ValueError):
+            pass
+        if is_expired:
+            continue
         entities.append(KippyGpsDefaultSwitch(coordinator, pet))
         map_coord = map_coordinators.get(pet["petID"])
         if not map_coord:
