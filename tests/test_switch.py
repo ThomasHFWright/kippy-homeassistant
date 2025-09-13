@@ -388,6 +388,22 @@ async def test_switch_async_setup_entry_no_pets() -> None:
 
 
 @pytest.mark.asyncio
+async def test_switch_async_setup_entry_expired_pet() -> None:
+    """Expired pets should not create switch entities."""
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    base_coordinator = MagicMock()
+    base_coordinator.data = {"pets": [{"petID": 1, "expired_days": 0}]}
+    hass.data = {
+        DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}
+    }
+    async_add_entities = MagicMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+    async_add_entities.assert_called_once_with([])
+
+
+@pytest.mark.asyncio
 async def test_switch_async_setup_entry_missing_map() -> None:
     """No switches added when map coordinator is missing."""
     hass = MagicMock()
