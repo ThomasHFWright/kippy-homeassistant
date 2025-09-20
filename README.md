@@ -9,62 +9,46 @@
 
 Integrate [Kippy](https://www.kippy.eu/) pet trackers with Home Assistant. Track your pet's location, monitor activity and battery levels, and control tracker features directly from your smart home dashboard.
 
-**This integration will set up the following platforms.**
+This integration has been built to support Kippy Cat. It'll probably work with Kippy Evo and Kippy Dog, though I don't have either of these to test with. I'd appreciate some others testing to work out the kinks.
 
-| Platform          | Description                                                  |
-| ----------------- | ------------------------------------------------------------ |
-| `binary_sensor`   | Reports tracker health information such as geofence status.  |
-| `button`          | Provides tracker actions like pinging the device.            |
-| `device_tracker`  | Exposes each pet's latest known location and status.         |
-| `number`          | Configures supported numeric settings (for example, refresh intervals). |
-| `sensor`          | Surfaces activity, battery and other telemetry readings.     |
-| `switch`          | Toggles available tracker features.                          |
+## Features
+
+1. Creates a device tracker per Kippy in your account.
+2. Retrieve location updates as per
+3. Enable/disable live tracking
+4. Enable/disable energy saving mode
+5. Fetch activity stats
 
 ## Installation
 
-1. Using the tool of choice, open the directory for your Home Assistant configuration (where you find `configuration.yaml`).
-2. If you do not have a `custom_components` directory, create it.
-3. Inside `custom_components`, create a new directory called `kippy`.
-4. Download all of the files from the `custom_components/kippy/` directory in this repository.
-5. Copy the files you downloaded into the `custom_components/kippy/` directory you just created.
-6. Restart Home Assistant.
-7. In the Home Assistant UI, go to **Settings → Devices & Services**, click **Add Integration**, and search for **Kippy**.
+### Manually
 
-Using your Home Assistant configuration directory as a starting point, you should now also have this structure:
+Get the folder `custom_components/petlibro` in your HA `config/custom_components`
 
-```text
-custom_components/kippy/__init__.py
-custom_components/kippy/api.py
-custom_components/kippy/binary_sensor.py
-custom_components/kippy/button.py
-custom_components/kippy/config_flow.py
-custom_components/kippy/const.py
-custom_components/kippy/coordinator.py
-custom_components/kippy/device_tracker.py
-custom_components/kippy/helpers.py
-custom_components/kippy/manifest.json
-custom_components/kippy/number.py
-custom_components/kippy/quality_scale.yaml
-custom_components/kippy/sensor.py
-custom_components/kippy/strings.json
-custom_components/kippy/switch.py
-custom_components/kippy/translations/en.json
-```
+### Via [HACS](https://hacs.xyz/)
 
-## Configuration is done in the UI
+<a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=ThomasHFWright&repository=kippy-homeassistant-hacs&category=integration" target="_blank"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store." /></a>
 
-1. Navigate to **Settings → Devices & Services**.
-2. Select **Add Integration** and search for **Kippy**.
-3. Sign in with your Kippy credentials and choose the trackers to import.
-4. Adjust the integration options (such as the activity refresh interval) as needed after setup.
+## Configuration
+
+1. <a href="https://my.home-assistant.io/redirect/config_flow_start/?domain=kippy" target="_blank"><img src="https://my.home-assistant.io/badges/config_flow_start.svg" alt="Open your Home Assistant instance and start setting up a new integration." /></a>
+2. Sign in with your Kippy credentials and choose the trackers to import.
+
+## Usage
+
+Check out the wiki for what all the settings mean and all available returned data.
 
 ## Contributions are welcome!
 
-Contributions are welcome! Please open an issue or pull request with improvements. Running `python script/hassfest --integration-path custom_components/kippy` and `pytest ./tests --cov=custom_components.kippy --cov-report term-missing` locally before submitting helps keep the project healthy.
+Contributions are welcome! Please open an issue or pull request with improvements.
+
+In particular I could use some help trying to load historical activity data. The activity data only refreshes on Kippy's server as and when the Kippy tracker runs its location update schedule, ranging from every 1hr to every 24 hours. The Activity API can return previous days' data, but I can't figure a way to store it, so activity data only stores the current day's data up to the time the most recent GPS update timer runs.
+
+Running `python script/hassfest --integration-path custom_components/kippy` and `pytest ./tests --cov=custom_components.kippy --cov-report term-missing` locally before submitting helps keep the project healthy.
 
 ## Credits
 
-This project started from the Home Assistant custom component cookiecutter by [@oncleben31](https://github.com/oncleben31). Many design patterns were inspired by [integration_blueprint].
+Many design patterns were inspired by [integration_blueprint].
 
 ---
 
