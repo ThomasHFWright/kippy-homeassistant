@@ -36,7 +36,7 @@ Get the folder `custom_components/petlibro` in your HA `config/custom_components
 
 ## Usage
 
-Check out the wiki for what all the settings mean and all available returned data.
+Check out the [wiki](https://github.com/ThomasHFWright/kippy-homeassistant/wiki) for what all the settings mean and all available returned data.
 
 ## Contributions are welcome!
 
@@ -45,10 +45,6 @@ Contributions are welcome! Please open an issue or pull request with improvement
 In particular I could use some help trying to load historical activity data. The activity data only refreshes on Kippy's server as and when the Kippy tracker runs its location update schedule, ranging from every 1hr to every 24 hours. The Activity API can return previous days' data, but I can't figure a way to store it, so activity data only stores the current day's data up to the time the most recent GPS update timer runs.
 
 Running `python script/hassfest --integration-path custom_components/kippy` and `pytest ./tests --cov=custom_components.kippy --cov-report term-missing` locally before submitting helps keep the project healthy.
-
-## Credits
-
-Many design patterns were inspired by [integration_blueprint].
 
 ---
 
