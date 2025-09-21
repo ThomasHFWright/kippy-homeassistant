@@ -8,7 +8,9 @@ fake API live in ``test_api_fake.py``.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import socket
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,11 @@ from typing import Any
 import aiohttp
 import pytest
 import pytest_asyncio
+
+try:
+    from pytest_socket import SocketBlockedError
+except Exception:  # pragma: no cover - fallback when pytest-socket is unavailable
+    SocketBlockedError = RuntimeError
 from dotenv import load_dotenv
 
 from custom_components.kippy.api import KippyApi
@@ -54,9 +61,32 @@ def _active(pet: dict[str, Any]) -> bool:
 async def api():
     """Return an authenticated Kippy API instance."""
 
+    try:
+        probe = socket.socket()
+    except SocketBlockedError:
+        pytest.skip(
+            "Sockets are disabled; skipping real API tests",
+            allow_module_level=False,
+        )
+    else:
+        probe.close()
+
     session = aiohttp.ClientSession()
     api = await KippyApi.async_create(session)
-    await api.login(EMAIL, PASSWORD, force=True)
+    try:
+        await api.login(EMAIL, PASSWORD, force=True)
+    except SocketBlockedError:
+        await session.close()
+        pytest.skip(
+            "Sockets are disabled; skipping real API tests",
+            allow_module_level=False,
+        )
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as err:
+        await session.close()
+        pytest.skip(
+            f"Unable to reach the Kippy API: {err}",
+            allow_module_level=False,
+        )
     try:
         yield api
     finally:
@@ -79,7 +109,6 @@ async def test_get_pet_kippy_list_returns_list(api) -> None:
     assert isinstance(pets, list)
 
 
-
 @pytest.mark.asyncio
 async def test_kippymap_action_and_activity_categories(api) -> None:
     """Exercise Kippy Map and activity endpoints when possible."""
@@ -95,11 +124,13 @@ async def test_kippymap_action_and_activity_categories(api) -> None:
             for p in pets
             if _active(p)
             and (
-                (p.get("kippy_id")
-                or p.get("kippyID")
-                or p.get("device_kippy_id")
-                or p.get("deviceID")
-                or p.get("deviceId"))
+                (
+                    p.get("kippy_id")
+                    or p.get("kippyID")
+                    or p.get("device_kippy_id")
+                    or p.get("deviceID")
+                    or p.get("deviceId")
+                )
                 and (p.get("petID") or p.get("id"))
             )
         ),
@@ -107,7 +138,8 @@ async def test_kippymap_action_and_activity_categories(api) -> None:
     )
     if pet is None:
         pytest.skip(
-            "No pet with kippy_id, pet_id and active subscription; skipping location and activity tests",
+            "No pet with kippy_id, pet_id and active subscription; "
+            "skipping location and activity tests",
         )
 
     kippy_id = (
@@ -127,8 +159,11 @@ async def test_kippymap_action_and_activity_categories(api) -> None:
     activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 2, 1)
     assert isinstance(activity, dict)
 
+
 @pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories_inactive_subscription(api) -> None:
+async def test_kippymap_action_and_activity_categories_inactive_subscription(
+    api,
+) -> None:
     """Exercise endpoints for a pet with an inactive subscription."""
 
     pets = await api.get_pet_kippy_list()
@@ -139,11 +174,13 @@ async def test_kippymap_action_and_activity_categories_inactive_subscription(api
             for p in pets
             if not _active(p)
             and (
-                (p.get("kippy_id")
-                or p.get("kippyID")
-                or p.get("device_kippy_id")
-                or p.get("deviceID")
-                or p.get("deviceId"))
+                (
+                    p.get("kippy_id")
+                    or p.get("kippyID")
+                    or p.get("device_kippy_id")
+                    or p.get("deviceID")
+                    or p.get("deviceId")
+                )
                 and (p.get("petID") or p.get("id"))
             )
         ),
@@ -169,6 +206,7 @@ async def test_kippymap_action_and_activity_categories_inactive_subscription(api
     to_date = today.strftime("%Y-%m-%d")
     activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 2, 1)
     assert isinstance(activity, dict)
+
 
 @pytest.mark.asyncio
 async def test_kippymap_action_handles_inactive_subscription(monkeypatch) -> None:
@@ -229,9 +267,7 @@ async def test_kippymap_action_and_activity_categories_active_subscription(
 
     monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
     monkeypatch.setattr(api, "kippymap_action", fake_kippymap_action)
-    monkeypatch.setattr(
-        api, "get_activity_categories", fake_get_activity_categories
-    )
+    monkeypatch.setattr(api, "get_activity_categories", fake_get_activity_categories)
 
     await test_kippymap_action_and_activity_categories(api)
 
