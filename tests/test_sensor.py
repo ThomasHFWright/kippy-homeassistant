@@ -28,8 +28,8 @@ from custom_components.kippy.sensor import (
     KippyNextContactSensor,
     KippyOperatingStatusSensor,
     KippyPetTypeSensor,
-    KippyRunSensor,
     KippyPlaySensor,
+    KippyRunSensor,
     KippyStepsSensor,
     async_setup_entry,
 )

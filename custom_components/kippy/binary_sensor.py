@@ -8,12 +8,11 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-
-from .helpers import build_device_info
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import KippyDataUpdateCoordinator
+from .helpers import build_device_info
 
 
 async def async_setup_entry(

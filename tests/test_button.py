@@ -65,7 +65,7 @@ async def test_activity_button_propagates_error() -> None:
 
 @pytest.mark.asyncio
 async def test_button_async_setup_entry_creates_entities() -> None:
-    """async_setup_entry adds refresh map attributes and activity buttons for each pet."""
+    """async_setup_entry adds refresh and activity buttons for each pet."""
     hass = MagicMock()
     entry = MagicMock()
     entry.entry_id = "1"
@@ -86,9 +86,20 @@ async def test_button_async_setup_entry_creates_entities() -> None:
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
-    assert any(isinstance(e, KippyRefreshMapAttributesButton) for e in entities)
-    assert any(isinstance(e, KippyActivityCategoriesButton) for e in entities)
-    assert any(isinstance(e, KippyRefreshPetsButton) for e in entities)
+    refresh_map_button_present = False
+    activity_button_present = False
+    refresh_pets_button_present = False
+    for entity in entities:
+        if isinstance(entity, KippyRefreshMapAttributesButton):
+            refresh_map_button_present = True
+        if isinstance(entity, KippyActivityCategoriesButton):
+            activity_button_present = True
+        if isinstance(entity, KippyRefreshPetsButton):
+            refresh_pets_button_present = True
+
+    assert refresh_map_button_present
+    assert activity_button_present
+    assert refresh_pets_button_present
 
 
 @pytest.mark.asyncio

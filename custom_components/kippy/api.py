@@ -8,10 +8,10 @@ import json
 import logging
 import ssl
 from datetime import datetime, timedelta
-from homeassistant.util import dt as dt_util
 from typing import Any, Dict, Optional, cast
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ACTIVITY_ID,

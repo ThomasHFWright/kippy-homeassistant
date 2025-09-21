@@ -16,9 +16,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 from homeassistant.util.location import distance as location_distance
 from homeassistant.util.unit_conversion import DistanceConverter, DurationConverter
-from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, LABEL_EXPIRED, LOCALIZATION_TECHNOLOGY_GPS, PET_KIND_TO_TYPE
 from .coordinator import (
