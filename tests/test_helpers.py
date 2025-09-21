@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.kippy import helpers as helpers_module
 from custom_components.kippy.const import DOMAIN
 from custom_components.kippy.helpers import (
     MAP_REFRESH_IDLE_KEY,
@@ -14,7 +15,6 @@ from custom_components.kippy.helpers import (
     normalize_kippy_identifier,
     update_pet_data,
 )
-from custom_components.kippy import helpers as helpers_module
 
 
 def test_build_device_info_with_ids() -> None:

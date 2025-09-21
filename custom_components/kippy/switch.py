@@ -17,15 +17,9 @@ from .const import (
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
-from .coordinator import (
-    KippyDataUpdateCoordinator,
-    KippyMapDataUpdateCoordinator,
-)
+from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
 from .entity import KippyMapEntity, KippyPetEntity
-from .helpers import (
-    is_pet_subscription_active,
-    normalize_kippy_identifier,
-)
+from .helpers import is_pet_subscription_active, normalize_kippy_identifier
 
 
 async def async_setup_entry(
