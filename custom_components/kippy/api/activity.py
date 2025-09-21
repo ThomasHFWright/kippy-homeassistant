@@ -15,7 +15,7 @@ from ..const import (
     T_ID,
 )
 from ._base import BaseKippyApi
-from ._utils import _weeks_param, _tz_hours
+from ._utils import _tz_hours, _weeks_param
 
 
 class ActivityEndpoint(BaseKippyApi):

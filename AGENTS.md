@@ -1257,10 +1257,13 @@ _LOGGER.debug("Processing data: %s", data)  # Use lazy logging
 ### Validation Commands
 
 Always run the full suite of formatting, linting, and validation commands
-before finishing any change. Ruff formatting and linting, along with pylint,
+before finishing any change. Ruff formatting and linting, isort, and pylint
 are mandatory for every update.
 
 ```bash
+# Sort imports with isort (required for every change)
+isort .
+
 # Format and lint with Ruff (required for every change)
 ruff format
 ruff check
