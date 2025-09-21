@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring,protected-access,duplicate-code
+
+"""Tests for Kippy button entities."""
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
@@ -12,6 +16,10 @@ from custom_components.kippy.button import (
     async_setup_entry,
 )
 from custom_components.kippy.const import DOMAIN
+
+
+def _noop() -> None:
+    """Return ``None`` for listener callbacks."""
 
 
 @pytest.mark.asyncio
@@ -160,9 +168,7 @@ async def test_refresh_pets_button_reloads_entry() -> None:
     entry.entry_id = "1"
     entry.state = ConfigEntryState.LOADED
     hass.config_entries.async_reload = AsyncMock()
-    hass.async_create_task = MagicMock(
-        side_effect=lambda coro: asyncio.create_task(coro)
-    )
+    hass.async_create_task = MagicMock(side_effect=asyncio.create_task)
     button = KippyRefreshPetsButton(hass, entry)
     await button.async_press()
     hass.config_entries.async_reload.assert_called_once_with("1")
@@ -201,7 +207,7 @@ def test_buttons_raise_for_sync_press() -> None:
     """Synchronous press methods are intentionally unsupported."""
 
     coordinator = MagicMock()
-    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    coordinator.async_add_listener = MagicMock(return_value=_noop)
     map_button = KippyRefreshMapAttributesButton(coordinator, {"petID": 1})
     with pytest.raises(NotImplementedError):
         map_button.press()

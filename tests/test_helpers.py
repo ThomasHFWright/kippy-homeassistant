@@ -1,3 +1,7 @@
+# pylint: disable=protected-access
+
+"""Tests for helper utilities used by the Kippy integration."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -158,7 +162,7 @@ def test_collect_refresh_updates_filters_invalid_values() -> None:
     updates = helpers_module._collect_refresh_updates(5, "bad")
     assert updates == {MAP_REFRESH_IDLE_KEY: 5}
     assert MAP_REFRESH_LIVE_KEY not in updates
-    assert helpers_module._collect_refresh_updates(None, None) == {}
+    assert not helpers_module._collect_refresh_updates(None, None)
     assert helpers_module._collect_refresh_updates(None, 8) == {MAP_REFRESH_LIVE_KEY: 8}
 
 

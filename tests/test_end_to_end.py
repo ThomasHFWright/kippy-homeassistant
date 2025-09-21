@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring,too-many-locals,unused-argument
+
+"""End-to-end tests for the Kippy integration."""
+
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 

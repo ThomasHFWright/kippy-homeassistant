@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring,protected-access,duplicate-code
+
+"""Tests for Kippy sensor entities."""
+
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 

@@ -1,3 +1,5 @@
+"""Tests for the Kippy config flow."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -66,6 +68,16 @@ def test_config_flow_is_matching() -> None:
     assert flow.is_matching(KippyConfigFlow())
 
     class DummyFlow(config_entries.ConfigFlow):
-        pass
+        """Config flow used to test non-matching flows."""
+
+        VERSION = 1
+
+        async def async_step_user(self, user_input=None):
+            """Abort immediately to satisfy the abstract base."""
+            return self.async_abort(reason="not_supported")
+
+        def is_matching(self, other_flow: config_entries.ConfigFlow) -> bool:
+            """Dummy flows never match other flows."""
+            return False
 
     assert not flow.is_matching(DummyFlow())

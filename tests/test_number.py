@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring,protected-access,duplicate-code
+
+"""Tests for Kippy number entities."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

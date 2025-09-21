@@ -1,3 +1,7 @@
+# pylint: disable=duplicate-code
+
+"""Tests for Kippy device tracker platform."""
+
 from unittest.mock import MagicMock
 
 import pytest
