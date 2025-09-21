@@ -916,6 +916,7 @@ rules:
 
 ### Code Quality & Linting
 
+- **Required before submission**: `pylint custom_components/kippy`
 - **Run all linters on all files**: `pre-commit run --all-files`
 - **Run linters on staged files only**: `pre-commit run`
 - **PyLint on everything** (slow): `pylint custom_components`

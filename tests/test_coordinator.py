@@ -11,11 +11,21 @@ from custom_components.kippy.const import (
     OPERATING_STATUS_MAP,
 )
 from custom_components.kippy.coordinator import (
+    ActivityRefreshContext,
     ActivityRefreshTimer,
+    CoordinatorContext,
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
+
+
+def make_context(
+    hass: MagicMock, api: MagicMock | None = None
+) -> CoordinatorContext:
+    """Return a coordinator context for tests."""
+
+    return CoordinatorContext(hass, MagicMock(), api or MagicMock())
 
 
 @pytest.mark.asyncio
@@ -23,7 +33,7 @@ async def test_process_new_data_maps_operating_status() -> None:
     """process_new_data should map numeric operating status codes."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
-    coordinator = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coordinator = KippyMapDataUpdateCoordinator(make_context(hass), 1)
 
     coordinator.process_new_data({"operating_status": OPERATING_STATUS.ENERGY_SAVING})
 
@@ -62,7 +72,7 @@ async def test_map_coordinator_process_data_ignores_lbs() -> None:
     """LBS data is ignored and previous GPS data reused."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
-    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
     coord.ignore_lbs = True
     coord.data = {"gps_latitude": 5, "gps_longitude": 6}
     data = {
@@ -79,7 +89,7 @@ async def test_map_coordinator_set_refresh_updates_interval() -> None:
     """Setting refresh values updates coordinator interval based on status."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
-    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
     coord.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
     await coord.async_set_live_refresh(20)
     assert coord.update_interval == timedelta(seconds=20)
@@ -97,7 +107,7 @@ async def test_map_coordinator_update_failure() -> None:
     hass.loop = asyncio.get_running_loop()
     api = MagicMock()
     api.kippymap_action = AsyncMock(side_effect=RuntimeError)
-    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), api, 1)
+    coord = KippyMapDataUpdateCoordinator(make_context(hass, api), 1)
     with pytest.raises(UpdateFailed):
         await coord._async_update_data()
 
@@ -107,7 +117,7 @@ async def test_process_data_without_existing_data_accepts_lbs() -> None:
     """LBS update with no previous data uses provided GPS keys."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
-    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
     coord.ignore_lbs = True
     data = {
         "localization_technology": LOCALIZATION_TECHNOLOGY_LBS,
@@ -123,7 +133,7 @@ async def test_process_data_without_existing_location_accepts_lbs() -> None:
     """LBS update accepted when existing data lacks GPS coordinates."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
-    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
     coord.ignore_lbs = True
     coord.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
     data = {
@@ -140,7 +150,7 @@ async def test_process_data_live_sets_interval() -> None:
     """Live status updates refresh interval."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
-    coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), MagicMock(), 1)
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
     coord._process_data({"operating_status": OPERATING_STATUS.LIVE})
     assert coord.update_interval == timedelta(seconds=coord.live_refresh)
 
@@ -158,7 +168,7 @@ async def test_activity_coordinator_update_and_refresh() -> None:
 
     with patch("homeassistant.util.dt.now", return_value=fake_now):
         coord = KippyActivityCategoriesDataUpdateCoordinator(
-            hass, MagicMock(), api, [1]
+            make_context(hass, api), [1]
         )
         assert coord.update_interval is None
         data = await coord._async_update_data()
@@ -196,8 +206,8 @@ def test_has_config_entry_branches(monkeypatch) -> None:
     hass.loop = loop
     api = MagicMock()
     KippyDataUpdateCoordinator(hass, MagicMock(), api)
-    KippyMapDataUpdateCoordinator(hass, MagicMock(), api, 1)
-    KippyActivityCategoriesDataUpdateCoordinator(hass, MagicMock(), api, [])
+    KippyMapDataUpdateCoordinator(make_context(hass, api), 1)
+    KippyActivityCategoriesDataUpdateCoordinator(make_context(hass, api), [])
     assert all("config_entry" in c for c in calls)
 
 
@@ -223,7 +233,9 @@ async def test_activity_refresh_timer_triggers_refreshes() -> None:
     with patch(
         "custom_components.kippy.coordinator.async_track_point_in_utc_time", fake_track
     ):
-        ActivityRefreshTimer(hass, base, map_coord, activity_coord, 1, 2)
+        ActivityRefreshTimer(
+            ActivityRefreshContext(hass, base, map_coord, activity_coord), 1, 2
+        )
         await asyncio.sleep(0)
         await asyncio.sleep(0)
 
@@ -256,6 +268,8 @@ def test_activity_refresh_timer_clamps_to_future() -> None:
             fake_track,
         ),
     ):
-        ActivityRefreshTimer(hass, base, map_coord, activity_coord, 1, 5)
+        ActivityRefreshTimer(
+            ActivityRefreshContext(hass, base, map_coord, activity_coord), 1, 5
+        )
 
     assert scheduled["when"] == now + timedelta(minutes=5)

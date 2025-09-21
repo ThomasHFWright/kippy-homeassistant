@@ -8,6 +8,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import async_setup_entry, async_unload_entry
 from custom_components.kippy.const import DOMAIN, PLATFORMS
+from custom_components.kippy.coordinator import ActivityRefreshContext, CoordinatorContext
 
 
 @pytest.mark.asyncio
@@ -72,11 +73,11 @@ async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None
         patch(
             "custom_components.kippy.KippyMapDataUpdateCoordinator",
             return_value=map_coord,
-        ),
+        ) as map_cls,
         patch(
             "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
             return_value=activity_coord,
-        ),
+        ) as act_cls,
         patch(
             "custom_components.kippy.ActivityRefreshTimer", return_value=timer
         ) as timer_cls,
@@ -86,10 +87,25 @@ async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None
         result = await async_setup_entry(hass, entry)
         assert result is True
         assert DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]
+        (map_context, map_pet_id), _ = map_cls.call_args
+        assert isinstance(map_context, CoordinatorContext)
+        assert map_context.hass is hass
+        assert map_context.api is api
+        assert map_context.config_entry is entry
+        assert map_pet_id == 1
+        (activity_context, pet_ids), _ = act_cls.call_args
+        assert activity_context is map_context
+        assert pet_ids == [1]
+        (timer_context, timer_pet_id), _ = timer_cls.call_args
+        assert isinstance(timer_context, ActivityRefreshContext)
+        assert timer_context.hass is hass
+        assert timer_context.base is data_coord
+        assert timer_context.map is map_coord
+        assert timer_context.activity is activity_coord
+        assert timer_pet_id == 1
         await async_unload_entry(hass, entry)
         unload.assert_awaited_with(entry, PLATFORMS)
         timer.async_cancel.assert_called_once()
-        timer_cls.assert_called_once()
         assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
 
@@ -141,6 +157,15 @@ async def test_async_setup_entry_handles_expired_pet(hass: HomeAssistant) -> Non
         result = await async_setup_entry(hass, entry)
 
     assert result is True
-    map_cls.assert_called_once_with(hass, entry, api, 1)
-    act_cls.assert_called_once_with(hass, entry, api, [1])
-    timer_cls.assert_called_once()
+    (map_context, map_pet_id), _ = map_cls.call_args
+    assert isinstance(map_context, CoordinatorContext)
+    assert map_context.hass is hass
+    assert map_context.api is api
+    assert map_pet_id == 1
+    (activity_context, pet_ids), _ = act_cls.call_args
+    assert activity_context is map_context
+    assert pet_ids == [1]
+    (timer_context, timer_pet_id), _ = timer_cls.call_args
+    assert isinstance(timer_context, ActivityRefreshContext)
+    assert timer_context.map is map_coord
+    assert timer_pet_id == 1
