@@ -38,8 +38,8 @@ class _FakeKippyApi:
         return {"fake": True}
 
 
-@pytest_asyncio.fixture
-async def api():
+@pytest_asyncio.fixture(name="api")
+async def _fake_api():
     """Return the fake API instance."""
 
     return _FakeKippyApi()

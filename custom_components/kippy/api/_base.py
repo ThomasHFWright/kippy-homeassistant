@@ -78,6 +78,12 @@ class BaseKippyApi:
         return f"{self._host}{path}"
 
     @property
+    def session(self) -> ClientSession:
+        """Return the underlying :class:`aiohttp.ClientSession`."""
+
+        return self._session
+
+    @property
     def app_code(self) -> Optional[str]:
         """Return the app code from the login response."""
 
@@ -191,6 +197,27 @@ class BaseKippyApi:
             raise RuntimeError(ERROR_NO_CREDENTIALS)
         email, password = self._credentials
         await self.login(email, password)
+
+    def cache_authentication(
+        self,
+        auth: Mapping[str, Any],
+        *,
+        credentials: tuple[str, str] | None = None,
+    ) -> None:
+        """Seed cached authentication values without performing a login.
+
+        Primarily intended for tests that need to exercise endpoints without
+        performing a full login handshake against the live service.
+        """
+
+        self._auth = dict(auth)
+        if credentials is not None:
+            self._credentials = credentials
+
+    async def close(self) -> None:
+        """Close the underlying :class:`aiohttp.ClientSession`."""
+
+        await self._session.close()
 
     async def _authenticated_payload(
         self,
@@ -306,3 +333,10 @@ class BaseKippyApi:
                 raise
 
         raise RuntimeError(ERROR_UNEXPECTED_AUTH_FAILURE)
+
+    async def post_with_refresh(
+        self, path: str, payload: Dict[str, Any], headers: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """Public wrapper around :meth:`_post_with_refresh`."""
+
+        return await self._post_with_refresh(path, payload, headers)

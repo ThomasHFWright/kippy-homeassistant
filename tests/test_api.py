@@ -21,7 +21,7 @@ import pytest_asyncio
 
 try:
     from pytest_socket import SocketBlockedError
-except Exception:  # pragma: no cover - fallback when pytest-socket is unavailable
+except ImportError:  # pragma: no cover - fallback when pytest-socket is unavailable
     SocketBlockedError = RuntimeError
 from dotenv import load_dotenv
 
@@ -57,8 +57,8 @@ def _active(pet: dict[str, Any]) -> bool:
         return True
 
 
-@pytest_asyncio.fixture
-async def api():
+@pytest_asyncio.fixture(name="api")
+async def _real_api():
     """Return an authenticated Kippy API instance."""
 
     try:
@@ -90,7 +90,7 @@ async def api():
     try:
         yield api
     finally:
-        await api._session.close()
+        await api.close()
 
 
 @pytest.mark.asyncio
@@ -214,15 +214,15 @@ async def test_kippymap_action_handles_inactive_subscription(monkeypatch) -> Non
 
     session = aiohttp.ClientSession()
     api = await KippyApi.async_create(session)
-    api._auth = {"token": 1}
+    api.cache_authentication({"token": 1})
 
-    async def fake_post(path, payload, headers):
+    async def fake_post(_path, _payload, _headers):
         return {"return": False}
 
     async def fake_ensure_login():
         return None
 
-    monkeypatch.setattr(api, "_post_with_refresh", fake_post)
+    monkeypatch.setattr(api, "post_with_refresh", fake_post)
     monkeypatch.setattr(api, "ensure_login", fake_ensure_login)
 
     result = await api.kippymap_action(12345)

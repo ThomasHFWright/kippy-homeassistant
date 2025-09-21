@@ -1269,7 +1269,7 @@ ruff format
 ruff check
 
 # Lint with pylint (required for every change)
-python -m pylint custom_components/kippy
+python -m pylint custom_components/kippy tests/test_api.py tests/test_api_unit.py
 
 # Check specific integration (uses HA version from requirements.txt)
 python script/hassfest --integration-path custom_components/kippy

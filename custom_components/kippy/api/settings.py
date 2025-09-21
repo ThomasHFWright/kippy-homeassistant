@@ -29,6 +29,6 @@ class SettingsEndpoint(BaseKippyApi):
         if energy_saving_mode is not None:
             payload["energy_saving_mode"] = int(energy_saving_mode)
 
-        return await self._post_with_refresh(
+        return await self.post_with_refresh(
             KIPPYMAP_MODIFY_SETTINGS_PATH, payload, REQUEST_HEADERS
         )

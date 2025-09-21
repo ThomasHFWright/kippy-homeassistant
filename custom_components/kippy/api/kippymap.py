@@ -35,7 +35,7 @@ class KippyMapEndpoint(BaseKippyApi):
         if geofence_id is not None:
             payload["geofence_id"] = geofence_id
 
-        data = await self._post_with_refresh(
+        data = await self.post_with_refresh(
             KIPPYMAP_ACTION_PATH, payload, REQUEST_HEADERS
         )
 

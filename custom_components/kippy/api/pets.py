@@ -22,7 +22,7 @@ class PetsEndpoint(BaseKippyApi):
             extra={"app_sub_identity": APP_SUB_IDENTITY}
         )
 
-        data = await self._post_with_refresh(GET_PETS_PATH, payload, REQUEST_HEADERS)
+        data = await self.post_with_refresh(GET_PETS_PATH, payload, REQUEST_HEADERS)
         pets = data.get("data", [])
         for pet in pets:
             if not isinstance(pet, dict):

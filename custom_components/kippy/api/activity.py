@@ -57,7 +57,7 @@ class ActivityEndpoint(BaseKippyApi):
             }
         )
 
-        data = await self._post_with_refresh(
+        data = await self.post_with_refresh(
             GET_ACTIVITY_CATEGORIES_PATH, payload, REQUEST_HEADERS
         )
 
