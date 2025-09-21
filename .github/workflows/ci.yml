@@ -40,6 +40,9 @@ jobs:
       - name: Ruff lint
         run: ruff check .
 
+      - name: Flake8
+        run: python -m flake8 custom_components/kippy
+
       - name: Pylint
         run: pylint custom_components/kippy tests
 
@@ -75,6 +78,9 @@ jobs:
 
       - name: Ruff lint (tests)
         run: ruff check tests
+
+      - name: Flake8 (tests)
+        run: python -m flake8 tests
 
       - name: Pylint (tests)
         run: python -m pylint tests

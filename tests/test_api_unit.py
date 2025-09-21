@@ -169,7 +169,11 @@ async def test_get_pet_kippy_list_maps_enable_gps(monkeypatch) -> None:
             ]
         }
 
-    monkeypatch.setattr(api, "post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     pets = await api.get_pet_kippy_list()
     assert pets[0]["gpsOnDefault"] == 1
@@ -187,7 +191,11 @@ async def test_get_pet_kippy_list_without_enable_gps(monkeypatch) -> None:
     async def fake_post(_path, _payload, _headers):
         return {"data": [{"petID": 3}]}
 
-    monkeypatch.setattr(api, "post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     pets = await api.get_pet_kippy_list()
     assert "gpsOnDefault" not in pets[0]
@@ -209,7 +217,11 @@ async def test_modify_kippy_settings_calls_post(monkeypatch) -> None:
         assert payload["app_verification_code"] == "2"
         return {"ok": True}
 
-    monkeypatch.setattr(api, "post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     result = await api.modify_kippy_settings(5, update_frequency=2)
     assert result["ok"] is True
@@ -222,7 +234,9 @@ async def test_modify_kippy_settings_propagates_error() -> None:
     api = KippyApi(MagicMock())
     api.cache_authentication({"app_code": "1", "app_verification_code": "2"})
     api.ensure_login = AsyncMock()  # type: ignore[assignment]
-    api.post_with_refresh = AsyncMock(side_effect=RuntimeError)  # type: ignore[assignment]
+    api.post_with_refresh = AsyncMock(
+        side_effect=RuntimeError,
+    )  # type: ignore[assignment]
 
     with pytest.raises(RuntimeError):
         await api.modify_kippy_settings(1, gps_on_default=True)
@@ -242,7 +256,11 @@ async def test_modify_kippy_settings_uses_bools(monkeypatch) -> None:
         payloads.append(payload)
         return {}
 
-    monkeypatch.setattr(api, "post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     await api.modify_kippy_settings(1, gps_on_default=True)
     await api.modify_kippy_settings(1, gps_on_default=False)
