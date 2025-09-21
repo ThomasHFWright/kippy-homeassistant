@@ -1,3 +1,5 @@
+"""Unit tests for the modular Kippy API client."""
+
 from __future__ import annotations
 
 import asyncio
@@ -30,13 +32,19 @@ class _CM:
         self.resp = resp
 
     async def __aenter__(self):
+        """Return the wrapped fake response."""
+
         return self.resp
 
     async def __aexit__(self, exc_type, exc, tb):
+        """Exit without suppressing exceptions."""
+
         return False
 
 
 class _FakeResp:
+    """Stand-in response used for exercising request handling."""
+
     def __init__(self, status: int, text: str = "{}"):
         self.status = status
         self._text = text
@@ -45,9 +53,13 @@ class _FakeResp:
         self.history: tuple = ()
 
     async def text(self) -> str:  # noqa: D401
+        """Return the canned response text."""
+
         return self._text
 
     def raise_for_status(self) -> None:
+        """Raise a :class:`ClientResponseError` for HTTP errors."""
+
         if self.status >= 400:
             raise ClientResponseError(
                 self.request_info,
@@ -59,7 +71,7 @@ class _FakeResp:
 
 
 @pytest.mark.asyncio
-async def test_login_handles_return_code_failure(monkeypatch) -> None:
+async def test_login_handles_return_code_failure() -> None:
     """Login raises for unsuccessful return codes."""
 
     resp = _FakeResp(200, '{"return": 108}')
@@ -72,8 +84,8 @@ async def test_login_handles_return_code_failure(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_post_with_refresh_retries_on_expired(monkeypatch) -> None:
-    """_post_with_refresh refreshes login once then returns data."""
+async def test_post_with_refresh_retries_on_expired() -> None:
+    """post_with_refresh refreshes login once then returns data."""
 
     resp1 = _FakeResp(401, '{"return": %d}' % RETURN_VALUES.AUTHORIZATION_EXPIRED)
     resp2 = _FakeResp(200, '{"return": 0, "data": {"ok": true}}')
@@ -81,32 +93,36 @@ async def test_post_with_refresh_retries_on_expired(monkeypatch) -> None:
     session.post.side_effect = [_CM(resp1), _CM(resp2)]
 
     api = KippyApi(session)
-    api._auth = {"token": 1, "app_code": "1", "app_verification_code": "2"}
-    api._credentials = ("e", "p")
+    api.cache_authentication(
+        {"token": 1, "app_code": "1", "app_verification_code": "2"},
+        credentials=("e", "p"),
+    )
 
-    async def fake_login(email, password, force=False):
+    async def fake_login(*_args, **_kwargs):
         return {"app_code": "1", "app_verification_code": "2"}
 
     api.login = AsyncMock(side_effect=fake_login)  # type: ignore[assignment]
 
-    result = await api._post_with_refresh("/x", {"a": 1}, REQUEST_HEADERS)
+    result = await api.post_with_refresh("/x", {"a": 1}, REQUEST_HEADERS)
     assert result["data"]["ok"] is True
 
 
 @pytest.mark.asyncio
 async def test_post_with_refresh_raises_without_return_code() -> None:
-    """_post_with_refresh raises when API lacks a return code."""
+    """post_with_refresh raises when API lacks a return code."""
 
     resp = _FakeResp(200, "{}")
     session = MagicMock()
     session.post.return_value = _CM(resp)
 
     api = KippyApi(session)
-    api._auth = {"token": 1, "app_code": "1", "app_verification_code": "2"}
-    api._credentials = ("e", "p")
+    api.cache_authentication(
+        {"token": 1, "app_code": "1", "app_verification_code": "2"},
+        credentials=("e", "p"),
+    )
 
     with pytest.raises(ClientResponseError):
-        await api._post_with_refresh("/x", {"a": 1}, REQUEST_HEADERS)
+        await api.post_with_refresh("/x", {"a": 1}, REQUEST_HEADERS)
 
 
 def test_helper_functions_cover_edge_cases() -> None:
@@ -130,6 +146,8 @@ def test_helper_functions_cover_edge_cases() -> None:
 
 
 def test_ensure_login_raises_without_creds() -> None:
+    """ensure_login raises when credentials have not been cached."""
+
     api = KippyApi(MagicMock())
     with pytest.raises(RuntimeError):
         asyncio.get_event_loop().run_until_complete(api.ensure_login())
@@ -140,10 +158,10 @@ async def test_get_pet_kippy_list_maps_enable_gps(monkeypatch) -> None:
     """enableGPSOnDefault is mapped to gpsOnDefault."""
 
     api = KippyApi(MagicMock())
-    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.cache_authentication({"app_code": "1", "app_verification_code": "2"})
     api.ensure_login = AsyncMock()  # type: ignore[assignment]
 
-    async def fake_post(path, payload, headers):
+    async def fake_post(_path, _payload, _headers):
         return {
             "data": [
                 {"petID": 1, "enableGPSOnDefault": True},
@@ -151,7 +169,11 @@ async def test_get_pet_kippy_list_maps_enable_gps(monkeypatch) -> None:
             ]
         }
 
-    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     pets = await api.get_pet_kippy_list()
     assert pets[0]["gpsOnDefault"] == 1
@@ -163,13 +185,17 @@ async def test_get_pet_kippy_list_without_enable_gps(monkeypatch) -> None:
     """Pets lacking enableGPSOnDefault remain unchanged."""
 
     api = KippyApi(MagicMock())
-    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.cache_authentication({"app_code": "1", "app_verification_code": "2"})
     api.ensure_login = AsyncMock()  # type: ignore[assignment]
 
-    async def fake_post(path, payload, headers):
+    async def fake_post(_path, _payload, _headers):
         return {"data": [{"petID": 3}]}
 
-    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     pets = await api.get_pet_kippy_list()
     assert "gpsOnDefault" not in pets[0]
@@ -180,10 +206,10 @@ async def test_modify_kippy_settings_calls_post(monkeypatch) -> None:
     """modify_kippy_settings posts expected payload."""
 
     api = KippyApi(MagicMock())
-    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.cache_authentication({"app_code": "1", "app_verification_code": "2"})
     api.ensure_login = AsyncMock()  # type: ignore[assignment]
 
-    async def fake_post(path, payload, headers):
+    async def fake_post(path, payload, _headers):
         assert path == "/v2/kippymap_modifyKippySettings.php"
         assert payload["modify_kippy_id"] == 5
         assert payload["update_frequency"] == 2.0
@@ -191,7 +217,11 @@ async def test_modify_kippy_settings_calls_post(monkeypatch) -> None:
         assert payload["app_verification_code"] == "2"
         return {"ok": True}
 
-    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     result = await api.modify_kippy_settings(5, update_frequency=2)
     assert result["ok"] is True
@@ -199,12 +229,14 @@ async def test_modify_kippy_settings_calls_post(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_modify_kippy_settings_propagates_error() -> None:
-    """Exceptions from _post_with_refresh are raised."""
+    """Exceptions from post_with_refresh are raised."""
 
     api = KippyApi(MagicMock())
-    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.cache_authentication({"app_code": "1", "app_verification_code": "2"})
     api.ensure_login = AsyncMock()  # type: ignore[assignment]
-    api._post_with_refresh = AsyncMock(side_effect=RuntimeError)
+    api.post_with_refresh = AsyncMock(
+        side_effect=RuntimeError,
+    )  # type: ignore[assignment]
 
     with pytest.raises(RuntimeError):
         await api.modify_kippy_settings(1, gps_on_default=True)
@@ -215,16 +247,20 @@ async def test_modify_kippy_settings_uses_bools(monkeypatch) -> None:
     """gps_on_default is sent as boolean values."""
 
     api = KippyApi(MagicMock())
-    api._auth = {"app_code": "1", "app_verification_code": "2"}
+    api.cache_authentication({"app_code": "1", "app_verification_code": "2"})
     api.ensure_login = AsyncMock()  # type: ignore[assignment]
 
     payloads: list[dict[str, Any]] = []
 
-    async def fake_post(path, payload, headers):
+    async def fake_post(_path, payload, _headers):
         payloads.append(payload)
         return {}
 
-    monkeypatch.setattr(api, "_post_with_refresh", AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr(
+        api,
+        "post_with_refresh",
+        AsyncMock(side_effect=fake_post),
+    )
 
     await api.modify_kippy_settings(1, gps_on_default=True)
     await api.modify_kippy_settings(1, gps_on_default=False)
@@ -242,10 +278,10 @@ async def test_post_with_refresh_logs_json(caplog) -> None:
     session.post.return_value = _CM(resp)
 
     api = KippyApi(session)
-    api._auth = {"token": 1}
+    api.cache_authentication({"token": 1})
 
     caplog.set_level(logging.DEBUG, logger="custom_components.kippy.api")
 
-    await api._post_with_refresh("/x", {"gps_on_default": True}, REQUEST_HEADERS)
+    await api.post_with_refresh("/x", {"gps_on_default": True}, REQUEST_HEADERS)
 
     assert '"gps_on_default": true' in caplog.text

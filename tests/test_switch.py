@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring,protected-access,duplicate-code
+
+"""Tests for Kippy switch entities."""
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, call
 

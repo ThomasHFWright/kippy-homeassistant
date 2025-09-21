@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring
+
+"""Tests for API error-handling helpers."""
+
 from custom_components.kippy.api import _return_code_error, _treat_401_as_success
 from custom_components.kippy.const import RETURN_VALUES
 

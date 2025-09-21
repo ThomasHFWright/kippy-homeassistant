@@ -1256,7 +1256,24 @@ _LOGGER.debug("Processing data: %s", data)  # Use lazy logging
 
 ### Validation Commands
 
+Always run the full suite of formatting, linting, and validation commands
+before finishing any change. Ruff formatting and linting, isort, flake8, and
+pylint are mandatory for every update.
+
 ```bash
+# Sort imports with isort (required for every change)
+isort .
+
+# Format and lint with Ruff (required for every change, including the entire tests suite)
+ruff format
+ruff check
+
+# Lint with Flake8 (required for every change; lint the integration and every test module)
+python -m flake8 custom_components/kippy tests
+
+# Lint with pylint (required for every change; lint the integration and every test module)
+python -m pylint custom_components/kippy tests
+
 # Check specific integration (uses HA version from requirements.txt)
 python script/hassfest --integration-path custom_components/kippy
 

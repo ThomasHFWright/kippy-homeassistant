@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring
+
+"""Tests for API redaction helpers."""
+
 import json
 
 from custom_components.kippy.api import _redact, _redact_json

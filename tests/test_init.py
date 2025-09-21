@@ -1,3 +1,7 @@
+# pylint: disable=too-many-locals
+
+"""Tests for integration setup and unload."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

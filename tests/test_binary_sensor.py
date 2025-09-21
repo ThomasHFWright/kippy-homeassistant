@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring,protected-access,duplicate-code
+
+"""Tests for Kippy binary sensors."""
+
 from unittest.mock import MagicMock
 
 import pytest

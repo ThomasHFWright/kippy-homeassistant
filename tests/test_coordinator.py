@@ -1,3 +1,7 @@
+# pylint: disable=missing-function-docstring,protected-access,unused-argument
+
+"""Tests for the Kippy update coordinators."""
+
 import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
