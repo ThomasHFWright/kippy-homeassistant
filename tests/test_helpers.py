@@ -5,12 +5,16 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy.const import DOMAIN
 from custom_components.kippy.helpers import (
+    MAP_REFRESH_IDLE_KEY,
+    MAP_REFRESH_LIVE_KEY,
     MapRefreshSettings,
     async_update_map_refresh_settings,
     build_device_info,
     get_map_refresh_settings,
     normalize_kippy_identifier,
+    update_pet_data,
 )
+from custom_components.kippy import helpers as helpers_module
 
 
 def test_build_device_info_with_ids() -> None:
@@ -101,4 +105,81 @@ async def test_async_update_map_refresh_settings_updates_entry() -> None:
     await async_update_map_refresh_settings(
         hass, entry_with_options, 2, idle_seconds=600
     )
+    hass.config_entries.async_update_entry.assert_not_awaited()
+
+
+def test_update_pet_data_preserves_and_returns_current() -> None:
+    """update_pet_data preserves requested fields and returns current when missing."""
+
+    pets = [
+        {"petID": 1, "value": 1},
+        {"petID": 2, "value": 2},
+    ]
+    current = {"petID": 2, "value": 3, "keep": True}
+    updated = update_pet_data(pets, 2, current, preserve=("keep",))
+    assert updated["value"] == 2
+    assert updated["keep"] is True
+    missing = update_pet_data(pets, 3, current)
+    assert missing is current
+
+
+def test_normalize_refresh_value_invalid_inputs() -> None:
+    """_normalize_refresh_value handles invalid data."""
+
+    assert helpers_module._normalize_refresh_value("bad") is None
+    assert helpers_module._normalize_refresh_value(0) is None
+
+
+def test_get_map_refresh_settings_invalid_mapping() -> None:
+    """Invalid stored structures result in None settings."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={"map_refresh_settings": {"1": "invalid"}},
+    )
+    assert get_map_refresh_settings(entry, 1) is None
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={
+            "map_refresh_settings": {
+                "1": {"idle_seconds": "-10", "live_seconds": "bad"}
+            }
+        },
+    )
+    assert get_map_refresh_settings(entry, 1) is None
+
+
+def test_collect_refresh_updates_filters_invalid_values() -> None:
+    """Only normalized refresh values are returned in updates."""
+
+    updates = helpers_module._collect_refresh_updates(5, "bad")
+    assert updates == {MAP_REFRESH_IDLE_KEY: 5}
+    assert MAP_REFRESH_LIVE_KEY not in updates
+    assert helpers_module._collect_refresh_updates(None, None) == {}
+    assert helpers_module._collect_refresh_updates(None, 8) == {MAP_REFRESH_LIVE_KEY: 8}
+
+
+def test_collect_refresh_updates_accepts_string_values() -> None:
+    """String inputs are normalized for both idle and live refresh updates."""
+
+    updates = helpers_module._collect_refresh_updates("15", "20")
+    assert updates == {
+        MAP_REFRESH_IDLE_KEY: 15,
+        MAP_REFRESH_LIVE_KEY: 20,
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_update_map_refresh_settings_no_updates() -> None:
+    """Calling update without values exits early."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, entry_id="3", options={})
+    hass = MagicMock()
+    hass.config_entries.async_update_entry = AsyncMock()
+
+    await async_update_map_refresh_settings(hass, entry, 4)
+
     hass.config_entries.async_update_entry.assert_not_awaited()

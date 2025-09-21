@@ -276,3 +276,30 @@ async def test_number_async_setup_entry_expired_pet() -> None:
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once_with([])
+
+
+def test_numbers_raise_for_sync_setters() -> None:
+    """Synchronous setters on number entities are unsupported."""
+
+    coordinator = MagicMock()
+    coordinator.data = {"pets": []}
+    coordinator.async_add_listener = MagicMock()
+    gps_number = KippyUpdateFrequencyNumber(coordinator, {"petID": 1})
+    with pytest.raises(NotImplementedError):
+        gps_number.set_native_value(1)
+
+    map_coordinator = MagicMock()
+    map_coordinator.async_add_listener = MagicMock()
+    idle_number = KippyIdleUpdateFrequencyNumber(map_coordinator, {"petID": 2})
+    with pytest.raises(NotImplementedError):
+        idle_number.set_native_value(1)
+
+    live_number = KippyLiveUpdateFrequencyNumber(map_coordinator, {"petID": 3})
+    with pytest.raises(NotImplementedError):
+        live_number.set_native_value(1)
+
+    timer = MagicMock()
+    timer.delay_minutes = 0
+    activity_number = KippyActivityRefreshDelayNumber(timer, {"petID": 4})
+    with pytest.raises(NotImplementedError):
+        activity_number.set_native_value(1)

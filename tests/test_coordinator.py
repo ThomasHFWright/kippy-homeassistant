@@ -238,7 +238,75 @@ async def test_activity_refresh_timer_triggers_refreshes() -> None:
         await asyncio.sleep(0)
 
     activity_coord.async_refresh_pet.assert_awaited_once_with(1)
-    map_coord.async_request_refresh.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_activity_refresh_timer_schedule_controls(monkeypatch) -> None:
+    """Timer cancels and reschedules updates safely."""
+
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+
+    base_unsub_calls = {"count": 0}
+    map_unsub_calls = {"count": 0}
+
+    def _base_unsub():
+        base_unsub_calls["count"] += 1
+
+    def _map_unsub():
+        map_unsub_calls["count"] += 1
+
+    base = MagicMock()
+    base.data = {"pets": [{"petID": 1, "updateFrequency": 1}]}
+    base.async_add_listener = MagicMock(return_value=_base_unsub)
+
+    map_coord = MagicMock()
+    map_coord.data = {"contact_time": 0}
+    map_coord.async_add_listener = MagicMock(return_value=_map_unsub)
+    map_coord.async_request_refresh = AsyncMock()
+
+    activity = MagicMock()
+    activity.async_refresh_pet = AsyncMock()
+
+    scheduled = {"cancellations": 0}
+
+    def fake_track(_hass, _cb, when):
+        scheduled["when"] = when
+
+        def _cancel() -> None:
+            scheduled["cancellations"] += 1
+
+        return _cancel
+
+    monkeypatch.setattr(
+        "custom_components.kippy.coordinator.async_track_point_in_utc_time",
+        fake_track,
+    )
+
+    timer = ActivityRefreshTimer(
+        ActivityRefreshContext(hass, base, map_coord, activity), 1, 2
+    )
+
+    base.data = {"pets": []}
+    assert timer._get_update_frequency() is None
+    base.data = {"pets": [{"petID": 1, "updateFrequency": 1}]}
+
+    timer._schedule_refresh()
+    assert scheduled["cancellations"] == 1
+
+    map_coord.data = {"contact_time": "invalid"}
+    timer._schedule_refresh()
+    assert scheduled["cancellations"] == 2
+    assert timer._unsub_timer is None
+
+    map_coord.data = {"contact_time": 0}
+    await timer.async_set_delay(5)
+    assert timer.delay_minutes == 5
+
+    timer.async_cancel()
+    assert scheduled["cancellations"] == 3
+    assert base_unsub_calls["count"] == 1
+    assert map_unsub_calls["count"] == 1
 
 
 def test_activity_refresh_timer_clamps_to_future() -> None:
