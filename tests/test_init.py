@@ -30,7 +30,7 @@ async def test_async_setup_entry_login_failure(hass: HomeAssistant) -> None:
     )
     entry.add_to_hass(hass)
     api = AsyncMock()
-    api.login.side_effect = Exception
+    api.login.side_effect = RuntimeError
     with (
         patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
         patch("custom_components.kippy.KippyApi.async_create", return_value=api),

@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from asyncio import TimeoutError as AsyncioTimeoutError
+from json import JSONDecodeError
+
+from aiohttp import ClientError
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
@@ -67,7 +72,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 pet_id,
                 DEFAULT_ACTIVITY_REFRESH_DELAY,
             )
-    except Exception as err:  # noqa: BLE001
+    except (
+        ClientError,
+        AsyncioTimeoutError,
+        RuntimeError,
+        JSONDecodeError,
+    ) as err:
         raise ConfigEntryNotReady from err
 
     hass.data[DOMAIN][entry.entry_id] = {

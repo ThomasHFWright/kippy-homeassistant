@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import inspect
 import logging
+from asyncio import TimeoutError as AsyncioTimeoutError
 from datetime import datetime, timedelta, timezone
+from json import JSONDecodeError
 from typing import Any, Callable
+
+from aiohttp import ClientError
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -53,7 +57,12 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         # ``get_pet_kippy_list`` internally ensures a valid login session.
         try:
             return {"pets": await self.api.get_pet_kippy_list()}
-        except Exception as err:  # noqa: BLE001
+        except (
+            ClientError,
+            AsyncioTimeoutError,
+            RuntimeError,
+            JSONDecodeError,
+        ) as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
 
@@ -88,7 +97,12 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch location data and adjust the refresh interval."""
         try:
             data = await self.api.kippymap_action(self.kippy_id)
-        except Exception as err:  # noqa: BLE001
+        except (
+            ClientError,
+            AsyncioTimeoutError,
+            RuntimeError,
+            JSONDecodeError,
+        ) as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         return self._process_data(data)
 
@@ -189,7 +203,12 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
                 data[pet_id] = await self.api.get_activity_categories(
                     pet_id, from_date, to_date, 2, 1
                 )
-        except Exception as err:  # noqa: BLE001
+        except (
+            ClientError,
+            AsyncioTimeoutError,
+            RuntimeError,
+            JSONDecodeError,
+        ) as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         return data
 
