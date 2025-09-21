@@ -10,7 +10,6 @@ from json import JSONDecodeError
 from typing import Any, Callable
 
 from aiohttp import ClientError
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_point_in_utc_time

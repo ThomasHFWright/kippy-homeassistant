@@ -6,7 +6,6 @@ from asyncio import TimeoutError as AsyncioTimeoutError
 from json import JSONDecodeError
 
 from aiohttp import ClientError
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant

@@ -44,7 +44,9 @@ jobs:
         run: pylint --disable=C,R custom_components/kippy
 
       - name: Pre-commit hooks
-        run: pre-commit run --all-files --show-diff-on-failure
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files --show-diff-on-failure
 
   tests:
     name: Test suite with coverage

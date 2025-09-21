@@ -50,7 +50,8 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except RuntimeError as err:
                 _LOGGER.debug("Unexpected runtime error during login: %s", err)
                 errors["base"] = "unknown"
-            except Exception as err:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            # pylint: disable-next=broad-exception-caught
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.exception("Unexpected error during login: %s", err)
                 errors["base"] = "unknown"
             else:
