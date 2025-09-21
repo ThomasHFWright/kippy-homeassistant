@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..const import (
-    APP_SUB_IDENTITY,
-    GET_PETS_PATH,
-    REQUEST_HEADERS,
-)
+from ..const import APP_SUB_IDENTITY, GET_PETS_PATH, REQUEST_HEADERS
 from ._base import BaseKippyApi
 
 

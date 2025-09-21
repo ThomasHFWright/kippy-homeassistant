@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from ..const import (
-    KIPPYMAP_ACTION_PATH,
-    LOCALIZATION_TECHNOLOGY_MAP,
-    REQUEST_HEADERS,
-)
+from ..const import KIPPYMAP_ACTION_PATH, LOCALIZATION_TECHNOLOGY_MAP, REQUEST_HEADERS
 from ._base import BaseKippyApi
 
 
