@@ -90,9 +90,11 @@ LOGIN_SENSITIVE_FIELDS = {
 # decide when to exercise a fake API rather than the real service.
 MISSING_CREDENTIAL_PLACEHOLDERS = {None, "", "<REDACTED>"}
 
-with resources.files(__package__).joinpath("translations/en.json").open(
-    "r", encoding="utf-8"
-) as _trans_file:
+with (
+    resources.files(__package__)
+    .joinpath("translations/en.json")
+    .open("r", encoding="utf-8") as _trans_file
+):
     _TRANSLATIONS = json.load(_trans_file)
 
 ERROR_NO_CREDENTIALS = _TRANSLATIONS["exceptions"]["no_credentials"]["message"]

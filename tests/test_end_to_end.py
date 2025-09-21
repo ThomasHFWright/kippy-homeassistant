@@ -84,9 +84,11 @@ async def test_pet_setup_end_to_end(
     )
     entry.add_to_hass(hass)
 
-    with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
-        "custom_components.kippy.KippyApi.async_create", return_value=api
-    ), patch("custom_components.kippy.coordinator.dt_util.now", return_value=today):
+    with (
+        patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
+        patch("custom_components.kippy.KippyApi.async_create", return_value=api),
+        patch("custom_components.kippy.coordinator.dt_util.now", return_value=today),
+    ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 

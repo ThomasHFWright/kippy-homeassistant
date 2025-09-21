@@ -1,4 +1,5 @@
 """Binary sensors for Kippy pets."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -31,12 +32,16 @@ class KippyFirmwareUpgradeAvailableBinarySensor(
 ):
     """Binary sensor indicating firmware upgrade availability."""
 
-    def __init__(self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Firmware Upgrade available" if pet_name else "Firmware Upgrade available"
+            f"{pet_name} Firmware Upgrade available"
+            if pet_name
+            else "Firmware Upgrade available"
         )
         self._attr_unique_id = f"{self._pet_id}_firmware_upgrade"
         self._pet_data = pet
@@ -58,5 +63,3 @@ class KippyFirmwareUpgradeAvailableBinarySensor(
         pet_name = self._pet_data.get("petName")
         name = f"Kippy {pet_name}" if pet_name else "Kippy"
         return build_device_info(self._pet_id, self._pet_data, name)
-
-

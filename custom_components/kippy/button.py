@@ -1,4 +1,5 @@
 """Button entities for Kippy pets."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -55,7 +56,9 @@ class KippyRefreshMapAttributesButton(
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Refresh Map Attributes" if pet_name else "Refresh Map Attributes"
+            f"{pet_name} Refresh Map Attributes"
+            if pet_name
+            else "Refresh Map Attributes"
         )
         self._attr_unique_id = f"{self._pet_id}_refresh_map_attributes"
         self._pet_name = pet_name

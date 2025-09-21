@@ -28,7 +28,6 @@ from custom_components.kippy.sensor import (
     KippyNextContactSensor,
     KippyOperatingStatusSensor,
     KippyPetTypeSensor,
-    KippyPlaySensor,
     KippyRunSensor,
     KippyPlaySensor,
     KippyStepsSensor,

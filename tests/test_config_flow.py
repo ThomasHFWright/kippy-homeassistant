@@ -12,9 +12,12 @@ async def test_config_flow_success() -> None:
     """Successful login creates an entry."""
     flow = KippyConfigFlow()
     flow.hass = MagicMock()
-    with patch(
-        "custom_components.kippy.config_flow.aiohttp_client.async_get_clientsession"
-    ), patch("custom_components.kippy.config_flow.KippyApi.async_create") as create:
+    with (
+        patch(
+            "custom_components.kippy.config_flow.aiohttp_client.async_get_clientsession"
+        ),
+        patch("custom_components.kippy.config_flow.KippyApi.async_create") as create,
+    ):
         api = AsyncMock()
         create.return_value = api
         api.login.return_value = None
@@ -40,9 +43,12 @@ async def test_config_flow_errors(error: Exception, base: str) -> None:
     """Ensure different errors are handled."""
     flow = KippyConfigFlow()
     flow.hass = MagicMock()
-    with patch(
-        "custom_components.kippy.config_flow.aiohttp_client.async_get_clientsession"
-    ), patch("custom_components.kippy.config_flow.KippyApi.async_create") as create:
+    with (
+        patch(
+            "custom_components.kippy.config_flow.aiohttp_client.async_get_clientsession"
+        ),
+        patch("custom_components.kippy.config_flow.KippyApi.async_create") as create,
+    ):
         api = AsyncMock()
         create.return_value = api
         api.login.side_effect = error

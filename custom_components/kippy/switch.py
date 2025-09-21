@@ -63,9 +63,7 @@ class KippyGpsDefaultSwitch(
         super().__init__(coordinator)
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
-        self._attr_name = (
-            f"{pet_name} GPS Activation" if pet_name else "GPS Activation"
-        )
+        self._attr_name = f"{pet_name} GPS Activation" if pet_name else "GPS Activation"
         self._attr_unique_id = f"{self._pet_id}_gps_on_default"
         self._pet_data = pet
         self._attr_translation_key = "gps_on_default"
