@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import inspect
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,12 +22,22 @@ from .const import (
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
+from .helpers import API_EXCEPTIONS, MapRefreshSettings
 
 _LOGGER = logging.getLogger(__name__)
 
 _HAS_CONFIG_ENTRY = (
     "config_entry" in inspect.signature(DataUpdateCoordinator.__init__).parameters
 )
+
+
+@dataclass(slots=True)
+class CoordinatorContext:
+    """Container for coordinator dependencies."""
+
+    hass: HomeAssistant
+    config_entry: ConfigEntry
+    api: KippyApi
 
 
 class KippyDataUpdateCoordinator(DataUpdateCoordinator):
@@ -53,7 +64,7 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         # ``get_pet_kippy_list`` internally ensures a valid login session.
         try:
             return {"pets": await self.api.get_pet_kippy_list()}
-        except Exception as err:  # noqa: BLE001
+        except API_EXCEPTIONS as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
 
@@ -62,33 +73,31 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
 
     def __init__(
         self,
-        hass: HomeAssistant,
-        config_entry: ConfigEntry,
-        api: KippyApi,
+        context: CoordinatorContext,
         kippy_id: int,
-        idle_refresh: int = 300,
-        live_refresh: int = 10,
+        settings: MapRefreshSettings | None = None,
     ) -> None:
         """Initialize the map coordinator."""
-        self.api = api
-        self.config_entry = config_entry
+        self.api = context.api
+        self.config_entry = context.config_entry
         self.kippy_id = kippy_id
-        self.idle_refresh = idle_refresh
-        self.live_refresh = live_refresh
+        refresh = settings or MapRefreshSettings()
+        self.idle_refresh = refresh.idle_seconds
+        self.live_refresh = refresh.live_seconds
         self.ignore_lbs = True
         kwargs: dict[str, Any] = {
             "name": f"{DOMAIN}_{kippy_id}_map",
             "update_interval": timedelta(seconds=self.idle_refresh),
         }
         if _HAS_CONFIG_ENTRY:
-            kwargs["config_entry"] = config_entry
-        super().__init__(hass, _LOGGER, **kwargs)
+            kwargs["config_entry"] = context.config_entry
+        super().__init__(context.hass, _LOGGER, **kwargs)
 
     async def _async_update_data(self):
         """Fetch location data and adjust the refresh interval."""
         try:
             data = await self.api.kippymap_action(self.kippy_id)
-        except Exception as err:  # noqa: BLE001
+        except API_EXCEPTIONS as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         return self._process_data(data)
 
@@ -161,22 +170,20 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
 
     def __init__(
         self,
-        hass: HomeAssistant,
-        config_entry: ConfigEntry,
-        api: KippyApi,
-        pet_ids: list[int],
+        context: CoordinatorContext,
+        pet_ids: Iterable[int | str],
     ) -> None:
         """Initialize the activity categories coordinator."""
-        self.api = api
-        self.config_entry = config_entry
-        self.pet_ids = pet_ids
+        self.api = context.api
+        self.config_entry = context.config_entry
+        self.pet_ids = list(pet_ids)
         kwargs: dict[str, Any] = {
             "name": f"{DOMAIN}_activities",
             "update_interval": None,
         }
         if _HAS_CONFIG_ENTRY:
-            kwargs["config_entry"] = config_entry
-        super().__init__(hass, _LOGGER, **kwargs)
+            kwargs["config_entry"] = context.config_entry
+        super().__init__(context.hass, _LOGGER, **kwargs)
 
     async def _async_update_data(self) -> dict[int, dict[str, Any]]:
         """Fetch activity categories for all configured pets."""
@@ -189,11 +196,11 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
                 data[pet_id] = await self.api.get_activity_categories(
                     pet_id, from_date, to_date, 2, 1
                 )
-        except Exception as err:  # noqa: BLE001
+        except API_EXCEPTIONS as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         return data
 
-    async def async_refresh_pet(self, pet_id: int) -> None:
+    async def async_refresh_pet(self, pet_id: int | str) -> None:
         """Manually refresh activity data for a single pet."""
         now = dt_util.now()
         from_date = now.strftime("%Y-%m-%d")
@@ -205,17 +212,27 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         new_data[pet_id] = result
         self.async_set_updated_data(new_data)
 
-    def get_activities(self, pet_id: int):
+    def get_activities(self, pet_id: int | str):
         """Return cached activities for the given pet."""
         return (self.data or {}).get(pet_id, {}).get("activities")
 
-    def get_avg(self, pet_id: int):
+    def get_avg(self, pet_id: int | str):
         """Return cached averages for the given pet."""
         return (self.data or {}).get(pet_id, {}).get("avg")
 
-    def get_health(self, pet_id: int):
+    def get_health(self, pet_id: int | str):
         """Return cached health information for the given pet."""
         return (self.data or {}).get(pet_id, {}).get("health")
+
+
+@dataclass(slots=True)
+class ActivityRefreshContext:
+    """Context used by ``ActivityRefreshTimer``."""
+
+    hass: HomeAssistant
+    base: "KippyDataUpdateCoordinator"
+    map: "KippyMapDataUpdateCoordinator"
+    activity: "KippyActivityCategoriesDataUpdateCoordinator"
 
 
 class ActivityRefreshTimer:
@@ -223,28 +240,32 @@ class ActivityRefreshTimer:
 
     def __init__(
         self,
-        hass: HomeAssistant,
-        base_coordinator: KippyDataUpdateCoordinator,
-        map_coordinator: KippyMapDataUpdateCoordinator,
-        activity_coordinator: KippyActivityCategoriesDataUpdateCoordinator,
-        pet_id: int,
+        context: ActivityRefreshContext,
+        pet_id: int | str,
         delay_minutes: int = DEFAULT_ACTIVITY_REFRESH_DELAY,
     ) -> None:
         """Initialize the timer."""
-        self.hass = hass
-        self.base_coordinator = base_coordinator
-        self.map_coordinator = map_coordinator
-        self.activity_coordinator = activity_coordinator
-        self.pet_id = pet_id
-        self.delay_minutes = delay_minutes
+        self._context = context
+        self._pet_id = pet_id
+        self._delay_minutes = delay_minutes
         self._unsub_timer: Callable[[], None] | None = None
-        self._unsub_base = base_coordinator.async_add_listener(self._schedule_refresh)
-        self._unsub_map = map_coordinator.async_add_listener(self._schedule_refresh)
+        self._listeners: list[Callable[[], None]] = []
+        for coordinator in (context.base, context.map):
+            self._listeners.append(
+                coordinator.async_add_listener(self._schedule_refresh)
+            )
         self._schedule_refresh()
 
+    @property
+    def delay_minutes(self) -> int:
+        """Return the configured delay in minutes."""
+
+        return self._delay_minutes
+
     def _get_update_frequency(self) -> int | None:
-        for pet in self.base_coordinator.data.get("pets", []):
-            if pet.get("petID") == self.pet_id:
+        pets = (self._context.base.data or {}).get("pets", [])
+        for pet in pets:
+            if pet.get("petID") == self._pet_id:
                 return pet.get("updateFrequency")
         return None
 
@@ -253,8 +274,8 @@ class ActivityRefreshTimer:
             self._unsub_timer()
             self._unsub_timer = None
         contact = (
-            self.map_coordinator.data.get("contact_time")
-            if self.map_coordinator.data
+            self._context.map.data.get("contact_time")
+            if self._context.map.data
             else None
         )
         update_frequency = self._get_update_frequency()
@@ -262,34 +283,35 @@ class ActivityRefreshTimer:
             return
         try:
             when = datetime.fromtimestamp(
-                int(contact) + int(update_frequency) * 3600 + self.delay_minutes * 60,
+                int(contact) + int(update_frequency) * 3600 + self._delay_minutes * 60,
                 timezone.utc,
             )
         except (TypeError, ValueError, OSError):
             return
         now = dt_util.utcnow()
         if when <= now:
-            when = now + timedelta(minutes=self.delay_minutes)
+            when = now + timedelta(minutes=self._delay_minutes)
         self._unsub_timer = async_track_point_in_utc_time(
-            self.hass, self._handle_refresh, when
+            self._context.hass, self._handle_refresh, when
         )
 
     async def _handle_refresh(self, _now) -> None:
         self._unsub_timer = None
-        await self.activity_coordinator.async_refresh_pet(self.pet_id)
-        await self.map_coordinator.async_request_refresh()
+        await self._context.activity.async_refresh_pet(self._pet_id)
+        await self._context.map.async_request_refresh()
 
     async def async_set_delay(self, minutes: int) -> None:
-        self.delay_minutes = minutes
+        """Update the delay between refreshes."""
+
+        self._delay_minutes = minutes
         self._schedule_refresh()
 
     def async_cancel(self) -> None:
+        """Cancel scheduled refreshes and coordinator listeners."""
+
         if self._unsub_timer:
             self._unsub_timer()
             self._unsub_timer = None
-        if self._unsub_base:
-            self._unsub_base()
-            self._unsub_base = None
-        if self._unsub_map:
-            self._unsub_map()
-            self._unsub_map = None
+        for unsub in self._listeners:
+            unsub()
+        self._listeners.clear()

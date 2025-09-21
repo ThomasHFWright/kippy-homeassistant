@@ -8,6 +8,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import async_setup_entry, async_unload_entry
 from custom_components.kippy.const import DOMAIN, PLATFORMS
+from custom_components.kippy.coordinator import (
+    ActivityRefreshContext,
+    CoordinatorContext,
+)
 
 
 @pytest.mark.asyncio
@@ -30,10 +34,12 @@ async def test_async_setup_entry_login_failure(hass: HomeAssistant) -> None:
     )
     entry.add_to_hass(hass)
     api = AsyncMock()
-    api.login.side_effect = Exception
-    with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
-        "custom_components.kippy.KippyApi.async_create", return_value=api
-    ), patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()):
+    api.login.side_effect = RuntimeError
+    with (
+        patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
+        patch("custom_components.kippy.KippyApi.async_create", return_value=api),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
+    ):
         with pytest.raises(ConfigEntryNotReady):
             await async_setup_entry(hass, entry)
 
@@ -60,29 +66,50 @@ async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None
     forward = AsyncMock()
     unload = AsyncMock(return_value=True)
 
-    with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
-        "custom_components.kippy.KippyApi.async_create", return_value=api
-    ), patch(
-        "custom_components.kippy.KippyDataUpdateCoordinator", return_value=data_coord
-    ), patch(
-        "custom_components.kippy.KippyMapDataUpdateCoordinator", return_value=map_coord
-    ), patch(
-        "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
-        return_value=activity_coord,
-    ), patch(
-        "custom_components.kippy.ActivityRefreshTimer", return_value=timer
-    ) as timer_cls, patch.object(
-        hass.config_entries, "async_forward_entry_setups", forward
-    ), patch.object(
-        hass.config_entries, "async_unload_platforms", unload
+    with (
+        patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
+        patch("custom_components.kippy.KippyApi.async_create", return_value=api),
+        patch(
+            "custom_components.kippy.KippyDataUpdateCoordinator",
+            return_value=data_coord,
+        ),
+        patch(
+            "custom_components.kippy.KippyMapDataUpdateCoordinator",
+            return_value=map_coord,
+        ) as map_cls,
+        patch(
+            "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
+            return_value=activity_coord,
+        ) as act_cls,
+        patch(
+            "custom_components.kippy.ActivityRefreshTimer", return_value=timer
+        ) as timer_cls,
+        patch.object(hass.config_entries, "async_forward_entry_setups", forward),
+        patch.object(hass.config_entries, "async_unload_platforms", unload),
     ):
         result = await async_setup_entry(hass, entry)
         assert result is True
         assert DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]
+        (map_context, map_pet_id), map_kwargs = map_cls.call_args
+        assert isinstance(map_context, CoordinatorContext)
+        assert map_context.hass is hass
+        assert map_context.api is api
+        assert map_context.config_entry is entry
+        assert map_pet_id == 1
+        assert map_kwargs == {"settings": None}
+        (activity_context, pet_ids), _ = act_cls.call_args
+        assert activity_context is map_context
+        assert pet_ids == [1]
+        (timer_context, timer_pet_id), _ = timer_cls.call_args
+        assert isinstance(timer_context, ActivityRefreshContext)
+        assert timer_context.hass is hass
+        assert timer_context.base is data_coord
+        assert timer_context.map is map_coord
+        assert timer_context.activity is activity_coord
+        assert timer_pet_id == 1
         await async_unload_entry(hass, entry)
         unload.assert_awaited_with(entry, PLATFORMS)
         timer.async_cancel.assert_called_once()
-        timer_cls.assert_called_once()
         assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
 
@@ -111,23 +138,94 @@ async def test_async_setup_entry_handles_expired_pet(hass: HomeAssistant) -> Non
     timer = MagicMock()
     forward = AsyncMock()
 
-    with patch("custom_components.kippy.aiohttp_client.async_get_clientsession"), patch(
-        "custom_components.kippy.KippyApi.async_create", return_value=api
-    ), patch(
-        "custom_components.kippy.KippyDataUpdateCoordinator", return_value=data_coord
-    ), patch(
-        "custom_components.kippy.KippyMapDataUpdateCoordinator", return_value=map_coord
-    ) as map_cls, patch(
-        "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
-        return_value=activity_coord,
-    ) as act_cls, patch(
-        "custom_components.kippy.ActivityRefreshTimer", return_value=timer
-    ) as timer_cls, patch.object(
-        hass.config_entries, "async_forward_entry_setups", forward
+    with (
+        patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
+        patch("custom_components.kippy.KippyApi.async_create", return_value=api),
+        patch(
+            "custom_components.kippy.KippyDataUpdateCoordinator",
+            return_value=data_coord,
+        ),
+        patch(
+            "custom_components.kippy.KippyMapDataUpdateCoordinator",
+            return_value=map_coord,
+        ) as map_cls,
+        patch(
+            "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
+            return_value=activity_coord,
+        ) as act_cls,
+        patch(
+            "custom_components.kippy.ActivityRefreshTimer", return_value=timer
+        ) as timer_cls,
+        patch.object(hass.config_entries, "async_forward_entry_setups", forward),
     ):
         result = await async_setup_entry(hass, entry)
 
     assert result is True
-    map_cls.assert_called_once_with(hass, entry, api, 1)
-    act_cls.assert_called_once_with(hass, entry, api, [1])
-    timer_cls.assert_called_once()
+    (map_context, map_pet_id), map_kwargs = map_cls.call_args
+    assert isinstance(map_context, CoordinatorContext)
+    assert map_context.hass is hass
+    assert map_context.api is api
+    assert map_pet_id == 1
+    assert map_kwargs == {"settings": None}
+    (activity_context, pet_ids), _ = act_cls.call_args
+    assert activity_context is map_context
+    assert pet_ids == [1]
+    (timer_context, timer_pet_id), _ = timer_cls.call_args
+    assert isinstance(timer_context, ActivityRefreshContext)
+    assert timer_context.map is map_coord
+    assert timer_pet_id == 1
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_uses_stored_map_refresh_settings(
+    hass: HomeAssistant,
+) -> None:
+    """Stored map refresh options are forwarded when building coordinators."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_EMAIL: "a", CONF_PASSWORD: "b"},
+        entry_id="1",
+        options={
+            "map_refresh_settings": {"1": {"idle_seconds": "480", "live_seconds": "12"}}
+        },
+    )
+    entry.add_to_hass(hass)
+
+    api = AsyncMock()
+    api.login = AsyncMock()
+    data_coord = AsyncMock()
+    data_coord.async_config_entry_first_refresh = AsyncMock()
+    data_coord.data = {"pets": [{"petID": 1, "kippyID": 1}]}
+    map_coord = AsyncMock()
+    map_coord.async_config_entry_first_refresh = AsyncMock()
+    activity_coord = AsyncMock()
+    activity_coord.async_config_entry_first_refresh = AsyncMock()
+    timer = MagicMock()
+
+    with (
+        patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
+        patch("custom_components.kippy.KippyApi.async_create", return_value=api),
+        patch(
+            "custom_components.kippy.KippyDataUpdateCoordinator",
+            return_value=data_coord,
+        ),
+        patch(
+            "custom_components.kippy.KippyMapDataUpdateCoordinator",
+            return_value=map_coord,
+        ) as map_cls,
+        patch(
+            "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
+            return_value=activity_coord,
+        ),
+        patch("custom_components.kippy.ActivityRefreshTimer", return_value=timer),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
+    ):
+        result = await async_setup_entry(hass, entry)
+
+    assert result is True
+    (_, pet_id), kwargs = map_cls.call_args
+    assert pet_id == 1
+    settings = kwargs["settings"]
+    assert settings.idle_seconds == 480
+    assert settings.live_seconds == 12

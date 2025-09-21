@@ -396,7 +396,9 @@ async def test_switch_async_setup_entry_expired_pet() -> None:
     base_coordinator = MagicMock()
     base_coordinator.data = {"pets": [{"petID": 1, "expired_days": 0}]}
     hass.data = {
-        DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}
+        DOMAIN: {
+            entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}
+        }
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
@@ -460,3 +462,61 @@ def test_live_and_ignore_lbs_device_info() -> None:
     ignore = KippyIgnoreLBSSwitch(map_coord, pet)
     assert live.device_info["name"] == "Kippy Rex"
     assert ignore.device_info["name"] == "Kippy Rex"
+
+
+def test_energy_saving_switch_handle_map_update_no_data() -> None:
+    """Map updates without data are ignored."""
+
+    pet = {"petID": 1, "energySavingMode": 0}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+    coordinator.async_set_updated_data = MagicMock()
+    map_coord = MagicMock()
+    map_coord.data = {}
+    map_coord.async_add_listener = MagicMock(return_value=MagicMock())
+    switch = KippyEnergySavingSwitch(coordinator, pet, map_coord)
+    switch.async_write_ha_state = MagicMock()
+
+    switch._handle_map_update()
+
+    switch.async_write_ha_state.assert_not_called()
+    coordinator.async_set_updated_data.assert_not_called()
+
+
+def test_switches_raise_for_sync_methods() -> None:
+    """Synchronous switch methods are not supported."""
+
+    pet = {"petID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+
+    gps = KippyGpsDefaultSwitch(coordinator, pet.copy())
+    with pytest.raises(NotImplementedError):
+        gps.turn_on()
+    with pytest.raises(NotImplementedError):
+        gps.turn_off()
+
+    map_coord = MagicMock()
+    map_coord.async_add_listener = MagicMock(return_value=MagicMock())
+    energy = KippyEnergySavingSwitch(coordinator, pet.copy(), map_coord)
+    with pytest.raises(NotImplementedError):
+        energy.turn_on()
+    with pytest.raises(NotImplementedError):
+        energy.turn_off()
+
+    map_coord2 = MagicMock()
+    map_coord2.data = {}
+    map_coord2.async_add_listener = MagicMock(return_value=MagicMock())
+    live = KippyLiveTrackingSwitch(map_coord2, pet.copy())
+    with pytest.raises(NotImplementedError):
+        live.turn_on()
+    with pytest.raises(NotImplementedError):
+        live.turn_off()
+
+    ignore = KippyIgnoreLBSSwitch(map_coord2, pet.copy())
+    with pytest.raises(NotImplementedError):
+        ignore.turn_on()
+    with pytest.raises(NotImplementedError):
+        ignore.turn_off()

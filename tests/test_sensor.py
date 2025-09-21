@@ -30,7 +30,6 @@ from custom_components.kippy.sensor import (
     KippyPetTypeSensor,
     KippyPlaySensor,
     KippyRunSensor,
-    KippyPlaySensor,
     KippyStepsSensor,
     async_setup_entry,
 )
@@ -84,6 +83,18 @@ async def test_expired_days_sensor_uses_configured_unit() -> None:
     expected = DurationConverter.convert(2, UnitOfTime.DAYS, UnitOfTime.HOURS)
     assert sensor.native_unit_of_measurement == UnitOfTime.HOURS
     assert sensor.native_value == expected
+
+
+def test_expired_days_sensor_invalid_unit_of_measurement() -> None:
+    """Invalid expired day values result in no native unit."""
+
+    pet = {"petID": "1", "expired_days": "n/a"}
+    coordinator = MagicMock()
+    coordinator.data = {"pets": [pet]}
+    coordinator.async_add_listener = MagicMock()
+    sensor = KippyExpiredDaysSensor(coordinator, pet)
+
+    assert sensor.native_unit_of_measurement is None
 
 
 @pytest.mark.asyncio
@@ -165,6 +176,240 @@ async def test_run_sensor_uses_configured_unit() -> None:
     assert sensor.native_unit_of_measurement == UnitOfTime.HOURS
     assert sensor.native_value == expected
     assert sensor.suggested_unit_of_measurement == UnitOfTime.HOURS
+
+
+def test_map_sensor_get_datetime_invalid() -> None:
+    """Map-based sensors gracefully handle missing timestamps."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    coordinator.data = None
+    sensor = KippyLastContactSensor(coordinator, {"petID": 1})
+    assert sensor.native_value is None
+
+    coordinator.data = {"contact_time": "invalid"}
+    assert sensor.native_value is None
+
+
+def test_home_distance_sensor_handles_missing_coordinates(monkeypatch) -> None:
+    """Distance sensor returns None for incomplete or invalid data."""
+
+    hass = MagicMock()
+    hass.config.units.length_unit = UnitOfLength.KILOMETERS
+    hass.config.latitude = 0
+    hass.config.longitude = 0
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyHomeDistanceSensor(coordinator, {"petID": 1})
+    sensor.hass = hass
+
+    coordinator.data = None
+    assert sensor.native_value is None
+
+    coordinator.data = {"gps_latitude": None, "gps_longitude": 0}
+    assert sensor.native_value is None
+
+    coordinator.data = {"gps_latitude": "a", "gps_longitude": "b"}
+    assert sensor.native_value is None
+
+    monkeypatch.setattr(
+        "custom_components.kippy.sensor.location_distance", lambda *args, **kwargs: None
+    )
+    coordinator.data = {"gps_latitude": 0, "gps_longitude": 0}
+    assert sensor.native_value is None
+
+
+def test_activity_sensor_extra_state_none_without_data() -> None:
+    """Activity sensor exposes no extra attributes until data is processed."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    coordinator.get_activities.return_value = []
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+
+    assert sensor.extra_state_attributes is None
+
+
+def test_activity_sensor_returns_none_when_value_missing() -> None:
+    """Missing values result in None native state."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    coordinator.get_activities.return_value = [{"date": today, "run": None}]
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+
+    assert sensor.native_value is None
+
+
+def test_activity_sensor_grouped_activities_filters_nonmatching() -> None:
+    """Grouped activities sum values for the current day only."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+    today = datetime(2024, 1, 2, tzinfo=timezone.utc)
+    activities = [
+        {"activity": "walk", "data": []},
+        {
+            "activity": "run",
+            "data": [
+                {"timeCaption": "20230101", "valueMinutes": 2},
+                {
+                    "timeCaption": today.strftime("%Y%m%d") + "T1200",
+                    "valueMinutes": 5,
+                },
+                {
+                    "timeCaption": today.strftime("%Y%m%d") + "T1300",
+                    "minutes": 3,
+                },
+            ],
+        },
+    ]
+
+    total, date_str = sensor._value_from_grouped_activities(activities, today)
+    assert total == 8.0
+    assert date_str == "2024-01-02"
+
+
+def test_activity_sensor_grouped_activities_no_match_returns_none() -> None:
+    """Grouped data without the metric returns no value."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+    activities = [{"activity": "walk", "data": []}]
+
+    total, date_str = sensor._value_from_grouped_activities(
+        activities, datetime.now(timezone.utc)
+    )
+    assert total is None and date_str is None
+
+
+def test_activity_sensor_daily_entries_nested_list() -> None:
+    """Daily entries handle nested activity lists and dictionaries."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    activities = [
+        {"date": "1999-01-01", "run": 5},
+        {
+            "date": today,
+            "run": None,
+            "activities": [
+                {"name": "run", "value": {"minutes": 7}},
+            ],
+        },
+    ]
+
+    value, date_str = sensor._value_from_daily_entries(
+        activities, datetime.now(timezone.utc)
+    )
+    assert value == 7
+    assert date_str == today
+
+
+def test_activity_sensor_daily_entries_no_match_returns_none() -> None:
+    """Daily entries return None when no data matches today."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+    activities = [{"date": "1999-01-01", "run": 5}]
+    value, date_str = sensor._value_from_daily_entries(
+        activities, datetime.now(timezone.utc)
+    )
+    assert value is None and date_str is None
+
+
+def test_activity_sensor_extract_helpers() -> None:
+    """Helper methods extract dates and first-present values."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+
+    assert sensor._extract_date({"foo": "bar"}) is None
+    assert sensor._extract_first_present({"count": 3}, ("value", "count")) == 3
+
+
+def test_activity_sensor_activity_list_missing_metric_returns_none() -> None:
+    """Activity lists without the metric return None."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+    assert sensor._value_from_activity_list([{"name": "walk"}]) is None
+
+
+def test_activity_sensor_extract_first_present_returns_none() -> None:
+    """Missing keys result in None for first-present extraction."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+    assert sensor._extract_first_present({}, ("value", "count")) is None
+
+
+def test_activity_sensor_extract_numeric_invalid() -> None:
+    """Invalid numeric values are ignored."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+    data = {"value": "bad", "count": "also bad"}
+    assert sensor._extract_numeric_value(data, ("value", "count")) is None
+
+
+def test_activity_sensor_convert_invalid_value() -> None:
+    """Non-numeric activity values are ignored."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    sensor = KippyStepsSensor(coordinator, {"petID": 1})
+    assert sensor._convert_activity_value("invalid") is None
+
+
+def test_activity_sensor_native_value_grouped_missing_metric() -> None:
+    """Grouped activity payloads without the metric return ``None``."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    coordinator.get_activities = MagicMock(
+        return_value=[{"activity": "walk", "data": []}]
+    )
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+
+    assert sensor.native_value is None
+
+
+def test_activity_sensor_native_value_daily_missing_metric() -> None:
+    """Daily entries without metric data also return ``None``."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    coordinator.get_activities = MagicMock(
+        return_value=[{"date": today, "activities": [{"name": "walk"}]}]
+    )
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+
+    assert sensor.native_value is None
+
+
+def test_activity_sensor_native_value_daily_missing_keys() -> None:
+    """Daily entries with empty dictionaries return ``None`` after extraction."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    coordinator.get_activities = MagicMock(return_value=[{"date": today, "run": {}}])
+    sensor = KippyRunSensor(coordinator, {"petID": 1})
+
+    assert sensor.native_value is None
 
 
 @pytest.mark.asyncio

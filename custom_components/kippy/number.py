@@ -9,7 +9,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_GPS
 from .coordinator import (
@@ -17,7 +16,15 @@ from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
-from .helpers import build_device_info
+from .entity import KippyMapEntity, KippyPetEntity
+from .helpers import (
+    async_update_map_refresh_settings,
+    build_device_info,
+    is_pet_subscription_active,
+    normalize_kippy_identifier,
+)
+
+SYNC_VALUE_ERROR = "Synchronous updates are not supported; use async_set_native_value."
 
 
 async def async_setup_entry(
@@ -29,14 +36,7 @@ async def async_setup_entry(
     activity_timers = hass.data[DOMAIN][entry.entry_id]["activity_timers"]
     entities: list[NumberEntity] = []
     for pet in base_coordinator.data.get("pets", []):
-        expired_days = pet.get("expired_days")
-        is_expired = False
-        try:
-            is_expired = int(expired_days) >= 0
-        except (TypeError, ValueError):
-            pass
-
-        if not is_expired:
+        if is_pet_subscription_active(pet):
             entities.append(KippyUpdateFrequencyNumber(base_coordinator, pet))
 
         map_coord = map_coordinators.get(pet["petID"])
@@ -50,9 +50,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class KippyUpdateFrequencyNumber(
-    CoordinatorEntity[KippyDataUpdateCoordinator], NumberEntity
-):
+class KippyUpdateFrequencyNumber(KippyPetEntity, NumberEntity):
     """Number entity for GPS automatic update frequency."""
 
     _attr_native_min_value = 1
@@ -63,8 +61,7 @@ class KippyUpdateFrequencyNumber(
     def __init__(
         self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
             f"{pet_name} {LOCALIZATION_TECHNOLOGY_GPS} "
@@ -73,7 +70,7 @@ class KippyUpdateFrequencyNumber(
             else f"{LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency (hours)"
         )
         self._attr_unique_id = f"{self._pet_id}_update_frequency"
-        self._pet_data = pet
+        self._attr_translation_key = "update_frequency"
 
     @property
     def native_value(self) -> float | None:
@@ -81,7 +78,7 @@ class KippyUpdateFrequencyNumber(
         return float(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
-        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
+        kippy_id = normalize_kippy_identifier(self._pet_data)
         gps_val = self._pet_data.get("gpsOnDefault")
         if gps_val is None:
             gps_val = self._pet_data.get("gps_on_default")
@@ -92,7 +89,7 @@ class KippyUpdateFrequencyNumber(
 
         if kippy_id is not None:
             data = await self.coordinator.api.modify_kippy_settings(
-                int(kippy_id), update_frequency=value, gps_on_default=gps_on_default
+                kippy_id, update_frequency=value, gps_on_default=gps_on_default
             )
             new_value = data.get("update_frequency", value)
             self._pet_data["updateFrequency"] = int(new_value)
@@ -101,23 +98,11 @@ class KippyUpdateFrequencyNumber(
         self.async_write_ha_state()
         self.coordinator.async_update_listeners()
 
-    def _handle_coordinator_update(self) -> None:
-        for pet in self.coordinator.data.get("pets", []):
-            if pet.get("petID") == self._pet_id:
-                self._pet_data = pet
-                break
-        super()._handle_coordinator_update()
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        pet_name = self._pet_data.get("petName")
-        name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
 
 
-class KippyIdleUpdateFrequencyNumber(
-    CoordinatorEntity[KippyMapDataUpdateCoordinator], NumberEntity
-):
+class KippyIdleUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
     """Number entity for idle update frequency."""
 
     _attr_native_min_value = 1
@@ -128,9 +113,7 @@ class KippyIdleUpdateFrequencyNumber(
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
-        self._pet_data = pet
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
             f"{pet_name} Idle update frequency (minutes)"
@@ -138,25 +121,25 @@ class KippyIdleUpdateFrequencyNumber(
             else "Idle update frequency (minutes)"
         )
         self._attr_unique_id = f"{self._pet_id}_idle_refresh_time"
+        self._attr_translation_key = "idle_refresh_time"
 
     @property
     def native_value(self) -> float | None:
         return float(self.coordinator.idle_refresh) / 60
 
     async def async_set_native_value(self, value: float) -> None:
-        await self.coordinator.async_set_idle_refresh(int(value * 60))
+        seconds = int(value * 60)
+        await self.coordinator.async_set_idle_refresh(seconds)
+        await async_update_map_refresh_settings(
+            self.hass, self.coordinator.config_entry, self._pet_id, idle_seconds=seconds
+        )
         self.async_write_ha_state()
 
-    @property
-    def device_info(self) -> DeviceInfo:
-        pet_name = self._pet_data.get("petName")
-        name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
 
 
-class KippyLiveUpdateFrequencyNumber(
-    CoordinatorEntity[KippyMapDataUpdateCoordinator], NumberEntity
-):
+class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
     """Number entity for live update frequency."""
 
     _attr_native_min_value = 1
@@ -167,9 +150,7 @@ class KippyLiveUpdateFrequencyNumber(
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
-        self._pet_data = pet
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
             f"{pet_name} Live update frequency (seconds)"
@@ -177,20 +158,22 @@ class KippyLiveUpdateFrequencyNumber(
             else "Live update frequency (seconds)"
         )
         self._attr_unique_id = f"{self._pet_id}_live_refresh_time"
+        self._attr_translation_key = "live_refresh_time"
 
     @property
     def native_value(self) -> float | None:
         return float(self.coordinator.live_refresh)
 
     async def async_set_native_value(self, value: float) -> None:
-        await self.coordinator.async_set_live_refresh(int(value))
+        seconds = int(value)
+        await self.coordinator.async_set_live_refresh(seconds)
+        await async_update_map_refresh_settings(
+            self.hass, self.coordinator.config_entry, self._pet_id, live_seconds=seconds
+        )
         self.async_write_ha_state()
 
-    @property
-    def device_info(self) -> DeviceInfo:
-        pet_name = self._pet_data.get("petName")
-        name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
 
 
 class KippyActivityRefreshDelayNumber(NumberEntity):
@@ -221,8 +204,9 @@ class KippyActivityRefreshDelayNumber(NumberEntity):
         await self.timer.async_set_delay(int(value))
         self.async_write_ha_state()
 
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
+
     @property
     def device_info(self) -> DeviceInfo:
-        pet_name = self._pet_data.get("petName")
-        name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
+        return build_device_info(self._pet_id, self._pet_data)
