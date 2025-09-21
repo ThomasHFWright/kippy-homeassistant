@@ -71,6 +71,7 @@ class KippyRefreshMapAttributesButton(KippyMapEntity, ButtonEntity):
             "Synchronous button presses are not supported; use async_press instead."
         )
 
+
 class KippyActivityCategoriesButton(ButtonEntity):
     """Button to manually refresh activity categories."""
 

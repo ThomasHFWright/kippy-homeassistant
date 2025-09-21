@@ -18,7 +18,11 @@ from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
-from .helpers import API_EXCEPTIONS, is_pet_subscription_active, normalize_kippy_identifier
+from .helpers import (
+    API_EXCEPTIONS,
+    is_pet_subscription_active,
+    normalize_kippy_identifier,
+)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -88,7 +92,7 @@ async def _async_build_map_coordinators(
         pet_id = pet.get("petID")
         if pet_id is None:
             continue
-        kippy_id = normalize_kippy_identifier(pet)
+        kippy_id = normalize_kippy_identifier(pet, include_pet_id=True)
         if kippy_id is None:
             continue
         map_coordinator = KippyMapDataUpdateCoordinator(context, kippy_id)

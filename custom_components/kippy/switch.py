@@ -72,7 +72,9 @@ class KippyGpsDefaultSwitch(KippyPetEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
-            await self.coordinator.api.modify_kippy_settings(kippy_id, gps_on_default=True)
+            await self.coordinator.api.modify_kippy_settings(
+                kippy_id, gps_on_default=True
+            )
         self._pet_data["gpsOnDefault"] = 1
         self.async_write_ha_state()
 
@@ -83,7 +85,9 @@ class KippyGpsDefaultSwitch(KippyPetEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
-            await self.coordinator.api.modify_kippy_settings(kippy_id, gps_on_default=False)
+            await self.coordinator.api.modify_kippy_settings(
+                kippy_id, gps_on_default=False
+            )
         self._pet_data["gpsOnDefault"] = 0
         self.async_write_ha_state()
 
@@ -91,6 +95,7 @@ class KippyGpsDefaultSwitch(KippyPetEntity, SwitchEntity):
         raise NotImplementedError(
             "Synchronous turn_off is not supported; use async_turn_off instead."
         )
+
 
 class KippyEnergySavingSwitch(KippyPetEntity, SwitchEntity):
     """Switch for energy saving mode."""
@@ -174,6 +179,7 @@ class KippyEnergySavingSwitch(KippyPetEntity, SwitchEntity):
             self.coordinator.async_set_updated_data(self.coordinator.data)
         self.async_write_ha_state()
 
+
 class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
     """Switch for live tracking."""
 
@@ -251,6 +257,7 @@ class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
         raise NotImplementedError(
             "Synchronous turn_off is not supported; use async_turn_off instead."
         )
+
 
 class KippyIgnoreLBSSwitch(KippyMapEntity, SwitchEntity):
     """Switch to ignore low accuracy LBS location updates."""

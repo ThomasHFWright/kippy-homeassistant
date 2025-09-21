@@ -166,6 +166,7 @@ class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
     def set_native_value(self, value: float) -> None:
         raise NotImplementedError(SYNC_VALUE_ERROR)
 
+
 class KippyActivityRefreshDelayNumber(NumberEntity):
     """Number to control activity refresh delay."""
 

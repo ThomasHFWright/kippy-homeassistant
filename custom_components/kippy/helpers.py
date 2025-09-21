@@ -68,10 +68,14 @@ def is_pet_subscription_active(pet: Mapping[str, Any]) -> bool:
         return True
 
 
-def normalize_kippy_identifier(pet: Mapping[str, Any]) -> int | None:
+def normalize_kippy_identifier(
+    pet: Mapping[str, Any], *, include_pet_id: bool = False
+) -> int | None:
     """Return the numeric Kippy identifier for ``pet`` if present."""
 
     identifier = pet.get("kippyID") or pet.get("kippy_id")
+    if identifier is None and include_pet_id:
+        identifier = pet.get("petID")
     if identifier is None:
         return None
     try:

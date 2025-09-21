@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from homeassistant.components.sensor import (
@@ -321,9 +321,7 @@ class _KippyActivitySensor(
             return data, item_date
         return None, None
 
-    def _value_from_activity_list(
-        self, activities: list[dict[str, Any]]
-    ) -> Any:
+    def _value_from_activity_list(self, activities: list[dict[str, Any]]) -> Any:
         for entry in activities:
             if (
                 entry.get("name") == self._description.metric
@@ -820,6 +818,7 @@ class KippyOperatingStatusSensor(_KippyBaseMapEntity):
             if self.coordinator.data
             else None
         )
+
 
 class KippyEnergySavingStatusSensor(_KippyBaseEntity):
     """Sensor indicating energy saving status."""

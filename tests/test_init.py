@@ -8,7 +8,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import async_setup_entry, async_unload_entry
 from custom_components.kippy.const import DOMAIN, PLATFORMS
-from custom_components.kippy.coordinator import ActivityRefreshContext, CoordinatorContext
+from custom_components.kippy.coordinator import (
+    ActivityRefreshContext,
+    CoordinatorContext,
+)
 
 
 @pytest.mark.asyncio

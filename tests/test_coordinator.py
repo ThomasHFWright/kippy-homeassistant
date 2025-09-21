@@ -20,9 +20,7 @@ from custom_components.kippy.coordinator import (
 )
 
 
-def make_context(
-    hass: MagicMock, api: MagicMock | None = None
-) -> CoordinatorContext:
+def make_context(hass: MagicMock, api: MagicMock | None = None) -> CoordinatorContext:
     """Return a coordinator context for tests."""
 
     return CoordinatorContext(hass, MagicMock(), api or MagicMock())
