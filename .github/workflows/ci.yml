@@ -41,7 +41,7 @@ jobs:
         run: ruff check .
 
       - name: Pylint
-        run: pylint --disable=C,R,W custom_components/kippy tests
+        run: pylint --disable=C,R custom_components/kippy
 
       - name: Pre-commit hooks
         run: pre-commit run --all-files --show-diff-on-failure

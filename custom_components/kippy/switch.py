@@ -87,6 +87,11 @@ class KippyGpsDefaultSwitch(
         self._pet_data["gpsOnDefault"] = 1
         self.async_write_ha_state()
 
+    def turn_on(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_on is not supported; use async_turn_on instead."
+        )
+
     async def async_turn_off(self, **kwargs: Any) -> None:
         kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
         if kippy_id is not None:
@@ -95,6 +100,11 @@ class KippyGpsDefaultSwitch(
             )
         self._pet_data["gpsOnDefault"] = 0
         self.async_write_ha_state()
+
+    def turn_off(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_off is not supported; use async_turn_off instead."
+        )
 
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):
@@ -150,6 +160,11 @@ class KippyEnergySavingSwitch(
         self.coordinator.async_set_updated_data(self.coordinator.data)
         self.async_write_ha_state()
 
+    def turn_on(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_on is not supported; use async_turn_on instead."
+        )
+
     async def async_turn_off(self, **kwargs: Any) -> None:
         kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
         if kippy_id is not None:
@@ -163,6 +178,11 @@ class KippyEnergySavingSwitch(
             self._pet_data["energySavingModePending"] = True
         self.coordinator.async_set_updated_data(self.coordinator.data)
         self.async_write_ha_state()
+
+    def turn_off(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_off is not supported; use async_turn_off instead."
+        )
 
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):
@@ -259,6 +279,11 @@ class KippyLiveTrackingSwitch(
             ]
         self.async_write_ha_state()
 
+    def turn_on(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_on is not supported; use async_turn_on instead."
+        )
+
     async def async_turn_off(self, **kwargs: Any) -> None:
         if not self.available:
             self.async_write_ha_state()
@@ -278,6 +303,11 @@ class KippyLiveTrackingSwitch(
                 OPERATING_STATUS.IDLE
             ]
         self.async_write_ha_state()
+
+    def turn_off(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_off is not supported; use async_turn_off instead."
+        )
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -314,9 +344,19 @@ class KippyIgnoreLBSSwitch(
         self.coordinator.ignore_lbs = True
         self.async_write_ha_state()
 
+    def turn_on(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_on is not supported; use async_turn_on instead."
+        )
+
     async def async_turn_off(self, **kwargs: Any) -> None:
         self.coordinator.ignore_lbs = False
         self.async_write_ha_state()
+
+    def turn_off(self, **kwargs: Any) -> None:
+        raise NotImplementedError(
+            "Synchronous turn_off is not supported; use async_turn_off instead."
+        )
 
     @property
     def device_info(self) -> DeviceInfo:

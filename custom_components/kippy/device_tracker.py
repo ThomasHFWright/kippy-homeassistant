@@ -144,8 +144,3 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
     def device_info(self) -> DeviceInfo:
         """Return device information for this pet."""
         return build_device_info(self._pet_id, self._pet_data, self._attr_name)
-
-    def _handle_coordinator_update(
-        self,
-    ) -> None:  # pragma: no cover - simple passthrough
-        super()._handle_coordinator_update()

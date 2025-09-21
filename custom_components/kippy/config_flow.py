@@ -21,6 +21,10 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def is_matching(self, other_flow: config_entries.ConfigFlow) -> bool:
+        """Return True when ``other_flow`` targets the same integration."""
+        return isinstance(other_flow, KippyConfigFlow)
+
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
         errors: dict[str, str] = {}
@@ -43,7 +47,8 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ClientError as err:
                 _LOGGER.debug("Error communicating with Kippy API: %s", err)
                 errors["base"] = "cannot_connect"
-            except Exception:
+            except RuntimeError as err:
+                _LOGGER.debug("Unexpected runtime error during login: %s", err)
                 errors["base"] = "unknown"
             else:
                 return self.async_create_entry(
