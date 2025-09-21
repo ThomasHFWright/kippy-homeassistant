@@ -396,7 +396,9 @@ async def test_switch_async_setup_entry_expired_pet() -> None:
     base_coordinator = MagicMock()
     base_coordinator.data = {"pets": [{"petID": 1, "expired_days": 0}]}
     hass.data = {
-        DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}
+        DOMAIN: {
+            entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}
+        }
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)

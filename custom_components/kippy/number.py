@@ -19,6 +19,8 @@ from .coordinator import (
 )
 from .helpers import build_device_info
 
+SYNC_VALUE_ERROR = "Synchronous updates are not supported; use async_set_native_value."
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
@@ -101,6 +103,9 @@ class KippyUpdateFrequencyNumber(
         self.async_write_ha_state()
         self.coordinator.async_update_listeners()
 
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
+
     def _handle_coordinator_update(self) -> None:
         for pet in self.coordinator.data.get("pets", []):
             if pet.get("petID") == self._pet_id:
@@ -147,6 +152,9 @@ class KippyIdleUpdateFrequencyNumber(
         await self.coordinator.async_set_idle_refresh(int(value * 60))
         self.async_write_ha_state()
 
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
+
     @property
     def device_info(self) -> DeviceInfo:
         pet_name = self._pet_data.get("petName")
@@ -186,6 +194,9 @@ class KippyLiveUpdateFrequencyNumber(
         await self.coordinator.async_set_live_refresh(int(value))
         self.async_write_ha_state()
 
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
+
     @property
     def device_info(self) -> DeviceInfo:
         pet_name = self._pet_data.get("petName")
@@ -220,6 +231,9 @@ class KippyActivityRefreshDelayNumber(NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         await self.timer.async_set_delay(int(value))
         self.async_write_ha_state()
+
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
 
     @property
     def device_info(self) -> DeviceInfo:

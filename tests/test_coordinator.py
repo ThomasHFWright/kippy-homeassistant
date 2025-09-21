@@ -51,7 +51,7 @@ async def test_data_coordinator_update_failure() -> None:
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     api = MagicMock()
-    api.get_pet_kippy_list = AsyncMock(side_effect=Exception)
+    api.get_pet_kippy_list = AsyncMock(side_effect=RuntimeError)
     coordinator = KippyDataUpdateCoordinator(hass, MagicMock(), api)
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
@@ -96,7 +96,7 @@ async def test_map_coordinator_update_failure() -> None:
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     api = MagicMock()
-    api.kippymap_action = AsyncMock(side_effect=Exception)
+    api.kippymap_action = AsyncMock(side_effect=RuntimeError)
     coord = KippyMapDataUpdateCoordinator(hass, MagicMock(), api, 1)
     with pytest.raises(UpdateFailed):
         await coord._async_update_data()
@@ -166,7 +166,7 @@ async def test_activity_coordinator_update_and_refresh() -> None:
             1, "2020-01-02", "2020-01-03", 2, 1
         )
         assert data[1]["avg"] == 2
-        api.get_activity_categories.side_effect = Exception
+        api.get_activity_categories.side_effect = RuntimeError
         with pytest.raises(UpdateFailed):
             await coord._async_update_data()
         api.get_activity_categories.side_effect = None
@@ -249,10 +249,12 @@ def test_activity_refresh_timer_clamps_to_future() -> None:
         return lambda: None
 
     now = datetime(2023, 1, 1, tzinfo=timezone.utc)
-    with patch(
-        "custom_components.kippy.coordinator.dt_util.utcnow", return_value=now
-    ), patch(
-        "custom_components.kippy.coordinator.async_track_point_in_utc_time", fake_track
+    with (
+        patch("custom_components.kippy.coordinator.dt_util.utcnow", return_value=now),
+        patch(
+            "custom_components.kippy.coordinator.async_track_point_in_utc_time",
+            fake_track,
+        ),
     ):
         ActivityRefreshTimer(hass, base, map_coord, activity_coord, 1, 5)
 

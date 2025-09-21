@@ -93,7 +93,11 @@ async def test_device_tracker_async_setup_entry_missing_map() -> None:
     entry.entry_id = "1"
     base_coordinator = MagicMock()
     base_coordinator.data = {"pets": [{"petID": 1}]}
-    hass.data = {DOMAIN: {entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}}}
+    hass.data = {
+        DOMAIN: {
+            entry.entry_id: {"coordinator": base_coordinator, "map_coordinators": {}}
+        }
+    }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once_with([])

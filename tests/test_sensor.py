@@ -30,7 +30,6 @@ from custom_components.kippy.sensor import (
     KippyPetTypeSensor,
     KippyPlaySensor,
     KippyRunSensor,
-    KippyPlaySensor,
     KippyStepsSensor,
     async_setup_entry,
 )

@@ -1,4 +1,5 @@
 """Button entities for Kippy pets."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -55,7 +56,9 @@ class KippyRefreshMapAttributesButton(
         self._pet_id = pet["petID"]
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Refresh Map Attributes" if pet_name else "Refresh Map Attributes"
+            f"{pet_name} Refresh Map Attributes"
+            if pet_name
+            else "Refresh Map Attributes"
         )
         self._attr_unique_id = f"{self._pet_id}_refresh_map_attributes"
         self._pet_name = pet_name
@@ -66,6 +69,11 @@ class KippyRefreshMapAttributesButton(
     async def async_press(self) -> None:
         data = await self.coordinator.api.kippymap_action(self.coordinator.kippy_id)
         self.coordinator.process_new_data(data)
+
+    def press(self) -> None:
+        raise NotImplementedError(
+            "Synchronous button presses are not supported; use async_press instead."
+        )
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -95,6 +103,11 @@ class KippyActivityCategoriesButton(ButtonEntity):
     async def async_press(self) -> None:
         await self.coordinator.async_refresh_pet(self._pet_id)
 
+    def press(self) -> None:
+        raise NotImplementedError(
+            "Synchronous button presses are not supported; use async_press instead."
+        )
+
     @property
     def device_info(self) -> DeviceInfo:
         pet_name = self._pet_data.get("petName")
@@ -120,4 +133,9 @@ class KippyRefreshPetsButton(ButtonEntity):
         self._reloading = True
         self.hass.async_create_task(
             self.hass.config_entries.async_reload(self.entry.entry_id)
+        )
+
+    def press(self) -> None:
+        raise NotImplementedError(
+            "Synchronous button presses are not supported; use async_press instead."
         )
