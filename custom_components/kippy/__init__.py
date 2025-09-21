@@ -20,6 +20,7 @@ from .coordinator import (
 )
 from .helpers import (
     API_EXCEPTIONS,
+    get_map_refresh_settings,
     is_pet_subscription_active,
     normalize_kippy_identifier,
 )
@@ -95,7 +96,10 @@ async def _async_build_map_coordinators(
         kippy_id = normalize_kippy_identifier(pet, include_pet_id=True)
         if kippy_id is None:
             continue
-        map_coordinator = KippyMapDataUpdateCoordinator(context, kippy_id)
+        settings = get_map_refresh_settings(context.config_entry, pet_id)
+        map_coordinator = KippyMapDataUpdateCoordinator(
+            context, kippy_id, settings=settings
+        )
         await map_coordinator.async_config_entry_first_refresh()
         map_coordinators[pet_id] = map_coordinator
         active_pet_ids.append(pet_id)

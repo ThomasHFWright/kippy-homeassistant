@@ -18,6 +18,7 @@ from .coordinator import (
 )
 from .entity import KippyMapEntity, KippyPetEntity
 from .helpers import (
+    async_update_map_refresh_settings,
     build_device_info,
     is_pet_subscription_active,
     normalize_kippy_identifier,
@@ -127,7 +128,11 @@ class KippyIdleUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
         return float(self.coordinator.idle_refresh) / 60
 
     async def async_set_native_value(self, value: float) -> None:
-        await self.coordinator.async_set_idle_refresh(int(value * 60))
+        seconds = int(value * 60)
+        await self.coordinator.async_set_idle_refresh(seconds)
+        await async_update_map_refresh_settings(
+            self.hass, self.coordinator.config_entry, self._pet_id, idle_seconds=seconds
+        )
         self.async_write_ha_state()
 
     def set_native_value(self, value: float) -> None:
@@ -160,7 +165,11 @@ class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
         return float(self.coordinator.live_refresh)
 
     async def async_set_native_value(self, value: float) -> None:
-        await self.coordinator.async_set_live_refresh(int(value))
+        seconds = int(value)
+        await self.coordinator.async_set_live_refresh(seconds)
+        await async_update_map_refresh_settings(
+            self.hass, self.coordinator.config_entry, self._pet_id, live_seconds=seconds
+        )
         self.async_write_ha_state()
 
     def set_native_value(self, value: float) -> None:

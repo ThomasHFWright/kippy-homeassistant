@@ -22,7 +22,7 @@ from .const import (
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
 )
-from .helpers import API_EXCEPTIONS
+from .helpers import API_EXCEPTIONS, MapRefreshSettings
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,14 +38,6 @@ class CoordinatorContext:
     hass: HomeAssistant
     config_entry: ConfigEntry
     api: KippyApi
-
-
-@dataclass(slots=True)
-class MapRefreshSettings:
-    """Refresh intervals for map updates in seconds."""
-
-    idle_seconds: int = 300
-    live_seconds: int = 10
 
 
 class KippyDataUpdateCoordinator(DataUpdateCoordinator):

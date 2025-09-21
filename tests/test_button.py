@@ -195,3 +195,24 @@ def test_button_device_info_properties() -> None:
     activity = KippyActivityCategoriesButton(coordinator, pet)
     info2 = activity.device_info
     assert info2["name"] == "Kippy Rex"
+
+
+def test_buttons_raise_for_sync_press() -> None:
+    """Synchronous press methods are intentionally unsupported."""
+
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+    map_button = KippyRefreshMapAttributesButton(coordinator, {"petID": 1})
+    with pytest.raises(NotImplementedError):
+        map_button.press()
+
+    activity_button = KippyActivityCategoriesButton(MagicMock(), {"petID": 2})
+    with pytest.raises(NotImplementedError):
+        activity_button.press()
+
+    hass = MagicMock()
+    entry = MagicMock()
+    entry.entry_id = "1"
+    pets_button = KippyRefreshPetsButton(hass, entry)
+    with pytest.raises(NotImplementedError):
+        pets_button.press()
