@@ -187,9 +187,7 @@ async def test_async_setup_entry_uses_stored_map_refresh_settings(
         data={CONF_EMAIL: "a", CONF_PASSWORD: "b"},
         entry_id="1",
         options={
-            "map_refresh_settings": {
-                "1": {"idle_seconds": "480", "live_seconds": "12"}
-            }
+            "map_refresh_settings": {"1": {"idle_seconds": "480", "live_seconds": "12"}}
         },
     )
     entry.add_to_hass(hass)
@@ -220,12 +218,8 @@ async def test_async_setup_entry_uses_stored_map_refresh_settings(
             "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
             return_value=activity_coord,
         ),
-        patch(
-            "custom_components.kippy.ActivityRefreshTimer", return_value=timer
-        ),
-        patch.object(
-            hass.config_entries, "async_forward_entry_setups", AsyncMock()
-        ),
+        patch("custom_components.kippy.ActivityRefreshTimer", return_value=timer),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
     ):
         result = await async_setup_entry(hass, entry)
 
