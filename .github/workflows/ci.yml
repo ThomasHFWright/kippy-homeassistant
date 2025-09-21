@@ -41,7 +41,7 @@ jobs:
         run: ruff check .
 
       - name: Pylint
-        run: pylint --disable=C,R custom_components/kippy
+        run: pylint custom_components/kippy
 
       - name: Pre-commit hooks
         uses: pre-commit/action@v3.0.1

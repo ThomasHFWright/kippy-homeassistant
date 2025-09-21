@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from asyncio import TimeoutError as AsyncioTimeoutError
-from json import JSONDecodeError
-
-from aiohttp import ClientError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
@@ -13,12 +9,20 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
-from .const import DEFAULT_ACTIVITY_REFRESH_DELAY, DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS
 from .coordinator import (
+    ActivityRefreshContext,
     ActivityRefreshTimer,
+    CoordinatorContext,
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
+)
+from .helpers import (
+    API_EXCEPTIONS,
+    get_map_refresh_settings,
+    is_pet_subscription_active,
+    normalize_kippy_identifier,
 )
 
 
@@ -38,45 +42,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator = KippyDataUpdateCoordinator(hass, entry, api)
         await coordinator.async_config_entry_first_refresh()
 
-        map_coordinators: dict[int, KippyMapDataUpdateCoordinator] = {}
-        pet_ids: list[int] = []
-        activity_timers: dict[int, ActivityRefreshTimer] = {}
-        for pet in coordinator.data.get("pets", []):
-            expired_days = pet.get("expired_days")
-            try:
-                if int(expired_days) >= 0:
-                    continue
-            except (TypeError, ValueError):
-                pass
-
-            kippy_id = pet.get("kippyID") or pet.get("kippy_id") or pet.get("petID")
-            map_coordinator = KippyMapDataUpdateCoordinator(
-                hass, entry, api, int(kippy_id)
-            )
-            await map_coordinator.async_config_entry_first_refresh()
-            map_coordinators[pet["petID"]] = map_coordinator
-            pet_ids.append(pet["petID"])
-
+        context = CoordinatorContext(hass, entry, api)
+        map_coordinators, pet_ids = await _async_build_map_coordinators(
+            context, coordinator
+        )
         activity_coordinator = KippyActivityCategoriesDataUpdateCoordinator(
-            hass, entry, api, pet_ids
+            context, pet_ids
         )
         await activity_coordinator.async_config_entry_first_refresh()
 
-        for pet_id, map_coord in map_coordinators.items():
-            activity_timers[pet_id] = ActivityRefreshTimer(
-                hass,
-                coordinator,
-                map_coord,
-                activity_coordinator,
-                pet_id,
-                DEFAULT_ACTIVITY_REFRESH_DELAY,
-            )
-    except (
-        ClientError,
-        AsyncioTimeoutError,
-        RuntimeError,
-        JSONDecodeError,
-    ) as err:
+        activity_timers = _build_activity_timers(
+            hass, coordinator, map_coordinators, activity_coordinator
+        )
+    except API_EXCEPTIONS as err:
         raise ConfigEntryNotReady from err
 
     hass.data[DOMAIN][entry.entry_id] = {
@@ -99,3 +77,50 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for timer in data.get("activity_timers", {}).values():
         timer.async_cancel()
     return True
+
+
+async def _async_build_map_coordinators(
+    context: CoordinatorContext,
+    coordinator: KippyDataUpdateCoordinator,
+) -> tuple[dict[int | str, KippyMapDataUpdateCoordinator], list[int | str]]:
+    """Create map coordinators for pets with active subscriptions."""
+
+    map_coordinators: dict[int | str, KippyMapDataUpdateCoordinator] = {}
+    active_pet_ids: list[int | str] = []
+    for pet in coordinator.data.get("pets", []):
+        if not is_pet_subscription_active(pet):
+            continue
+        pet_id = pet.get("petID")
+        if pet_id is None:
+            continue
+        kippy_id = normalize_kippy_identifier(pet, include_pet_id=True)
+        if kippy_id is None:
+            continue
+        settings = get_map_refresh_settings(context.config_entry, pet_id)
+        map_coordinator = KippyMapDataUpdateCoordinator(
+            context, kippy_id, settings=settings
+        )
+        await map_coordinator.async_config_entry_first_refresh()
+        map_coordinators[pet_id] = map_coordinator
+        active_pet_ids.append(pet_id)
+    return map_coordinators, active_pet_ids
+
+
+def _build_activity_timers(
+    hass: HomeAssistant,
+    coordinator: KippyDataUpdateCoordinator,
+    map_coordinators: dict[int | str, KippyMapDataUpdateCoordinator],
+    activity_coordinator: KippyActivityCategoriesDataUpdateCoordinator,
+) -> dict[int | str, ActivityRefreshTimer]:
+    """Create timers that refresh activities after contact."""
+
+    timers: dict[int | str, ActivityRefreshTimer] = {}
+    for pet_id, map_coordinator in map_coordinators.items():
+        context = ActivityRefreshContext(
+            hass=hass,
+            base=coordinator,
+            map=map_coordinator,
+            activity=activity_coordinator,
+        )
+        timers[pet_id] = ActivityRefreshTimer(context, pet_id)
+    return timers
