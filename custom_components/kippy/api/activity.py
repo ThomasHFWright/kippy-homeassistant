@@ -9,8 +9,6 @@ from homeassistant.util import dt as dt_util
 
 from ..const import (
     ACTIVITY_ID,
-    APP_IDENTITY,
-    ERROR_NO_AUTH_DATA,
     FORMULA_GROUP,
     GET_ACTIVITY_CATEGORIES_PATH,
     REQUEST_HEADERS,
@@ -33,11 +31,6 @@ class ActivityEndpoint(BaseKippyApi):
     ) -> Dict[str, Any]:
         """Retrieve activity categories for a pet."""
 
-        await self.ensure_login()
-
-        if not self._auth:
-            raise RuntimeError(ERROR_NO_AUTH_DATA)
-
         start = datetime.strptime(from_date, "%Y-%m-%d")
         end = datetime.strptime(to_date, "%Y-%m-%d")
 
@@ -50,20 +43,19 @@ class ActivityEndpoint(BaseKippyApi):
 
         time_divisions = {1: "h", 2: "d", 3: "w"}.get(time_division, "h")
 
-        payload: Dict[str, Any] = {
-            "app_code": self.app_code,
-            "app_verification_code": self.app_verification_code,
-            "app_identity": APP_IDENTITY,
-            "petID": pet_id,
-            "activityID": ACTIVITY_ID.ALL,
-            "fromDate": start_ts,
-            "toDate": end_ts,
-            "timeDivisions": time_divisions,
-            "formulaGroup": FORMULA_GROUP.SUM,
-            "tID": T_ID,
-            "timezone": tz_hours_value,
-            "weeks": weeks_value,
-        }
+        payload = await self._authenticated_payload(
+            extra={
+                "petID": pet_id,
+                "activityID": ACTIVITY_ID.ALL,
+                "fromDate": start_ts,
+                "toDate": end_ts,
+                "timeDivisions": time_divisions,
+                "formulaGroup": FORMULA_GROUP.SUM,
+                "tID": T_ID,
+                "timezone": tz_hours_value,
+                "weeks": weeks_value,
+            }
+        )
 
         data = await self._post_with_refresh(
             GET_ACTIVITY_CATEGORIES_PATH, payload, REQUEST_HEADERS

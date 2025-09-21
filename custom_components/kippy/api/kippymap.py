@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from ..const import (
-    APP_IDENTITY,
-    ERROR_NO_AUTH_DATA,
     KIPPYMAP_ACTION_PATH,
     LOCALIZATION_TECHNOLOGY_MAP,
     REQUEST_HEADERS,
@@ -26,18 +24,12 @@ class KippyMapEndpoint(BaseKippyApi):
     ) -> Dict[str, Any]:
         """Perform a Kippy Map action for a specific device."""
 
-        await self.ensure_login()
-
-        if not self._auth:
-            raise RuntimeError(ERROR_NO_AUTH_DATA)
-
-        payload: Dict[str, Any] = {
-            "app_code": self.app_code,
-            "app_verification_code": self.app_verification_code,
-            "app_identity": APP_IDENTITY,
-            "kippy_id": kippy_id,
-            "do_sms": int(do_sms),
-        }
+        payload = await self._authenticated_payload(
+            extra={
+                "kippy_id": kippy_id,
+                "do_sms": int(do_sms),
+            }
+        )
         if app_action is not None:
             payload["app_action"] = app_action
         if geofence_id is not None:

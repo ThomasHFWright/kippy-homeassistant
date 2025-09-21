@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from ..const import (
-    APP_IDENTITY,
     APP_SUB_IDENTITY,
-    ERROR_NO_AUTH_DATA,
     GET_PETS_PATH,
     REQUEST_HEADERS,
 )
@@ -20,17 +18,9 @@ class PetsEndpoint(BaseKippyApi):
     async def get_pet_kippy_list(self) -> list[dict[str, Any]]:
         """Retrieve the list of pets associated with the account."""
 
-        await self.ensure_login()
-
-        if not self._auth:
-            raise RuntimeError(ERROR_NO_AUTH_DATA)
-
-        payload: Dict[str, Any] = {
-            "app_code": self.app_code,
-            "app_verification_code": self.app_verification_code,
-            "app_identity": APP_IDENTITY,
-            "app_sub_identity": APP_SUB_IDENTITY,
-        }
+        payload = await self._authenticated_payload(
+            extra={"app_sub_identity": APP_SUB_IDENTITY}
+        )
 
         data = await self._post_with_refresh(GET_PETS_PATH, payload, REQUEST_HEADERS)
         pets = data.get("data", [])

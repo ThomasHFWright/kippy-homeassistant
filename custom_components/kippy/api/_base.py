@@ -7,7 +7,7 @@ import hashlib
 import json
 import logging
 import ssl
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Mapping, Optional, cast
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
@@ -17,6 +17,7 @@ from ..const import (
     APP_VERSION,
     DEFAULT_HOST,
     DEVICE_NAME,
+    ERROR_NO_AUTH_DATA,
     ERROR_NO_CREDENTIALS,
     ERROR_UNEXPECTED_AUTH_FAILURE,
     LOGIN_PATH,
@@ -190,6 +191,32 @@ class BaseKippyApi:
             raise RuntimeError(ERROR_NO_CREDENTIALS)
         email, password = self._credentials
         await self.login(email, password)
+
+    async def _authenticated_payload(
+        self,
+        *,
+        identity: str | None = APP_IDENTITY,
+        extra: Mapping[str, Any] | None = None,
+    ) -> Dict[str, Any]:
+        """Return a payload seeded with the cached authentication tokens."""
+
+        await self.ensure_login()
+
+        if not self._auth:
+            raise RuntimeError(ERROR_NO_AUTH_DATA)
+
+        payload: Dict[str, Any] = {}
+
+        if self.app_code is not None:
+            payload["app_code"] = self.app_code
+        if self.app_verification_code is not None:
+            payload["app_verification_code"] = self.app_verification_code
+        if identity is not None:
+            payload["app_identity"] = identity
+        if extra:
+            payload.update(extra)
+
+        return payload
 
     async def _refresh_login(self, payload: Dict[str, Any]) -> None:
         """Refresh login credentials and update ``payload`` with new codes."""

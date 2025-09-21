@@ -17,6 +17,3 @@ class KippyApi(
     PetsEndpoint,
 ):
     """Full-featured Kippy API client used by the integration."""
-
-    # The mixins already provide all behaviour; this class exists for clarity.
-    pass

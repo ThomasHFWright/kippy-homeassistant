@@ -4,12 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from ..const import (
-    APP_IDENTITY,
-    ERROR_NO_AUTH_DATA,
-    KIPPYMAP_MODIFY_SETTINGS_PATH,
-    REQUEST_HEADERS,
-)
+from ..const import KIPPYMAP_MODIFY_SETTINGS_PATH, REQUEST_HEADERS
 from ._base import BaseKippyApi
 
 
@@ -26,17 +21,7 @@ class SettingsEndpoint(BaseKippyApi):
     ) -> Dict[str, Any]:
         """Modify settings for a specific device."""
 
-        await self.ensure_login()
-
-        if not self._auth:
-            raise RuntimeError(ERROR_NO_AUTH_DATA)
-
-        payload: Dict[str, Any] = {
-            "app_code": self.app_code,
-            "app_verification_code": self.app_verification_code,
-            "app_identity": APP_IDENTITY,
-            "modify_kippy_id": kippy_id,
-        }
+        payload = await self._authenticated_payload(extra={"modify_kippy_id": kippy_id})
         if update_frequency is not None:
             payload["update_frequency"] = float(f"{float(update_frequency):.1f}")
         if gps_on_default is not None:
