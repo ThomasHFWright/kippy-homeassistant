@@ -84,7 +84,9 @@ def _treat_401_as_success(path: str, data: Dict[str, Any]) -> bool:
 
     return_code = _get_return_code(data)
     if return_code is None:
-        _LOGGER.debug("%s returned HTTP 401 without return code, treating as failure", path)
+        _LOGGER.debug(
+            "%s returned HTTP 401 without return code, treating as failure", path
+        )
         return False
     if isinstance(return_code, bool):
         if return_code:

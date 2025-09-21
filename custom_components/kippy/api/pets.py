@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from ..const import APP_IDENTITY, APP_SUB_IDENTITY, ERROR_NO_AUTH_DATA, GET_PETS_PATH, REQUEST_HEADERS
+from ..const import (
+    APP_IDENTITY,
+    APP_SUB_IDENTITY,
+    ERROR_NO_AUTH_DATA,
+    GET_PETS_PATH,
+    REQUEST_HEADERS,
+)
 from ._base import BaseKippyApi
 
 

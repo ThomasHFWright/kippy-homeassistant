@@ -1256,7 +1256,15 @@ _LOGGER.debug("Processing data: %s", data)  # Use lazy logging
 
 ### Validation Commands
 
+Always run the full suite of formatting, linting, and validation commands
+before finishing any change. Ruff formatting and linting are mandatory for
+every update.
+
 ```bash
+# Format and lint with Ruff (required for every change)
+ruff format
+ruff check
+
 # Check specific integration (uses HA version from requirements.txt)
 python script/hassfest --integration-path custom_components/kippy
 

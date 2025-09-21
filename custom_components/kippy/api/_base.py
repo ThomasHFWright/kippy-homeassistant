@@ -102,7 +102,9 @@ class BaseKippyApi:
         payload = {
             "login_email": email,
             "login_password_hash": hashlib.sha256(password.encode("utf-8")).hexdigest(),
-            "login_password_hash_md5": hashlib.md5(password.encode("utf-8")).hexdigest(),
+            "login_password_hash_md5": hashlib.md5(
+                password.encode("utf-8")
+            ).hexdigest(),
             "app_identity": APP_IDENTITY,
             "app_identity_evo": APP_IDENTITY_EVO,
             "platform_device": PLATFORM_DEVICE,
@@ -277,4 +279,3 @@ class BaseKippyApi:
                 raise
 
         raise RuntimeError(ERROR_UNEXPECTED_AUTH_FAILURE)
-
