@@ -7,12 +7,10 @@ from typing import Any
 from homeassistant.components.device_tracker import SourceType, TrackerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, LABEL_EXPIRED, PET_KIND_TO_TYPE
 from .coordinator import KippyMapDataUpdateCoordinator
-from .helpers import build_device_info
+from .entity import KippyMapEntity
 
 
 async def async_setup_entry(
@@ -30,15 +28,14 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerEntity):
+class KippyPetTracker(KippyMapEntity, TrackerEntity):
     """Representation of a Kippy tracked pet."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
         """Initialize the tracker entity."""
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"Kippy {pet_name}" if pet_name else "Kippy"
         self._attr_unique_id = pet["petID"]
@@ -139,8 +136,3 @@ class KippyPetTracker(CoordinatorEntity[KippyMapDataUpdateCoordinator], TrackerE
             return int(val)
         except (TypeError, ValueError):
             return None
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information for this pet."""
-        return build_device_info(self._pet_id, self._pet_data, self._attr_name)

@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -130,6 +130,7 @@ async def test_idle_and_live_numbers() -> None:
     map_coordinator.async_set_idle_refresh = AsyncMock()
     map_coordinator.async_set_live_refresh = AsyncMock()
     map_coordinator.async_add_listener = MagicMock()
+    map_coordinator.config_entry = MagicMock()
 
     idle = KippyIdleUpdateFrequencyNumber(map_coordinator, pet)
     live = KippyLiveUpdateFrequencyNumber(map_coordinator, pet)
@@ -137,10 +138,24 @@ async def test_idle_and_live_numbers() -> None:
     assert live.native_value == 10.0
     idle.async_write_ha_state = MagicMock()
     live.async_write_ha_state = MagicMock()
-    await idle.async_set_native_value(6)
-    await live.async_set_native_value(7)
+    hass = MagicMock()
+    idle.hass = hass
+    live.hass = hass
+    with patch(
+        "custom_components.kippy.number.async_update_map_refresh_settings",
+        AsyncMock(),
+    ) as update_options:
+        await idle.async_set_native_value(6)
+        await live.async_set_native_value(7)
     map_coordinator.async_set_idle_refresh.assert_called_once_with(360)
     map_coordinator.async_set_live_refresh.assert_called_once_with(7)
+    assert update_options.await_count == 2
+    idle_call = update_options.await_args_list[0]
+    assert idle_call.args == (hass, map_coordinator.config_entry, 1)
+    assert idle_call.kwargs == {"idle_seconds": 360}
+    live_call = update_options.await_args_list[1]
+    assert live_call.args == (hass, map_coordinator.config_entry, 1)
+    assert live_call.kwargs == {"live_seconds": 7}
     idle.async_write_ha_state.assert_called_once()
     live.async_write_ha_state.assert_called_once()
     idle_info = idle.device_info

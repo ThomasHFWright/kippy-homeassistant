@@ -916,10 +916,9 @@ rules:
 
 ### Code Quality & Linting
 
+- **Required before submission**: Run `pylint custom_components/kippy` to lint the entire integration
 - **Run all linters on all files**: `pre-commit run --all-files`
 - **Run linters on staged files only**: `pre-commit run`
-- **PyLint on everything** (slow): `pylint custom_components`
-- **PyLint on specific folder**: `pylint custom_components/kippy`
 - **MyPy type checking (whole project)**: `mypy custom_components/`
 - **MyPy on specific integration**: `mypy custom_components/kippy`
 

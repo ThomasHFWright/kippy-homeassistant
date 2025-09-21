@@ -8,9 +8,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     APP_ACTION,
@@ -23,7 +21,11 @@ from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
-from .helpers import build_device_info
+from .entity import KippyMapEntity, KippyPetEntity
+from .helpers import (
+    is_pet_subscription_active,
+    normalize_kippy_identifier,
+)
 
 
 async def async_setup_entry(
@@ -34,13 +36,7 @@ async def async_setup_entry(
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     entities: list[SwitchEntity] = []
     for pet in coordinator.data.get("pets", []):
-        expired_days = pet.get("expired_days")
-        is_expired = False
-        try:
-            is_expired = int(expired_days) >= 0
-        except (TypeError, ValueError):
-            pass
-        if is_expired:
+        if not is_pet_subscription_active(pet):
             continue
         entities.append(KippyGpsDefaultSwitch(coordinator, pet))
         map_coord = map_coordinators.get(pet["petID"])
@@ -52,20 +48,16 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class KippyGpsDefaultSwitch(
-    CoordinatorEntity[KippyDataUpdateCoordinator], SwitchEntity
-):
+class KippyGpsDefaultSwitch(KippyPetEntity, SwitchEntity):
     """Switch to enable or disable GPS activation by default."""
 
     def __init__(
         self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} GPS Activation" if pet_name else "GPS Activation"
         self._attr_unique_id = f"{self._pet_id}_gps_on_default"
-        self._pet_data = pet
         self._attr_translation_key = "gps_on_default"
 
     @property
@@ -79,10 +71,9 @@ class KippyGpsDefaultSwitch(
             return bool(value)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
-        if kippy_id is not None:
+        if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
             await self.coordinator.api.modify_kippy_settings(
-                int(kippy_id), gps_on_default=True
+                kippy_id, gps_on_default=True
             )
         self._pet_data["gpsOnDefault"] = 1
         self.async_write_ha_state()
@@ -93,10 +84,9 @@ class KippyGpsDefaultSwitch(
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
-        if kippy_id is not None:
+        if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
             await self.coordinator.api.modify_kippy_settings(
-                int(kippy_id), gps_on_default=False
+                kippy_id, gps_on_default=False
             )
         self._pet_data["gpsOnDefault"] = 0
         self.async_write_ha_state()
@@ -106,24 +96,11 @@ class KippyGpsDefaultSwitch(
             "Synchronous turn_off is not supported; use async_turn_off instead."
         )
 
-    def _handle_coordinator_update(self) -> None:
-        for pet in self.coordinator.data.get("pets", []):
-            if pet.get("petID") == self._pet_id:
-                self._pet_data = pet
-                break
-        super()._handle_coordinator_update()
 
-    @property
-    def device_info(self) -> DeviceInfo:
-        pet_name = self._pet_data.get("petName")
-        name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
-
-
-class KippyEnergySavingSwitch(
-    CoordinatorEntity[KippyDataUpdateCoordinator], SwitchEntity
-):
+class KippyEnergySavingSwitch(KippyPetEntity, SwitchEntity):
     """Switch for energy saving mode."""
+
+    _preserve_fields = ("energySavingModePending",)
 
     def __init__(
         self,
@@ -131,12 +108,10 @@ class KippyEnergySavingSwitch(
         pet: dict[str, Any],
         map_coordinator: KippyMapDataUpdateCoordinator,
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Energy Saving" if pet_name else "Energy Saving"
         self._attr_unique_id = f"{self._pet_id}_energy_saving"
-        self._pet_data = pet
         self._map_coordinator = map_coordinator
         self.async_on_remove(
             map_coordinator.async_add_listener(self._handle_map_update)
@@ -147,10 +122,9 @@ class KippyEnergySavingSwitch(
         return bool(int(self._pet_data.get("energySavingMode", 0)))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
-        if kippy_id is not None:
+        if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
             await self.coordinator.api.modify_kippy_settings(
-                int(kippy_id), energy_saving_mode=True
+                kippy_id, energy_saving_mode=True
             )
         self._pet_data["energySavingMode"] = 1
         if self._pet_data.get("energySavingModePending"):
@@ -166,10 +140,9 @@ class KippyEnergySavingSwitch(
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        kippy_id = self._pet_data.get("kippyID") or self._pet_data.get("kippy_id")
-        if kippy_id is not None:
+        if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
             await self.coordinator.api.modify_kippy_settings(
-                int(kippy_id), energy_saving_mode=False
+                kippy_id, energy_saving_mode=False
             )
         self._pet_data["energySavingMode"] = 0
         if self._pet_data.get("energySavingModePending"):
@@ -183,20 +156,6 @@ class KippyEnergySavingSwitch(
         raise NotImplementedError(
             "Synchronous turn_off is not supported; use async_turn_off instead."
         )
-
-    def _handle_coordinator_update(self) -> None:
-        for pet in self.coordinator.data.get("pets", []):
-            if pet.get("petID") == self._pet_id:
-                if (
-                    self._pet_data.get("energySavingModePending")
-                    and "energySavingModePending" not in pet
-                ):
-                    pet["energySavingModePending"] = self._pet_data[
-                        "energySavingModePending"
-                    ]
-                self._pet_data = pet
-                break
-        super()._handle_coordinator_update()
 
     def _handle_map_update(self) -> None:
         if not self._map_coordinator.data:
@@ -220,28 +179,18 @@ class KippyEnergySavingSwitch(
             self.coordinator.async_set_updated_data(self.coordinator.data)
         self.async_write_ha_state()
 
-    @property
-    def device_info(self) -> DeviceInfo:
-        pet_name = self._pet_data.get("petName")
-        name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
 
-
-class KippyLiveTrackingSwitch(
-    CoordinatorEntity[KippyMapDataUpdateCoordinator], SwitchEntity
-):
+class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
     """Switch for live tracking."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = f"{pet_name} Live tracking" if pet_name else "Live tracking"
         self._attr_unique_id = f"{self._pet_id}_live_tracking"
         self._pet_name = pet_name
-        self._pet_data = pet
         self._attr_translation_key = "live_tracking"
 
     @property
@@ -309,24 +258,15 @@ class KippyLiveTrackingSwitch(
             "Synchronous turn_off is not supported; use async_turn_off instead."
         )
 
-    @property
-    def device_info(self) -> DeviceInfo:
-        name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
 
-
-class KippyIgnoreLBSSwitch(
-    CoordinatorEntity[KippyMapDataUpdateCoordinator], SwitchEntity
-):
+class KippyIgnoreLBSSwitch(KippyMapEntity, SwitchEntity):
     """Switch to ignore low accuracy LBS location updates."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
+        super().__init__(coordinator, pet)
         self._pet_name = pet.get("petName")
-        self._pet_data = pet
         self._attr_name = (
             f"{self._pet_name} Ignore {LOCALIZATION_TECHNOLOGY_LBS} updates"
             if self._pet_name
@@ -357,8 +297,3 @@ class KippyIgnoreLBSSwitch(
         raise NotImplementedError(
             "Synchronous turn_off is not supported; use async_turn_off instead."
         )
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)

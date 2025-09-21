@@ -10,7 +10,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import (
@@ -18,6 +17,7 @@ from .coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
+from .entity import KippyMapEntity
 from .helpers import build_device_info
 
 
@@ -44,16 +44,13 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class KippyRefreshMapAttributesButton(
-    CoordinatorEntity[KippyMapDataUpdateCoordinator], ButtonEntity
-):
+class KippyRefreshMapAttributesButton(KippyMapEntity, ButtonEntity):
     """Button to refresh Kippy map attributes immediately."""
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
     ) -> None:
-        super().__init__(coordinator)
-        self._pet_id = pet["petID"]
+        super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
             f"{pet_name} Refresh Map Attributes"
@@ -62,7 +59,6 @@ class KippyRefreshMapAttributesButton(
         )
         self._attr_unique_id = f"{self._pet_id}_refresh_map_attributes"
         self._pet_name = pet_name
-        self._pet_data = pet
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_translation_key = "refresh_map_attributes"
 
@@ -74,11 +70,6 @@ class KippyRefreshMapAttributesButton(
         raise NotImplementedError(
             "Synchronous button presses are not supported; use async_press instead."
         )
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        name = f"Kippy {self._pet_name}" if self._pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
 
 
 class KippyActivityCategoriesButton(ButtonEntity):
@@ -110,9 +101,7 @@ class KippyActivityCategoriesButton(ButtonEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        pet_name = self._pet_data.get("petName")
-        name = f"Kippy {pet_name}" if pet_name else "Kippy"
-        return build_device_info(self._pet_id, self._pet_data, name)
+        return build_device_info(self._pet_id, self._pet_data)
 
 
 class KippyRefreshPetsButton(ButtonEntity):
