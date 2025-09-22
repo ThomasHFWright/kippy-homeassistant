@@ -25,7 +25,7 @@ This integration has been built to support Kippy Cat. It'll probably work with K
 
 ### Manually
 
-Get the folder `custom_components/petlibro` in your HA `config/custom_components`
+Get the folder `custom_components/kippy` in your HA `config/custom_components`
 
 ### Via [HACS](https://hacs.xyz/)
 
