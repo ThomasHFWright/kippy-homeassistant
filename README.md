@@ -29,7 +29,7 @@ Get the folder `custom_components/kippy` in your HA `config/custom_components`
 
 ### Via [HACS](https://hacs.xyz/)
 
-<a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=ThomasHFWright&repository=kippy-homeassistant-hacs&category=integration" target="_blank"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store." /></a>
+<a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=ThomasHFWright&repository=kippy-homeassistant&category=integration" target="_blank"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store." /></a>
 
 ## Configuration
 
@@ -50,19 +50,19 @@ Running `python script/hassfest --integration-path custom_components/kippy` and 
 
 ---
 
-[commits-shield]: https://img.shields.io/github/commit-activity/y/ThomasHFWright/kippy-homeassistant-hacs.svg
-[commits]: https://github.com/ThomasHFWright/kippy-homeassistant-hacs/commits/main
+[commits-shield]: https://img.shields.io/github/commit-activity/y/ThomasHFWright/kippy-homeassistant.svg
+[commits]: https://github.com/ThomasHFWright/kippy-homeassistant/commits/main
 [hacs]: https://hacs.xyz
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg
-[license-shield]: https://img.shields.io/github/license/ThomasHFWright/kippy-homeassistant-hacs.svg
+[license-shield]: https://img.shields.io/github/license/ThomasHFWright/kippy-homeassistant.svg
 [maintenance-shield]: https://img.shields.io/badge/maintainer-%40ThomasHFWright-blue.svg
-[releases-shield]: https://img.shields.io/github/v/release/ThomasHFWright/kippy-homeassistant-hacs.svg
+[releases-shield]: https://img.shields.io/github/v/release/ThomasHFWright/kippy-homeassistant.svg
 [community-shield]: https://img.shields.io/badge/community-forum-blue.svg
 [community]: https://community.home-assistant.io/t/kippy-pet-gps-tracker-custom-integration/933073
-[releases]: https://github.com/ThomasHFWright/kippy-homeassistant-hacs/releases
+[releases]: https://github.com/ThomasHFWright/kippy-homeassistant/releases
 [user_profile]: https://github.com/ThomasHFWright
 [integration_blueprint]: https://github.com/custom-components/integration_blueprint
-[stars-shield]: https://img.shields.io/github/stars/ThomasHFWright/kippy-homeassistant-hacs.svg
-[stars]: https://github.com/ThomasHFWright/kippy-homeassistant-hacs/stargazers
+[stars-shield]: https://img.shields.io/github/stars/ThomasHFWright/kippy-homeassistant.svg
+[stars]: https://github.com/ThomasHFWright/kippy-homeassistant/stargazers
 [bmc-shield]: https://img.shields.io/badge/Buy%20Me%20a%20Coffee-donate-yellow.svg?logo=buy-me-a-coffee
 [bmc]: https://buymeacoffee.com/thomashfwright
