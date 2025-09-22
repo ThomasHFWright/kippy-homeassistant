@@ -566,16 +566,14 @@ def test_localization_and_time_sensors() -> None:
     assert loc.native_value == "GPS"
     assert loc.device_info["name"] == "Kippy Rex"
     contact = KippyLastContactSensor(coord, pet)
-    assert contact.native_value == datetime.utcfromtimestamp(1).replace(
-        tzinfo=timezone.utc
-    )
+    assert contact.native_value == datetime.fromtimestamp(1, timezone.utc)
     assert contact.device_info["name"] == "Kippy Rex"
     fix = KippyLastFixSensor(coord, pet)
     assert fix.native_value is None
     gps = KippyLastGpsFixSensor(coord, pet)
-    assert gps.native_value == datetime.utcfromtimestamp(2).replace(tzinfo=timezone.utc)
+    assert gps.native_value == datetime.fromtimestamp(2, timezone.utc)
     lbs = KippyLastLbsFixSensor(coord, pet)
-    assert lbs.native_value == datetime.utcfromtimestamp(3).replace(tzinfo=timezone.utc)
+    assert lbs.native_value == datetime.fromtimestamp(3, timezone.utc)
 
 
 def test_next_contact_sensor_native_value() -> None:
