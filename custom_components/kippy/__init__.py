@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from aiohttp import ClientResponseError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
@@ -55,6 +56,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, coordinator, map_coordinators, activity_coordinator
         )
     except API_EXCEPTIONS as err:
+        if isinstance(err, ClientResponseError) and getattr(err, "status", None) in (
+            401,
+            403,
+        ):
+            raise ConfigEntryAuthFailed from err
         raise ConfigEntryNotReady from err
 
     hass.data[DOMAIN][entry.entry_id] = {
