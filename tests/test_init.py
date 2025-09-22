@@ -5,9 +5,10 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aiohttp import ClientResponseError
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import async_setup_entry, async_unload_entry
@@ -45,6 +46,26 @@ async def test_async_setup_entry_login_failure(hass: HomeAssistant) -> None:
         patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
     ):
         with pytest.raises(ConfigEntryNotReady):
+            await async_setup_entry(hass, entry)
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_login_auth_failure(hass: HomeAssistant) -> None:
+    """401/403 login errors raise ConfigEntryAuthFailed."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={CONF_EMAIL: "a", CONF_PASSWORD: "b"}, entry_id="1"
+    )
+    entry.add_to_hass(hass)
+    api = AsyncMock()
+    api.login.side_effect = ClientResponseError(None, (), status=401)
+
+    with (
+        patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
+        patch("custom_components.kippy.KippyApi.async_create", return_value=api),
+        patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()),
+    ):
+        with pytest.raises(ConfigEntryAuthFailed):
             await async_setup_entry(hass, entry)
 
 
