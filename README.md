@@ -1,11 +1,13 @@
 # Kippy for Home Assistant
 
+[![GitHub Repo stars][stars-shield]][stars]
 [![GitHub Release][releases-shield]][releases]
-[![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
-
+[![Community Forum][community-shield]][community]
 [![hacs][hacsbadge]][hacs]
+[![GitHub Activity][commits-shield]][commits]
 [![Project Maintenance][maintenance-shield]][user_profile]
+[![BuyMeACoffee][bmc-shield]][bmc]
 
 Integrate [Kippy](https://www.kippy.eu/) pet trackers with Home Assistant. Track your pet's location, monitor activity and battery levels, and control tracker features directly from your smart home dashboard.
 
@@ -48,13 +50,19 @@ Running `python script/hassfest --integration-path custom_components/kippy` and 
 
 ---
 
-[commits-shield]: https://img.shields.io/github/commit-activity/y/ThomasHFWright/kippy-homeassistant-hacs.svg?style=for-the-badge
+[commits-shield]: https://img.shields.io/github/commit-activity/y/ThomasHFWright/kippy-homeassistant-hacs.svg
 [commits]: https://github.com/ThomasHFWright/kippy-homeassistant-hacs/commits/main
 [hacs]: https://hacs.xyz
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[license-shield]: https://img.shields.io/github/license/ThomasHFWright/kippy-homeassistant-hacs.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-%40ThomasHFWright-blue.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/v/release/ThomasHFWright/kippy-homeassistant-hacs.svg?style=for-the-badge
+[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg
+[license-shield]: https://img.shields.io/github/license/ThomasHFWright/kippy-homeassistant-hacs.svg
+[maintenance-shield]: https://img.shields.io/badge/maintainer-%40ThomasHFWright-blue.svg
+[releases-shield]: https://img.shields.io/github/v/release/ThomasHFWright/kippy-homeassistant-hacs.svg
+[community-shield]: https://img.shields.io/badge/community-forum-blue.svg
+[community]: https://community.home-assistant.io/t/kippy-pet-gps-tracker-custom-integration/933073
 [releases]: https://github.com/ThomasHFWright/kippy-homeassistant-hacs/releases
 [user_profile]: https://github.com/ThomasHFWright
 [integration_blueprint]: https://github.com/custom-components/integration_blueprint
+[stars-shield]: https://img.shields.io/github/stars/ThomasHFWright/kippy-homeassistant-hacs.svg
+[stars]: https://github.com/ThomasHFWright/kippy-homeassistant-hacs/stargazers
+[bmc-shield]: https://img.shields.io/badge/Buy%20Me%20a%20Coffee-donate-yellow.svg?logo=buy-me-a-coffee
+[bmc]: https://buymeacoffee.com/thomashfwright
