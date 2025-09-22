@@ -3,10 +3,10 @@
   "name": "Kippy",
   "codeowners": ["@ThomasHFWright"],
   "config_flow": true,
-  "documentation": "https://github.com/ThomasHFWright/kippy-homeassistant-hacs",
+  "documentation": "https://github.com/ThomasHFWright/kippy-homeassistant/wiki",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/ThomasHFWright/kippy-homeassistant-hacs/issues",
+  "issue_tracker": "https://github.com/ThomasHFWright/kippy-homeassistant/issues",
   "requirements": [],
   "version": "1.0.0"
 }

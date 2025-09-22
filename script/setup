@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Set up the development environment for kippy-homeassistant-hacs
+# Set up the development environment for kippy-homeassistant
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
