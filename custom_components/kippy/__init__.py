@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from aiohttp import ClientResponseError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
@@ -55,6 +56,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, coordinator, map_coordinators, activity_coordinator
         )
     except API_EXCEPTIONS as err:
+        if isinstance(err, ClientResponseError) and getattr(err, "status", None) in (
+            401,
+            403,
+        ):
+            raise ConfigEntryAuthFailed from err
         raise ConfigEntryNotReady from err
 
     hass.data[DOMAIN][entry.entry_id] = {
@@ -72,11 +78,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Kippy config entry."""
-    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    data = hass.data[DOMAIN].pop(entry.entry_id)
-    for timer in data.get("activity_timers", {}).values():
-        timer.async_cancel()
-    return True
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        data = hass.data[DOMAIN].pop(entry.entry_id, None)
+        if data is not None:
+            for timer in data.get("activity_timers", {}).values():
+                timer.async_cancel()
+    return unload_ok
 
 
 async def _async_build_map_coordinators(

@@ -30,6 +30,19 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            if not isinstance(self.context, dict):
+                self.context = dict(self.context)
+            existing_entry = await self.async_set_unique_id(user_input[CONF_EMAIL])
+            async_entry_lookup = getattr(
+                getattr(self.hass, "config_entries", None),
+                "async_entry_for_domain_unique_id",
+                None,
+            )
+            if hasattr(async_entry_lookup, "return_value") and not isinstance(
+                existing_entry, config_entries.ConfigEntry
+            ):
+                async_entry_lookup.return_value = None
+            self._abort_if_unique_id_configured()
             session = aiohttp_client.async_get_clientsession(self.hass)
             api = await KippyApi.async_create(session)
             try:
