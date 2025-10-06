@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Iterable
@@ -61,6 +63,7 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         self._on_new_pets = on_new_pets
         self._known_pet_ids: set[str] | None = None
         self._pending_reload = False
+        self._reload_task: asyncio.Task[None] | None = None
         update_minutes = get_device_update_interval_minutes(config_entry)
         kwargs: dict[str, Any] = {
             "name": DOMAIN,
@@ -114,7 +117,14 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
             finally:
                 self._pending_reload = False
 
-        self.hass.async_create_task(_reload_wrapper())
+        task = self.hass.async_create_task(_reload_wrapper())
+        self._reload_task = task
+
+        def _clear_reload_task(_future: asyncio.Future[Any]) -> None:
+            if self._reload_task is task:
+                self._reload_task = None
+
+        task.add_done_callback(_clear_reload_task)
 
     async def _async_update_data(self):
         """Fetch data from the API endpoint."""
@@ -125,6 +135,17 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         self._handle_new_pets(pets)
         return {"pets": pets}
+
+    async def async_shutdown(self) -> None:
+        """Cancel any pending reload task and shut down the coordinator."""
+
+        task = self._reload_task
+        self._reload_task = None
+        if task and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        await super().async_shutdown()
 
 
 def _normalize_operating_status(value: Any) -> tuple[int | None, str | None]:

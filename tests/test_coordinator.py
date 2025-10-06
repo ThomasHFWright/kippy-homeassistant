@@ -165,6 +165,48 @@ async def test_data_coordinator_detects_new_pets_and_reloads() -> None:
 
 
 @pytest.mark.asyncio
+async def test_data_coordinator_shutdown_cancels_reload_task() -> None:
+    """Pending reload task is cancelled during shutdown."""
+
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    created_tasks: list[asyncio.Task[None]] = []
+
+    def _create_task(coro):
+        task: asyncio.Task[None] = asyncio.create_task(coro)
+        created_tasks.append(task)
+        return task
+
+    hass.async_create_task = MagicMock(side_effect=_create_task)
+    api = MagicMock()
+    reload_event = asyncio.Event()
+
+    async def _reload() -> None:
+        await reload_event.wait()
+
+    coordinator = KippyDataUpdateCoordinator(
+        hass, make_config_entry(), api, on_new_pets=_reload
+    )
+    coordinator._known_pet_ids = {"1"}
+    coordinator._handle_new_pets(
+        [
+            {"petID": 1},
+            {"petID": 2},
+        ]
+    )
+
+    await asyncio.sleep(0)
+    assert coordinator._reload_task is not None
+
+    await coordinator.async_shutdown()
+
+    assert not reload_event.is_set()
+    assert coordinator._reload_task is None
+    assert created_tasks
+    assert all(task.cancelled() for task in created_tasks)
+
+
+@pytest.mark.asyncio
 async def test_map_coordinator_process_data_ignores_lbs() -> None:
     """LBS data is ignored and previous GPS data reused."""
     hass = MagicMock()
