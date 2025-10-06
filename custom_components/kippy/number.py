@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -57,6 +57,7 @@ class KippyUpdateFrequencyNumber(KippyPetEntity, NumberEntity):
     _attr_native_max_value = 24
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "h"
+    _attr_mode = NumberMode.BOX
 
     def __init__(
         self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
@@ -109,6 +110,7 @@ class KippyIdleUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "min"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -146,6 +148,7 @@ class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "s"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -179,10 +182,11 @@ class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
 class KippyActivityRefreshDelayNumber(NumberEntity):
     """Number to control activity refresh delay."""
 
-    _attr_native_min_value = 0
+    _attr_native_min_value = 1
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "min"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
 
     def __init__(self, timer: ActivityRefreshTimer, pet: dict[str, Any]) -> None:
         self.timer = timer

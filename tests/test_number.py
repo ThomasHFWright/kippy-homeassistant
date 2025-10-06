@@ -5,6 +5,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.components.number import NumberMode
 
 from custom_components.kippy.const import DOMAIN
 from custom_components.kippy.number import (
@@ -34,6 +35,8 @@ async def test_update_frequency_number() -> None:
     )
     number = KippyUpdateFrequencyNumber(coordinator, pet)
     assert number.native_value == 5.0
+    assert number.mode is NumberMode.BOX
+    assert number.native_min_value == 1
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(10)
     coordinator.api.modify_kippy_settings.assert_awaited_once_with(
@@ -140,6 +143,10 @@ async def test_idle_and_live_numbers() -> None:
     live = KippyLiveUpdateFrequencyNumber(map_coordinator, pet)
     assert idle.native_value == 5.0
     assert live.native_value == 10.0
+    assert idle.mode is NumberMode.BOX
+    assert live.mode is NumberMode.BOX
+    assert idle.native_min_value == 1
+    assert live.native_min_value == 1
     idle.async_write_ha_state = MagicMock()
     live.async_write_ha_state = MagicMock()
     hass = MagicMock()
@@ -177,6 +184,8 @@ async def test_activity_refresh_delay_number() -> None:
     timer.async_set_delay = AsyncMock()
     number = KippyActivityRefreshDelayNumber(timer, pet)
     assert number.native_value == 2.0
+    assert number.mode is NumberMode.BOX
+    assert number.native_min_value == 1
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(5)
     timer.async_set_delay.assert_awaited_once_with(5)
