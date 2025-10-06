@@ -21,6 +21,7 @@ from .const import (
     LOCALIZATION_TECHNOLOGY_LBS,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
+    OPERATING_STATUS_REVERSE_MAP,
 )
 from .helpers import API_EXCEPTIONS, MapRefreshSettings
 
@@ -66,6 +67,26 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
             return {"pets": await self.api.get_pet_kippy_list()}
         except API_EXCEPTIONS as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+
+def _normalize_operating_status(value: Any) -> tuple[int | None, str | None]:
+    """Return the numeric and string operating status for ``value``."""
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized.isdigit():
+            code = int(normalized)
+            return code, OPERATING_STATUS_MAP.get(code)
+        if normalized in OPERATING_STATUS_REVERSE_MAP:
+            code = OPERATING_STATUS_REVERSE_MAP[normalized]
+            return code, OPERATING_STATUS_MAP.get(code)
+        return None, normalized or None
+
+    try:
+        code = int(value)
+    except (TypeError, ValueError):
+        return None, None
+    return code, OPERATING_STATUS_MAP.get(code)
 
 
 class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
@@ -129,13 +150,10 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                     self.kippy_id,
                 )
 
-        operating_status = data.get("operating_status")
-        try:
-            operating_status_int = int(operating_status)
-        except (TypeError, ValueError):
-            operating_status_int = None
+        operating_status_int, operating_status_str = _normalize_operating_status(
+            data.get("operating_status")
+        )
 
-        operating_status_str = OPERATING_STATUS_MAP.get(operating_status_int)
         if operating_status_int == OPERATING_STATUS.LIVE:
             self.update_interval = timedelta(seconds=self.live_refresh)
         else:
