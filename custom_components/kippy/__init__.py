@@ -24,7 +24,7 @@ from .coordinator import (
 )
 from .helpers import (
     API_EXCEPTIONS,
-    get_device_update_interval_minutes,
+    get_device_update_interval,
     get_map_refresh_settings,
     is_pet_subscription_active,
     normalize_kippy_identifier,
@@ -91,7 +91,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return
         base_coordinator: KippyDataUpdateCoordinator = data["coordinator"]
         base_coordinator.set_update_interval_minutes(
-            get_device_update_interval_minutes(updated_entry)
+            get_device_update_interval(updated_entry)
         )
 
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))

@@ -20,7 +20,7 @@ from .const import (
 )
 from .helpers import (
     DEVICE_UPDATE_INTERVAL_KEY,
-    get_device_update_interval_minutes,
+    get_device_update_interval,
     normalize_device_update_interval,
 )
 
@@ -125,7 +125,7 @@ class KippyOptionsFlowHandler(config_entries.OptionsFlow):
                 options[DEVICE_UPDATE_INTERVAL_KEY] = minutes
                 return self.async_create_entry(title="", data=options)
 
-        current = get_device_update_interval_minutes(self.config_entry)
+        current = get_device_update_interval(self.config_entry)
         data_schema = vol.Schema(
             {
                 vol.Required(

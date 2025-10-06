@@ -32,7 +32,7 @@ MAP_REFRESH_OPTIONS_KEY = "map_refresh_settings"
 MAP_REFRESH_IDLE_KEY = "idle_seconds"
 MAP_REFRESH_LIVE_KEY = "live_seconds"
 
-DEVICE_UPDATE_INTERVAL_KEY = "device_update_interval_minutes"
+DEVICE_UPDATE_INTERVAL_KEY = "device_update_interval"
 
 
 @dataclass(slots=True)
@@ -63,7 +63,7 @@ def normalize_device_update_interval(value: Any) -> int | None:
     return minutes
 
 
-def get_device_update_interval_minutes(entry: ConfigEntry) -> int:
+def get_device_update_interval(entry: ConfigEntry) -> int:
     """Return the configured minutes between device updates."""
 
     normalized = normalize_device_update_interval(

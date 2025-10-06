@@ -27,7 +27,7 @@ from .helpers import (
     DEVICE_UPDATE_INTERVAL_KEY,
     async_update_map_refresh_settings,
     build_device_info,
-    get_device_update_interval_minutes,
+    get_device_update_interval,
     is_pet_subscription_active,
     normalize_device_update_interval,
     normalize_kippy_identifier,
@@ -85,7 +85,7 @@ class KippyDeviceUpdateFrequencyNumber(
     def native_value(self) -> int:
         """Return the configured update interval in minutes."""
 
-        return get_device_update_interval_minutes(self._config_entry)
+        return get_device_update_interval(self._config_entry)
 
     async def async_added_to_hass(self) -> None:
         """Register listeners when added to Home Assistant."""

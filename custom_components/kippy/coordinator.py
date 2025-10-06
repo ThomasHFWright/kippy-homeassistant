@@ -25,11 +25,7 @@ from .const import (
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_REVERSE_MAP,
 )
-from .helpers import (
-    API_EXCEPTIONS,
-    MapRefreshSettings,
-    get_device_update_interval_minutes,
-)
+from .helpers import API_EXCEPTIONS, MapRefreshSettings, get_device_update_interval
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,7 +60,7 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         self._known_pet_ids: set[str] | None = None
         self._pending_reload = False
         self._reload_task: asyncio.Task[None] | None = None
-        update_minutes = get_device_update_interval_minutes(config_entry)
+        update_minutes = get_device_update_interval(config_entry)
         kwargs: dict[str, Any] = {
             "name": DOMAIN,
             "update_interval": timedelta(minutes=update_minutes),

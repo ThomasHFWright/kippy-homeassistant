@@ -21,7 +21,7 @@ from custom_components.kippy.helpers import (
     MapRefreshSettings,
     async_update_map_refresh_settings,
     build_device_info,
-    get_device_update_interval_minutes,
+    get_device_update_interval,
     get_map_refresh_settings,
     normalize_device_update_interval,
     normalize_kippy_identifier,
@@ -233,25 +233,19 @@ def test_normalize_device_update_interval() -> None:
     assert normalize_device_update_interval("abc") is None
 
 
-def test_get_device_update_interval_minutes_defaults() -> None:
+def test_get_device_update_interval_defaults() -> None:
     """Default interval is used when the option is missing or invalid."""
 
     entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
-    assert (
-        get_device_update_interval_minutes(entry)
-        == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
-    )
+    assert get_device_update_interval(entry) == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
 
     entry = MockConfigEntry(
         domain=DOMAIN, data={}, options={DEVICE_UPDATE_INTERVAL_KEY: "abc"}
     )
-    assert (
-        get_device_update_interval_minutes(entry)
-        == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
-    )
+    assert get_device_update_interval(entry) == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
 
 
-def test_get_device_update_interval_minutes_from_options() -> None:
+def test_get_device_update_interval_from_options() -> None:
     """Valid option value is returned unchanged."""
 
     entry = MockConfigEntry(
@@ -259,7 +253,4 @@ def test_get_device_update_interval_minutes_from_options() -> None:
         data={},
         options={DEVICE_UPDATE_INTERVAL_KEY: MIN_DEVICE_UPDATE_INTERVAL_MINUTES + 5},
     )
-    assert (
-        get_device_update_interval_minutes(entry)
-        == MIN_DEVICE_UPDATE_INTERVAL_MINUTES + 5
-    )
+    assert get_device_update_interval(entry) == MIN_DEVICE_UPDATE_INTERVAL_MINUTES + 5

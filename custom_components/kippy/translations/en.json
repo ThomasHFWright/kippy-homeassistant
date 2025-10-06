@@ -25,7 +25,7 @@
         "title": "Kippy options",
         "description": "Configure how often Home Assistant updates Kippy devices.",
         "data": {
-          "device_update_interval_minutes": "Kippy devices update frequency"
+          "device_update_interval": "Kippy devices update frequency"
         }
       }
     }
