@@ -2,7 +2,7 @@
 
 """Tests for helper utilities used by the Kippy integration."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -110,6 +110,25 @@ async def test_async_update_map_refresh_settings_updates_entry() -> None:
         hass, entry_with_options, 2, idle_seconds=600
     )
     hass.config_entries.async_update_entry.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_async_update_map_refresh_settings_handles_sync_update() -> None:
+    """Synchronous update_entry results are handled without awaiting."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, entry_id="3", options={})
+    hass = MagicMock()
+    hass.config_entries.async_update_entry.return_value = True
+
+    await async_update_map_refresh_settings(hass, entry, 5, live_seconds=30)
+
+    hass.config_entries.async_update_entry.assert_called_once_with(
+        entry,
+        options=ANY,
+    )
+
+    options = hass.config_entries.async_update_entry.call_args.kwargs["options"]
+    assert options["map_refresh_settings"]["5"]["live_seconds"] == 30
 
 
 def test_update_pet_data_preserves_and_returns_current() -> None:
