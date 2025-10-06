@@ -107,7 +107,7 @@ class KippyOptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
 
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         """Handle the options step for configuring refresh interval."""
@@ -121,11 +121,11 @@ class KippyOptionsFlowHandler(config_entries.OptionsFlow):
             if minutes is None:
                 errors["base"] = "invalid_device_update_interval"
             else:
-                options = dict(self.config_entry.options)
+                options = dict(self._config_entry.options)
                 options[DEVICE_UPDATE_INTERVAL_KEY] = minutes
                 return self.async_create_entry(title="", data=options)
 
-        current = get_device_update_interval(self.config_entry)
+        current = get_device_update_interval(self._config_entry)
         data_schema = vol.Schema(
             {
                 vol.Required(
