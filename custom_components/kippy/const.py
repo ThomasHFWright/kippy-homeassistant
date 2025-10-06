@@ -116,6 +116,11 @@ OPERATING_STATUS_MAP: dict[int, str] = {
     OPERATING_STATUS.ENERGY_SAVING: "energy_saving",
 }
 
+# Mapping of operating status strings back to their numeric codes.
+OPERATING_STATUS_REVERSE_MAP: dict[str, int] = {
+    value: key for key, value in OPERATING_STATUS_MAP.items()
+}
+
 # App action identifiers used by the API.
 APP_ACTION = SimpleNamespace(
     TURN_LIVE_TRACKING_ON=2,

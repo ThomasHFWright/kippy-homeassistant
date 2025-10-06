@@ -46,6 +46,28 @@ async def test_process_new_data_maps_operating_status() -> None:
 
 
 @pytest.mark.asyncio
+async def test_process_new_data_accepts_string_operating_status() -> None:
+    """process_new_data should keep string operating status values stable."""
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    coordinator = KippyMapDataUpdateCoordinator(make_context(hass), 1)
+
+    coordinator.process_new_data({"operating_status": "live"})
+
+    assert (
+        coordinator.data["operating_status"]
+        == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+    )
+
+    coordinator.process_new_data({"operating_status": "IDLE"})
+
+    assert (
+        coordinator.data["operating_status"]
+        == OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
+    )
+
+
+@pytest.mark.asyncio
 async def test_data_coordinator_update_success() -> None:
     """_async_update_data returns pets list on success."""
     hass = MagicMock()
