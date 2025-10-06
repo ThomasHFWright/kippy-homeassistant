@@ -128,13 +128,10 @@ async def test_data_coordinator_uses_configured_update_interval() -> None:
 
     assert coordinator.update_interval == timedelta(minutes=45)
 
-    with patch.object(coordinator, "_async_unsub_refresh") as unsub, patch.object(
-        coordinator, "_schedule_refresh"
-    ) as schedule:
+    with patch.object(coordinator, "_schedule_refresh") as schedule:
         coordinator.set_update_interval_minutes(5)
 
     assert coordinator.update_interval == timedelta(minutes=5)
-    unsub.assert_called_once()
     schedule.assert_called_once()
 
 

@@ -79,7 +79,6 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         self.update_interval = interval
 
         # Apply the new interval immediately by rescheduling the refresh task.
-        self._async_unsub_refresh()
         self._schedule_refresh()
 
     def _handle_new_pets(self, pets: list[dict[str, Any]]) -> None:
