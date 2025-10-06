@@ -11,7 +11,7 @@
       "module": "homeassistant",
       "justMyCode": false,
       "args": ["--debug", "-c", "dev-config"],
-      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "python": "${workspaceFolder}/.venv/bin/python",
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
@@ -21,7 +21,7 @@
       "module": "homeassistant",
       "justMyCode": false,
       "args": ["--debug", "-c", "dev-config", "--skip-pip"],
-      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "python": "${workspaceFolder}/.venv/bin/python",
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
@@ -31,7 +31,7 @@
       "module": "pytest",
       "justMyCode": false,
       "args": ["--picked"],
-      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "python": "${workspaceFolder}/.venv/bin/python",
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {
@@ -41,7 +41,7 @@
       "module": "pytest",
       "console": "integratedTerminal",
       "args": ["-vv", "${file}"],
-      "python": "/home/vscode/.local/ha-venv/bin/python",
+      "python": "${workspaceFolder}/.venv/bin/python",
       "env": { "PYTHONPATH": "${workspaceFolder}" }
     },
     {

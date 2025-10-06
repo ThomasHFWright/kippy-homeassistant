@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VENV_DIR="/home/vscode/.local/ha-venv"
+VENV_DIR="$REPO_ROOT/.venv"
 PY="$VENV_DIR/bin/python"
 PIP="$VENV_DIR/bin/pip"
 
