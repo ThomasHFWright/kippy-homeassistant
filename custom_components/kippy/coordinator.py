@@ -72,7 +72,15 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
     def set_update_interval_minutes(self, minutes: int) -> None:
         """Update the refresh interval used for fetching pet data."""
 
-        self.update_interval = timedelta(minutes=minutes)
+        interval = timedelta(minutes=minutes)
+        if self.update_interval == interval:
+            return
+
+        self.update_interval = interval
+
+        # Apply the new interval immediately by rescheduling the refresh task.
+        self._async_unsub_refresh()
+        self._schedule_refresh()
 
     def _handle_new_pets(self, pets: list[dict[str, Any]]) -> None:
         """Schedule a reload when new pets are detected."""
