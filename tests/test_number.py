@@ -34,20 +34,20 @@ async def test_update_frequency_number() -> None:
         return_value={"update_frequency": 10}
     )
     number = KippyUpdateFrequencyNumber(coordinator, pet)
-    assert number.native_value == 5.0
+    assert number.native_value == 5
     assert number.mode is NumberMode.BOX
     assert number.native_min_value == 1
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(10)
     coordinator.api.modify_kippy_settings.assert_awaited_once_with(
-        2, update_frequency=10.0, gps_on_default=True
+        2, update_frequency=10, gps_on_default=True
     )
     assert pet["updateFrequency"] == 10
     number.async_write_ha_state.assert_called_once()
     coordinator.data = {"pets": [{"petID": 1, "updateFrequency": 20}]}
     number.async_write_ha_state.reset_mock()
     number._handle_coordinator_update()
-    assert number.native_value == 20.0
+    assert number.native_value == 20
     number.async_write_ha_state.assert_called_once()
     info = number.device_info
     assert (DOMAIN, "1") in info["identifiers"]
@@ -104,7 +104,7 @@ async def test_update_frequency_number_sends_current_gps() -> None:
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(6)
     coordinator.api.modify_kippy_settings.assert_awaited_once_with(
-        2, update_frequency=6.0, gps_on_default=False
+        2, update_frequency=6, gps_on_default=False
     )
     assert pet["updateFrequency"] == 6
     number.async_write_ha_state.assert_called_once()
@@ -141,8 +141,8 @@ async def test_idle_and_live_numbers() -> None:
 
     idle = KippyIdleUpdateFrequencyNumber(map_coordinator, pet)
     live = KippyLiveUpdateFrequencyNumber(map_coordinator, pet)
-    assert idle.native_value == 5.0
-    assert live.native_value == 10.0
+    assert idle.native_value == 5
+    assert live.native_value == 10
     assert idle.mode is NumberMode.BOX
     assert live.mode is NumberMode.BOX
     assert idle.native_min_value == 1
@@ -183,7 +183,7 @@ async def test_activity_refresh_delay_number() -> None:
     timer.delay_minutes = 2
     timer.async_set_delay = AsyncMock()
     number = KippyActivityRefreshDelayNumber(timer, pet)
-    assert number.native_value == 2.0
+    assert number.native_value == 2
     assert number.mode is NumberMode.BOX
     assert number.native_min_value == 1
     number.async_write_ha_state = MagicMock()
