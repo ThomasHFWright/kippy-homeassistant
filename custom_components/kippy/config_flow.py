@@ -10,10 +10,14 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers import aiohttp_client, selector
 
 from .api import KippyApi
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
+    MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
+)
 from .helpers import (
     DEVICE_UPDATE_INTERVAL_KEY,
     get_device_update_interval_minutes,
@@ -121,10 +125,21 @@ class KippyOptionsFlowHandler(config_entries.OptionsFlow):
                 options[DEVICE_UPDATE_INTERVAL_KEY] = minutes
                 return self.async_create_entry(title="", data=options)
 
-        current = str(get_device_update_interval_minutes(self.config_entry))
+        current = get_device_update_interval_minutes(self.config_entry)
         data_schema = vol.Schema(
             {
-                vol.Required(DEVICE_UPDATE_INTERVAL_KEY, default=current): str,
+                vol.Required(
+                    DEVICE_UPDATE_INTERVAL_KEY,
+                    default=current,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
+                        max=MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
+                        step=1,
+                        unit_of_measurement="min",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
             }
         )
         return self.async_show_form(

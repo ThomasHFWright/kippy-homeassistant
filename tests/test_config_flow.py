@@ -7,10 +7,16 @@ from aiohttp import ClientError, ClientResponseError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import selector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy.config_flow import KippyConfigFlow
-from custom_components.kippy.const import DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES, DOMAIN
+from custom_components.kippy.const import (
+    DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES,
+    DOMAIN,
+    MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
+    MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
+)
 from custom_components.kippy.helpers import DEVICE_UPDATE_INTERVAL_KEY
 
 
@@ -101,9 +107,16 @@ async def test_options_flow_success(hass: HomeAssistant) -> None:
     required_field = next(iter(result["data_schema"].schema))
     assert required_field.schema == DEVICE_UPDATE_INTERVAL_KEY
     assert callable(required_field.default)
-    assert required_field.default() == str(DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES)
+    assert required_field.default() == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
 
-    result = await flow.async_step_init({DEVICE_UPDATE_INTERVAL_KEY: "30"})
+    number_selector = result["data_schema"].schema[required_field]
+    assert isinstance(number_selector, selector.NumberSelector)
+    assert number_selector.config["unit_of_measurement"] == "min"
+    assert number_selector.config["min"] == MIN_DEVICE_UPDATE_INTERVAL_MINUTES
+    assert number_selector.config["max"] == MAX_DEVICE_UPDATE_INTERVAL_MINUTES
+    assert number_selector.config["step"] == 1
+
+    result = await flow.async_step_init({DEVICE_UPDATE_INTERVAL_KEY: 30})
     assert result["type"].value == "create_entry"
     assert result["data"][DEVICE_UPDATE_INTERVAL_KEY] == 30
 
@@ -117,7 +130,7 @@ async def test_options_flow_validates_interval(hass: HomeAssistant) -> None:
     flow = KippyConfigFlow.async_get_options_flow(entry)
     flow.hass = hass
 
-    result = await flow.async_step_init({DEVICE_UPDATE_INTERVAL_KEY: "0"})
+    result = await flow.async_step_init({DEVICE_UPDATE_INTERVAL_KEY: 0})
     assert result["type"].value == "form"
     assert result["errors"]["base"] == "invalid_device_update_interval"
 
