@@ -24,7 +24,7 @@ from .coordinator import (
 )
 from .entity import KippyMapEntity, KippyPetEntity
 from .helpers import (
-    DEVICE_UPDATE_INTERVAL_KEY,
+    async_update_device_update_interval,
     async_update_map_refresh_settings,
     build_device_info,
     get_device_update_interval,
@@ -125,11 +125,8 @@ class KippyDeviceUpdateFrequencyNumber(
         if normalized == self.native_value:
             return
 
-        options = dict(self._config_entry.options)
-        options[DEVICE_UPDATE_INTERVAL_KEY] = normalized
-        self.hass.config_entries.async_update_entry(
-            self._config_entry,
-            options=options,
+        await async_update_device_update_interval(
+            self.hass, self._config_entry, normalized
         )
         self.coordinator.set_update_interval_minutes(normalized)
         self.async_write_ha_state()
