@@ -84,10 +84,13 @@ async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None
     data_coord = AsyncMock()
     data_coord.async_config_entry_first_refresh = AsyncMock()
     data_coord.data = {"pets": [{"petID": 1, "kippyID": 1}]}
+    data_coord.async_shutdown = AsyncMock()
     map_coord = AsyncMock()
     map_coord.async_config_entry_first_refresh = AsyncMock()
+    map_coord.async_shutdown = AsyncMock()
     activity_coord = AsyncMock()
     activity_coord.async_config_entry_first_refresh = AsyncMock()
+    activity_coord.async_shutdown = AsyncMock()
     timer = MagicMock()
     timer.async_cancel = MagicMock()
     forward = AsyncMock()
@@ -137,6 +140,9 @@ async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None
         await async_unload_entry(hass, entry)
         unload.assert_awaited_with(entry, PLATFORMS)
         timer.async_cancel.assert_called_once()
+        data_coord.async_shutdown.assert_awaited_once()
+        map_coord.async_shutdown.assert_awaited_once()
+        activity_coord.async_shutdown.assert_awaited_once()
         assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
 

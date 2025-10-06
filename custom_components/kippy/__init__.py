@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any, Awaitable
+
 from aiohttp import ClientResponseError
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
@@ -106,6 +109,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if data is not None:
             for timer in data.get("activity_timers", {}).values():
                 timer.async_cancel()
+            shutdown_tasks: list[Awaitable[Any]] = []
+
+            def _collect_shutdown(target: Any) -> None:
+                shutdown = getattr(target, "async_shutdown", None)
+                if shutdown is not None:
+                    shutdown_tasks.append(shutdown())
+
+            coordinator = data.get("coordinator")
+            if coordinator is not None:
+                _collect_shutdown(coordinator)
+
+            for map_coordinator in data.get("map_coordinators", {}).values():
+                _collect_shutdown(map_coordinator)
+
+            activity_coordinator = data.get("activity_coordinator")
+            if activity_coordinator is not None:
+                _collect_shutdown(activity_coordinator)
+
+            if shutdown_tasks:
+                await asyncio.gather(*shutdown_tasks)
     return unload_ok
 
 
