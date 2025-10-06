@@ -74,6 +74,22 @@ def get_device_update_interval(entry: ConfigEntry) -> int:
     return DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
 
 
+async def async_update_device_update_interval(
+    hass: HomeAssistant, entry: ConfigEntry, minutes: int
+) -> None:
+    """Persist the config entry option for the device update interval."""
+
+    if entry.options.get(DEVICE_UPDATE_INTERVAL_KEY) == minutes:
+        return
+
+    new_options = dict(entry.options)
+    new_options[DEVICE_UPDATE_INTERVAL_KEY] = minutes
+
+    update_result = hass.config_entries.async_update_entry(entry, options=new_options)
+    if isawaitable(update_result):
+        await update_result
+
+
 def build_device_name(pet: Mapping[str, Any], prefix: str = "Kippy") -> str:
     """Return a display name for a pet."""
 
