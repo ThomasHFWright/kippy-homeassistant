@@ -5,6 +5,7 @@ from __future__ import annotations
 from asyncio import TimeoutError as AsyncioTimeoutError
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
+from inspect import isawaitable
 from json import JSONDecodeError
 from typing import Any, cast
 
@@ -218,4 +219,6 @@ async def async_update_map_refresh_settings(
     new_options = dict(entry.options)
     new_options[MAP_REFRESH_OPTIONS_KEY] = map_options
 
-    await hass.config_entries.async_update_entry(entry, options=new_options)
+    update_result = hass.config_entries.async_update_entry(entry, options=new_options)
+    if isawaitable(update_result):
+        await update_result
