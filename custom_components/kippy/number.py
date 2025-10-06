@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -57,6 +57,7 @@ class KippyUpdateFrequencyNumber(KippyPetEntity, NumberEntity):
     _attr_native_max_value = 24
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "h"
+    _attr_mode = NumberMode.BOX
 
     def __init__(
         self, coordinator: KippyDataUpdateCoordinator, pet: dict[str, Any]
@@ -64,20 +65,28 @@ class KippyUpdateFrequencyNumber(KippyPetEntity, NumberEntity):
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} {LOCALIZATION_TECHNOLOGY_GPS} "
-            "Automatic update frequency (hours)"
+            f"{pet_name} {LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency"
             if pet_name
-            else f"{LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency (hours)"
+            else f"{LOCALIZATION_TECHNOLOGY_GPS} Automatic update frequency"
         )
         self._attr_unique_id = f"{self._pet_id}_update_frequency"
         self._attr_translation_key = "update_frequency"
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> int | None:
         value = self._pet_data.get("updateFrequency")
-        return float(value) if value is not None else None
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                return None
 
     async def async_set_native_value(self, value: float) -> None:
+        int_value = int(value)
         kippy_id = normalize_kippy_identifier(self._pet_data)
         gps_val = self._pet_data.get("gpsOnDefault")
         if gps_val is None:
@@ -89,12 +98,14 @@ class KippyUpdateFrequencyNumber(KippyPetEntity, NumberEntity):
 
         if kippy_id is not None:
             data = await self.coordinator.api.modify_kippy_settings(
-                kippy_id, update_frequency=value, gps_on_default=gps_on_default
+                kippy_id,
+                update_frequency=int_value,
+                gps_on_default=gps_on_default,
             )
-            new_value = data.get("update_frequency", value)
+            new_value = data.get("update_frequency", int_value)
             self._pet_data["updateFrequency"] = int(new_value)
         else:
-            self._pet_data["updateFrequency"] = int(value)
+            self._pet_data["updateFrequency"] = int_value
         self.async_write_ha_state()
         self.coordinator.async_update_listeners()
 
@@ -109,6 +120,7 @@ class KippyIdleUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "min"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -116,16 +128,14 @@ class KippyIdleUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Idle update frequency (minutes)"
-            if pet_name
-            else "Idle update frequency (minutes)"
+            f"{pet_name} Idle update frequency" if pet_name else "Idle update frequency"
         )
         self._attr_unique_id = f"{self._pet_id}_idle_refresh_time"
         self._attr_translation_key = "idle_refresh_time"
 
     @property
-    def native_value(self) -> float | None:
-        return float(self.coordinator.idle_refresh) / 60
+    def native_value(self) -> int | None:
+        return int(self.coordinator.idle_refresh / 60)
 
     async def async_set_native_value(self, value: float) -> None:
         seconds = int(value * 60)
@@ -146,6 +156,7 @@ class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "s"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
 
     def __init__(
         self, coordinator: KippyMapDataUpdateCoordinator, pet: dict[str, Any]
@@ -153,16 +164,14 @@ class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
         super().__init__(coordinator, pet)
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Live update frequency (seconds)"
-            if pet_name
-            else "Live update frequency (seconds)"
+            f"{pet_name} Live update frequency" if pet_name else "Live update frequency"
         )
         self._attr_unique_id = f"{self._pet_id}_live_refresh_time"
         self._attr_translation_key = "live_refresh_time"
 
     @property
-    def native_value(self) -> float | None:
-        return float(self.coordinator.live_refresh)
+    def native_value(self) -> int | None:
+        return int(self.coordinator.live_refresh)
 
     async def async_set_native_value(self, value: float) -> None:
         seconds = int(value)
@@ -179,10 +188,11 @@ class KippyLiveUpdateFrequencyNumber(KippyMapEntity, NumberEntity):
 class KippyActivityRefreshDelayNumber(NumberEntity):
     """Number to control activity refresh delay."""
 
-    _attr_native_min_value = 0
+    _attr_native_min_value = 1
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "min"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
 
     def __init__(self, timer: ActivityRefreshTimer, pet: dict[str, Any]) -> None:
         self.timer = timer
@@ -190,15 +200,15 @@ class KippyActivityRefreshDelayNumber(NumberEntity):
         self._pet_data = pet
         pet_name = pet.get("petName")
         self._attr_name = (
-            f"{pet_name} Activity refresh delay (minutes)"
+            f"{pet_name} Activity refresh delay"
             if pet_name
-            else "Activity refresh delay (minutes)"
+            else "Activity refresh delay"
         )
         self._attr_unique_id = f"{self._pet_id}_activity_refresh_delay"
 
     @property
-    def native_value(self) -> float | None:
-        return float(self.timer.delay_minutes)
+    def native_value(self) -> int | None:
+        return int(self.timer.delay_minutes)
 
     async def async_set_native_value(self, value: float) -> None:
         await self.timer.async_set_delay(int(value))
