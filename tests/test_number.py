@@ -5,15 +5,108 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.components.number import NumberMode
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.kippy.const import DOMAIN
+from custom_components.kippy.const import DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES, DOMAIN
+from custom_components.kippy.helpers import DEVICE_UPDATE_INTERVAL_KEY
 from custom_components.kippy.number import (
     KippyActivityRefreshDelayNumber,
+    KippyDeviceUpdateFrequencyNumber,
     KippyIdleUpdateFrequencyNumber,
     KippyLiveUpdateFrequencyNumber,
     KippyUpdateFrequencyNumber,
     async_setup_entry,
 )
+
+
+@pytest.mark.asyncio
+async def test_device_update_frequency_number_native_value() -> None:
+    """Device update frequency number reflects config entry options."""
+
+    entry = MockConfigEntry(options={}, entry_id="entry")
+    coordinator = MagicMock()
+    coordinator.config_entry = entry
+    coordinator.async_add_listener = MagicMock()
+    coordinator.set_update_interval_minutes = MagicMock()
+    number = KippyDeviceUpdateFrequencyNumber(coordinator)
+    assert number.native_value == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
+
+    configured_entry = MockConfigEntry(
+        options={DEVICE_UPDATE_INTERVAL_KEY: 30}, entry_id="entry"
+    )
+    configured_coordinator = MagicMock()
+    configured_coordinator.config_entry = configured_entry
+    configured_coordinator.async_add_listener = MagicMock()
+    configured_coordinator.set_update_interval_minutes = MagicMock()
+    configured_number = KippyDeviceUpdateFrequencyNumber(configured_coordinator)
+    assert configured_number.native_value == 30
+
+
+@pytest.mark.asyncio
+async def test_device_update_frequency_number_updates_entry() -> None:
+    """Setting the device update frequency persists the new value."""
+
+    entry = MockConfigEntry(options={}, entry_id="entry")
+    coordinator = MagicMock()
+    coordinator.config_entry = entry
+    coordinator.async_add_listener = MagicMock()
+    coordinator.set_update_interval_minutes = MagicMock()
+    number = KippyDeviceUpdateFrequencyNumber(coordinator)
+    hass = MagicMock()
+    hass.config_entries.async_update_entry = MagicMock()
+    number.hass = hass
+    number.async_write_ha_state = MagicMock()
+
+    await number.async_set_native_value(25)
+
+    hass.config_entries.async_update_entry.assert_called_once()
+    update_call = hass.config_entries.async_update_entry.call_args
+    assert update_call.args[0] is entry
+    assert update_call.kwargs["options"][DEVICE_UPDATE_INTERVAL_KEY] == 25
+    coordinator.set_update_interval_minutes.assert_called_once_with(25)
+    number.async_write_ha_state.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_device_update_frequency_number_rejects_invalid() -> None:
+    """Invalid values raise an error and do not update options."""
+
+    entry = MockConfigEntry(options={}, entry_id="entry")
+    coordinator = MagicMock()
+    coordinator.config_entry = entry
+    coordinator.async_add_listener = MagicMock()
+    coordinator.set_update_interval_minutes = MagicMock()
+    number = KippyDeviceUpdateFrequencyNumber(coordinator)
+    hass = MagicMock()
+    hass.config_entries.async_update_entry = MagicMock()
+    number.hass = hass
+
+    with pytest.raises(ValueError):
+        await number.async_set_native_value(0)
+
+    hass.config_entries.async_update_entry.assert_not_called()
+    coordinator.set_update_interval_minutes.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_device_update_frequency_number_listeners(hass) -> None:
+    """The number registers and removes config entry update listeners."""
+
+    entry = MockConfigEntry(options={}, entry_id="entry")
+    unsub = MagicMock()
+    entry.add_update_listener = MagicMock(return_value=unsub)
+    coordinator = MagicMock()
+    coordinator.config_entry = entry
+    coordinator.async_add_listener = MagicMock()
+    number = KippyDeviceUpdateFrequencyNumber(coordinator)
+    number.hass = hass
+
+    await number.async_added_to_hass()
+    entry.add_update_listener.assert_called_once()
+
+    await number.async_will_remove_from_hass()
+    unsub.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -33,18 +126,20 @@ async def test_update_frequency_number() -> None:
         return_value={"update_frequency": 10}
     )
     number = KippyUpdateFrequencyNumber(coordinator, pet)
-    assert number.native_value == 5.0
+    assert number.native_value == 5
+    assert number.mode is NumberMode.BOX
+    assert number.native_min_value == 1
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(10)
     coordinator.api.modify_kippy_settings.assert_awaited_once_with(
-        2, update_frequency=10.0, gps_on_default=True
+        2, update_frequency=10, gps_on_default=True
     )
     assert pet["updateFrequency"] == 10
     number.async_write_ha_state.assert_called_once()
     coordinator.data = {"pets": [{"petID": 1, "updateFrequency": 20}]}
     number.async_write_ha_state.reset_mock()
     number._handle_coordinator_update()
-    assert number.native_value == 20.0
+    assert number.native_value == 20
     number.async_write_ha_state.assert_called_once()
     info = number.device_info
     assert (DOMAIN, "1") in info["identifiers"]
@@ -101,7 +196,7 @@ async def test_update_frequency_number_sends_current_gps() -> None:
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(6)
     coordinator.api.modify_kippy_settings.assert_awaited_once_with(
-        2, update_frequency=6.0, gps_on_default=False
+        2, update_frequency=6, gps_on_default=False
     )
     assert pet["updateFrequency"] == 6
     number.async_write_ha_state.assert_called_once()
@@ -138,8 +233,12 @@ async def test_idle_and_live_numbers() -> None:
 
     idle = KippyIdleUpdateFrequencyNumber(map_coordinator, pet)
     live = KippyLiveUpdateFrequencyNumber(map_coordinator, pet)
-    assert idle.native_value == 5.0
-    assert live.native_value == 10.0
+    assert idle.native_value == 5
+    assert live.native_value == 10
+    assert idle.mode is NumberMode.BOX
+    assert live.mode is NumberMode.BOX
+    assert idle.native_min_value == 1
+    assert live.native_min_value == 1
     idle.async_write_ha_state = MagicMock()
     live.async_write_ha_state = MagicMock()
     hass = MagicMock()
@@ -176,7 +275,9 @@ async def test_activity_refresh_delay_number() -> None:
     timer.delay_minutes = 2
     timer.async_set_delay = AsyncMock()
     number = KippyActivityRefreshDelayNumber(timer, pet)
-    assert number.native_value == 2.0
+    assert number.native_value == 2
+    assert number.mode is NumberMode.BOX
+    assert number.native_min_value == 1
     number.async_write_ha_state = MagicMock()
     await number.async_set_native_value(5)
     timer.async_set_delay.assert_awaited_once_with(5)
@@ -208,6 +309,7 @@ async def test_number_async_setup_entry_creates_entities() -> None:
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
+    assert any(isinstance(e, KippyDeviceUpdateFrequencyNumber) for e in entities)
     assert any(isinstance(e, KippyUpdateFrequencyNumber) for e in entities)
     assert any(isinstance(e, KippyIdleUpdateFrequencyNumber) for e in entities)
     assert any(isinstance(e, KippyLiveUpdateFrequencyNumber) for e in entities)
@@ -233,7 +335,10 @@ async def test_number_async_setup_entry_no_pets() -> None:
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
-    async_add_entities.assert_called_once_with([])
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert len(entities) == 1
+    assert isinstance(entities[0], KippyDeviceUpdateFrequencyNumber)
 
 
 @pytest.mark.asyncio
@@ -257,7 +362,12 @@ async def test_number_async_setup_entry_missing_map() -> None:
     await async_setup_entry(hass, entry, async_add_entities)
     async_add_entities.assert_called_once()
     entities = async_add_entities.call_args[0][0]
-    assert all(isinstance(e, KippyUpdateFrequencyNumber) for e in entities)
+    assert any(isinstance(e, KippyDeviceUpdateFrequencyNumber) for e in entities)
+    assert any(isinstance(e, KippyUpdateFrequencyNumber) for e in entities)
+    assert all(
+        isinstance(e, (KippyDeviceUpdateFrequencyNumber, KippyUpdateFrequencyNumber))
+        for e in entities
+    )
 
 
 @pytest.mark.asyncio
@@ -279,7 +389,10 @@ async def test_number_async_setup_entry_expired_pet() -> None:
     }
     async_add_entities = MagicMock()
     await async_setup_entry(hass, entry, async_add_entities)
-    async_add_entities.assert_called_once_with([])
+    async_add_entities.assert_called_once()
+    entities = async_add_entities.call_args[0][0]
+    assert len(entities) == 1
+    assert isinstance(entities[0], KippyDeviceUpdateFrequencyNumber)
 
 
 def test_numbers_raise_for_sync_setters() -> None:
@@ -288,6 +401,7 @@ def test_numbers_raise_for_sync_setters() -> None:
     coordinator = MagicMock()
     coordinator.data = {"pets": []}
     coordinator.async_add_listener = MagicMock()
+    coordinator.config_entry = MockConfigEntry(options={}, entry_id="entry")
     gps_number = KippyUpdateFrequencyNumber(coordinator, {"petID": 1})
     with pytest.raises(NotImplementedError):
         gps_number.set_native_value(1)
@@ -307,3 +421,7 @@ def test_numbers_raise_for_sync_setters() -> None:
     activity_number = KippyActivityRefreshDelayNumber(timer, {"petID": 4})
     with pytest.raises(NotImplementedError):
         activity_number.set_native_value(1)
+
+    device_number = KippyDeviceUpdateFrequencyNumber(coordinator)
+    with pytest.raises(NotImplementedError):
+        device_number.set_native_value(1)

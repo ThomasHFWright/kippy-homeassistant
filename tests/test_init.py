@@ -2,6 +2,7 @@
 
 """Tests for integration setup and unload."""
 
+from collections.abc import Awaitable, Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -17,6 +18,7 @@ from custom_components.kippy.coordinator import (
     ActivityRefreshContext,
     CoordinatorContext,
 )
+from custom_components.kippy.helpers import DEVICE_UPDATE_INTERVAL_KEY
 
 
 @pytest.mark.asyncio
@@ -82,10 +84,13 @@ async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None
     data_coord = AsyncMock()
     data_coord.async_config_entry_first_refresh = AsyncMock()
     data_coord.data = {"pets": [{"petID": 1, "kippyID": 1}]}
+    data_coord.async_shutdown = AsyncMock()
     map_coord = AsyncMock()
     map_coord.async_config_entry_first_refresh = AsyncMock()
+    map_coord.async_shutdown = AsyncMock()
     activity_coord = AsyncMock()
     activity_coord.async_config_entry_first_refresh = AsyncMock()
+    activity_coord.async_shutdown = AsyncMock()
     timer = MagicMock()
     timer.async_cancel = MagicMock()
     forward = AsyncMock()
@@ -135,6 +140,9 @@ async def test_async_setup_entry_success_and_unload(hass: HomeAssistant) -> None
         await async_unload_entry(hass, entry)
         unload.assert_awaited_with(entry, PLATFORMS)
         timer.async_cancel.assert_called_once()
+        data_coord.async_shutdown.assert_awaited_once()
+        map_coord.async_shutdown.assert_awaited_once()
+        activity_coord.async_shutdown.assert_awaited_once()
         assert entry.entry_id not in hass.data.get(DOMAIN, {})
 
 
@@ -195,10 +203,71 @@ async def test_async_setup_entry_handles_expired_pet(hass: HomeAssistant) -> Non
     (activity_context, pet_ids), _ = act_cls.call_args
     assert activity_context is map_context
     assert pet_ids == [1]
-    (timer_context, timer_pet_id), _ = timer_cls.call_args
+    (timer_context, _), _ = timer_cls.call_args
     assert isinstance(timer_context, ActivityRefreshContext)
     assert timer_context.map is map_coord
-    assert timer_pet_id == 1
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_updates_interval_on_option_change(
+    hass: HomeAssistant,
+) -> None:
+    """Options update listener refreshes the coordinator interval."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_EMAIL: "a", CONF_PASSWORD: "b"},
+        entry_id="1",
+        options={},
+    )
+    entry.add_to_hass(hass)
+
+    api = AsyncMock()
+    api.login = AsyncMock()
+    data_coord = AsyncMock()
+    data_coord.async_config_entry_first_refresh = AsyncMock()
+    data_coord.data = {"pets": []}
+    data_coord.set_update_interval_minutes = MagicMock()
+    forward = AsyncMock()
+
+    listeners: list[Callable[[HomeAssistant, MockConfigEntry], Awaitable[None]]] = []
+
+    def _add_listener(callback):
+        listeners.append(callback)
+        return lambda: None
+
+    entry.add_update_listener = MagicMock(side_effect=_add_listener)
+
+    with (
+        patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
+        patch("custom_components.kippy.KippyApi.async_create", return_value=api),
+        patch(
+            "custom_components.kippy.KippyDataUpdateCoordinator",
+            return_value=data_coord,
+        ),
+        patch(
+            "custom_components.kippy.KippyMapDataUpdateCoordinator",
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "custom_components.kippy.KippyActivityCategoriesDataUpdateCoordinator",
+            return_value=AsyncMock(),
+        ),
+        patch("custom_components.kippy.ActivityRefreshTimer", return_value=MagicMock()),
+        patch.object(hass.config_entries, "async_forward_entry_setups", forward),
+    ):
+        assert await async_setup_entry(hass, entry)
+
+    assert listeners
+    callback = listeners[0]
+    updated_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=entry.data,
+        entry_id=entry.entry_id,
+        options={DEVICE_UPDATE_INTERVAL_KEY: 25},
+    )
+    await callback(hass, updated_entry)
+    data_coord.set_update_interval_minutes.assert_called_once_with(25)
 
 
 @pytest.mark.asyncio

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any, Awaitable
+
 from aiohttp import ClientResponseError
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
@@ -21,6 +24,7 @@ from .coordinator import (
 )
 from .helpers import (
     API_EXCEPTIONS,
+    get_device_update_interval,
     get_map_refresh_settings,
     is_pet_subscription_active,
     normalize_kippy_identifier,
@@ -40,7 +44,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await api.login(email, password)
-        coordinator = KippyDataUpdateCoordinator(hass, entry, api)
+
+        async def _async_reload_entry() -> None:
+            if entry.state is not ConfigEntryState.LOADED:
+                return
+            await hass.config_entries.async_reload(entry.entry_id)
+
+        coordinator = KippyDataUpdateCoordinator(
+            hass, entry, api, on_new_pets=_async_reload_entry
+        )
         await coordinator.async_config_entry_first_refresh()
 
         context = CoordinatorContext(hass, entry, api)
@@ -71,6 +83,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "activity_timers": activity_timers,
     }
 
+    async def _async_options_updated(
+        hass: HomeAssistant, updated_entry: ConfigEntry
+    ) -> None:
+        data = hass.data.get(DOMAIN, {}).get(updated_entry.entry_id)
+        if not data:
+            return
+        base_coordinator: KippyDataUpdateCoordinator = data["coordinator"]
+        base_coordinator.set_update_interval_minutes(
+            get_device_update_interval(updated_entry)
+        )
+
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
@@ -84,6 +109,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if data is not None:
             for timer in data.get("activity_timers", {}).values():
                 timer.async_cancel()
+            shutdown_tasks: list[Awaitable[Any]] = []
+
+            def _collect_shutdown(target: Any) -> None:
+                shutdown = getattr(target, "async_shutdown", None)
+                if shutdown is not None:
+                    shutdown_tasks.append(shutdown())
+
+            coordinator = data.get("coordinator")
+            if coordinator is not None:
+                _collect_shutdown(coordinator)
+
+            for map_coordinator in data.get("map_coordinators", {}).values():
+                _collect_shutdown(map_coordinator)
+
+            activity_coordinator = data.get("activity_coordinator")
+            if activity_coordinator is not None:
+                _collect_shutdown(activity_coordinator)
+
+            if shutdown_tasks:
+                await asyncio.gather(*shutdown_tasks)
     return unload_ok
 
 
