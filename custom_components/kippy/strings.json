@@ -21,7 +21,7 @@
     "step": {
       "init": {
         "data": {
-          "device_update_interval_minutes": "Kippy devices update frequency (minutes)"
+          "device_update_interval_minutes": "Kippy devices update frequency"
         }
       }
     }
@@ -41,6 +41,11 @@
     }
   },
   "entity": {
+    "number": {
+      "device_update_frequency": {
+        "name": "Kippy devices update frequency"
+      }
+    },
     "binary_sensor": {
       "firmware_upgrade_available": {
         "name": "Firmware Upgrade available",
