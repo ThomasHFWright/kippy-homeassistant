@@ -14,7 +14,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import DOMAIN
+from .const import (
+    DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES,
+    DOMAIN,
+    MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
+    MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
+)
 
 API_EXCEPTIONS: tuple[type[Exception], ...] = (
     ClientError,
@@ -27,6 +32,8 @@ MAP_REFRESH_OPTIONS_KEY = "map_refresh_settings"
 MAP_REFRESH_IDLE_KEY = "idle_seconds"
 MAP_REFRESH_LIVE_KEY = "live_seconds"
 
+DEVICE_UPDATE_INTERVAL_KEY = "device_update_interval_minutes"
+
 
 @dataclass(slots=True)
 class MapRefreshSettings:
@@ -34,6 +41,37 @@ class MapRefreshSettings:
 
     idle_seconds: int = 300
     live_seconds: int = 10
+
+
+def normalize_device_update_interval(value: Any) -> int | None:
+    """Return a sanitized minutes value for the device update interval."""
+
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError):
+        return None
+    if not (
+        MIN_DEVICE_UPDATE_INTERVAL_MINUTES
+        <= minutes
+        <= MAX_DEVICE_UPDATE_INTERVAL_MINUTES
+    ):
+        return None
+    return minutes
+
+
+def get_device_update_interval_minutes(entry: ConfigEntry) -> int:
+    """Return the configured minutes between device updates."""
+
+    normalized = normalize_device_update_interval(
+        entry.options.get(DEVICE_UPDATE_INTERVAL_KEY)
+    )
+    if normalized is not None:
+        return normalized
+    return DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
 
 
 def build_device_name(pet: Mapping[str, Any], prefix: str = "Kippy") -> str:

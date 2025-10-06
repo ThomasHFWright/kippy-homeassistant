@@ -10,6 +10,7 @@ import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.kippy.const import (
+    DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES,
     LOCALIZATION_TECHNOLOGY_LBS,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
@@ -22,12 +23,27 @@ from custom_components.kippy.coordinator import (
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
+from custom_components.kippy.helpers import DEVICE_UPDATE_INTERVAL_KEY
+
+
+def make_config_entry() -> MagicMock:
+    """Return a mock config entry with default options."""
+
+    entry = MagicMock()
+    entry.options = {}
+    return entry
 
 
 def make_context(hass: MagicMock, api: MagicMock | None = None) -> CoordinatorContext:
     """Return a coordinator context for tests."""
 
-    return CoordinatorContext(hass, MagicMock(), api or MagicMock())
+    return CoordinatorContext(hass, make_config_entry(), api or MagicMock())
+
+
+def _create_task(coro):
+    """Create a task for the provided coroutine."""
+
+    return asyncio.create_task(coro)
 
 
 @pytest.mark.asyncio
@@ -74,7 +90,12 @@ async def test_data_coordinator_update_success() -> None:
     hass.loop = asyncio.get_running_loop()
     api = MagicMock()
     api.get_pet_kippy_list = AsyncMock(return_value=[{"petID": 1}])
-    coordinator = KippyDataUpdateCoordinator(hass, MagicMock(), api)
+    config_entry = make_config_entry()
+    hass.async_create_task = MagicMock(side_effect=_create_task)
+    coordinator = KippyDataUpdateCoordinator(hass, config_entry, api)
+    assert coordinator.update_interval == timedelta(
+        minutes=DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
+    )
     data = await coordinator._async_update_data()
     assert data == {"pets": [{"petID": 1}]}
 
@@ -86,9 +107,61 @@ async def test_data_coordinator_update_failure() -> None:
     hass.loop = asyncio.get_running_loop()
     api = MagicMock()
     api.get_pet_kippy_list = AsyncMock(side_effect=RuntimeError)
-    coordinator = KippyDataUpdateCoordinator(hass, MagicMock(), api)
+    coordinator = KippyDataUpdateCoordinator(hass, make_config_entry(), api)
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
+
+
+@pytest.mark.asyncio
+async def test_data_coordinator_uses_configured_update_interval() -> None:
+    """Configured options influence the coordinator update interval."""
+
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    hass.async_create_task = MagicMock(side_effect=_create_task)
+    api = MagicMock()
+    api.get_pet_kippy_list = AsyncMock(return_value=[])
+    entry = make_config_entry()
+    entry.options[DEVICE_UPDATE_INTERVAL_KEY] = 45
+
+    coordinator = KippyDataUpdateCoordinator(hass, entry, api)
+
+    assert coordinator.update_interval == timedelta(minutes=45)
+
+    coordinator.set_update_interval_minutes(5)
+
+    assert coordinator.update_interval == timedelta(minutes=5)
+
+
+@pytest.mark.asyncio
+async def test_data_coordinator_detects_new_pets_and_reloads() -> None:
+    """New pets trigger the reload callback exactly once."""
+
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    hass.async_create_task = MagicMock(side_effect=_create_task)
+    api = MagicMock()
+    api.get_pet_kippy_list = AsyncMock(
+        side_effect=[
+            [{"petID": 1}],
+            [{"petID": 1}, {"petID": 2}],
+            [{"petID": 1}, {"petID": 2}],
+        ]
+    )
+    entry = make_config_entry()
+    reload_calls = 0
+
+    async def _reload() -> None:
+        nonlocal reload_calls
+        reload_calls += 1
+
+    coordinator = KippyDataUpdateCoordinator(hass, entry, api, on_new_pets=_reload)
+
+    await coordinator._async_update_data()
+    await coordinator._async_update_data()
+    await asyncio.sleep(0)
+    await coordinator._async_update_data()
+    assert reload_calls == 1
 
 
 @pytest.mark.asyncio
@@ -229,7 +302,7 @@ def test_has_config_entry_branches(monkeypatch) -> None:
     hass = MagicMock()
     hass.loop = loop
     api = MagicMock()
-    KippyDataUpdateCoordinator(hass, MagicMock(), api)
+    KippyDataUpdateCoordinator(hass, make_config_entry(), api)
     KippyMapDataUpdateCoordinator(make_context(hass, api), 1)
     KippyActivityCategoriesDataUpdateCoordinator(make_context(hass, api), [])
     assert all("config_entry" in c for c in calls)

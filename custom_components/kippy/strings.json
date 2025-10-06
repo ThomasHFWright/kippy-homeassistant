@@ -14,6 +14,18 @@
       }
     }
   },
+  "options": {
+    "error": {
+      "invalid_device_update_interval": "Enter a value between 1 and 1440 minutes."
+    },
+    "step": {
+      "init": {
+        "data": {
+          "device_update_interval_minutes": "Kippy devices update frequency"
+        }
+      }
+    }
+  },
   "exceptions": {
     "no_credentials": {
       "message": "No stored credentials; call login() first"

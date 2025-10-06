@@ -6,7 +6,7 @@ import inspect
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Iterable
+from typing import Any, Awaitable, Callable, Iterable
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -23,7 +23,11 @@ from .const import (
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_REVERSE_MAP,
 )
-from .helpers import API_EXCEPTIONS, MapRefreshSettings
+from .helpers import (
+    API_EXCEPTIONS,
+    MapRefreshSettings,
+    get_device_update_interval_minutes,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,28 +49,82 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the Kippy API."""
 
     def __init__(
-        self, hass: HomeAssistant, config_entry: ConfigEntry, api: KippyApi
+        self,
+        hass: HomeAssistant,
+        config_entry: ConfigEntry,
+        api: KippyApi,
+        on_new_pets: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         """Initialize the coordinator."""
         self.api = api
         self.config_entry = config_entry
+        self._on_new_pets = on_new_pets
+        self._known_pet_ids: set[str] | None = None
+        self._pending_reload = False
+        update_minutes = get_device_update_interval_minutes(config_entry)
         kwargs: dict[str, Any] = {
             "name": DOMAIN,
-            # Fetching the pet list does not need to happen on a schedule.
-            # The coordinator will only update when explicitly requested.
-            "update_interval": None,
+            "update_interval": timedelta(minutes=update_minutes),
         }
         if _HAS_CONFIG_ENTRY:
             kwargs["config_entry"] = config_entry
         super().__init__(hass, _LOGGER, **kwargs)
 
+    def set_update_interval_minutes(self, minutes: int) -> None:
+        """Update the refresh interval used for fetching pet data."""
+
+        self.update_interval = timedelta(minutes=minutes)
+
+    def _handle_new_pets(self, pets: list[dict[str, Any]]) -> None:
+        """Schedule a reload when new pets are detected."""
+
+        if isinstance(pets, list):
+            pets_iterable: list[Any] = pets
+        else:
+            try:
+                pets_iterable = list(pets or [])
+            except TypeError:
+                pets_iterable = []
+
+        new_ids = {
+            str(pet["petID"])
+            for pet in pets_iterable
+            if isinstance(pet, dict) and pet.get("petID") is not None
+        }
+
+        if self._known_pet_ids is None:
+            self._known_pet_ids = new_ids
+            return
+
+        if not self._on_new_pets or self._pending_reload:
+            self._known_pet_ids = new_ids
+            return
+
+        added = new_ids - self._known_pet_ids
+        self._known_pet_ids = new_ids
+
+        if not added:
+            return
+
+        self._pending_reload = True
+
+        async def _reload_wrapper() -> None:
+            try:
+                await self._on_new_pets()
+            finally:
+                self._pending_reload = False
+
+        self.hass.async_create_task(_reload_wrapper())
+
     async def _async_update_data(self):
         """Fetch data from the API endpoint."""
         # ``get_pet_kippy_list`` internally ensures a valid login session.
         try:
-            return {"pets": await self.api.get_pet_kippy_list()}
+            pets = await self.api.get_pet_kippy_list()
         except API_EXCEPTIONS as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+        self._handle_new_pets(pets)
+        return {"pets": pets}
 
 
 def _normalize_operating_status(value: Any) -> tuple[int | None, str | None]:

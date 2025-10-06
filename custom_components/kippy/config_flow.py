@@ -8,10 +8,17 @@ import voluptuous as vol
 from aiohttp import ClientError, ClientResponseError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.core import callback
+from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import aiohttp_client
 
 from .api import KippyApi
 from .const import DOMAIN
+from .helpers import (
+    DEVICE_UPDATE_INTERVAL_KEY,
+    get_device_update_interval_minutes,
+    normalize_device_update_interval,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +32,7 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Return True when ``other_flow`` targets the same integration."""
         return isinstance(other_flow, KippyConfigFlow)
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input=None) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -80,4 +87,48 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(
             step_id="user", data_schema=data_schema, errors=errors
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        return KippyOptionsFlowHandler(config_entry)
+
+
+class KippyOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle the options flow for Kippy."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None) -> FlowResult:
+        """Handle the options step for configuring refresh interval."""
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            minutes = normalize_device_update_interval(
+                user_input.get(DEVICE_UPDATE_INTERVAL_KEY)
+            )
+            if minutes is None:
+                errors["base"] = "invalid_device_update_interval"
+            else:
+                options = dict(self.config_entry.options)
+                options[DEVICE_UPDATE_INTERVAL_KEY] = minutes
+                return self.async_create_entry(title="", data=options)
+
+        current = str(get_device_update_interval_minutes(self.config_entry))
+        data_schema = vol.Schema(
+            {
+                vol.Required(DEVICE_UPDATE_INTERVAL_KEY, default=current): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema,
+            errors=errors,
         )
