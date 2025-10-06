@@ -16,6 +16,20 @@
       }
     }
   },
+  "options": {
+    "error": {
+      "invalid_device_update_interval": "Enter a value between 1 and 1440 minutes."
+    },
+    "step": {
+      "init": {
+        "title": "Kippy options",
+        "description": "Configure how often Home Assistant updates Kippy devices.",
+        "data": {
+          "device_update_interval": "Kippy devices update frequency"
+        }
+      }
+    }
+  },
   "exceptions": {
     "no_credentials": {
       "message": "No stored credentials; call login() first"
@@ -31,6 +45,11 @@
     }
   },
   "entity": {
+    "number": {
+      "device_update_frequency": {
+        "name": "Kippy devices update frequency"
+      }
+    },
     "binary_sensor": {
       "firmware_upgrade_available": {
         "name": "Firmware Upgrade available",

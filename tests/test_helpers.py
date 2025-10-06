@@ -8,14 +8,22 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import helpers as helpers_module
-from custom_components.kippy.const import DOMAIN
+from custom_components.kippy.const import (
+    DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES,
+    DOMAIN,
+    MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
+    MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
+)
 from custom_components.kippy.helpers import (
+    DEVICE_UPDATE_INTERVAL_KEY,
     MAP_REFRESH_IDLE_KEY,
     MAP_REFRESH_LIVE_KEY,
     MapRefreshSettings,
     async_update_map_refresh_settings,
     build_device_info,
+    get_device_update_interval,
     get_map_refresh_settings,
+    normalize_device_update_interval,
     normalize_kippy_identifier,
     update_pet_data,
 )
@@ -206,3 +214,43 @@ async def test_async_update_map_refresh_settings_no_updates() -> None:
     await async_update_map_refresh_settings(hass, entry, 4)
 
     hass.config_entries.async_update_entry.assert_not_awaited()
+
+
+def test_normalize_device_update_interval() -> None:
+    """Normalize helper accepts valid values and rejects invalid ones."""
+
+    assert (
+        normalize_device_update_interval(MIN_DEVICE_UPDATE_INTERVAL_MINUTES)
+        == MIN_DEVICE_UPDATE_INTERVAL_MINUTES
+    )
+    assert (
+        normalize_device_update_interval(str(MAX_DEVICE_UPDATE_INTERVAL_MINUTES))
+        == MAX_DEVICE_UPDATE_INTERVAL_MINUTES
+    )
+    assert normalize_device_update_interval(None) is None
+    assert normalize_device_update_interval(0) is None
+    assert normalize_device_update_interval(" ") is None
+    assert normalize_device_update_interval("abc") is None
+
+
+def test_get_device_update_interval_defaults() -> None:
+    """Default interval is used when the option is missing or invalid."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    assert get_device_update_interval(entry) == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={}, options={DEVICE_UPDATE_INTERVAL_KEY: "abc"}
+    )
+    assert get_device_update_interval(entry) == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
+
+
+def test_get_device_update_interval_from_options() -> None:
+    """Valid option value is returned unchanged."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={},
+        options={DEVICE_UPDATE_INTERVAL_KEY: MIN_DEVICE_UPDATE_INTERVAL_MINUTES + 5},
+    )
+    assert get_device_update_interval(entry) == MIN_DEVICE_UPDATE_INTERVAL_MINUTES + 5

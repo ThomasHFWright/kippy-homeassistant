@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOCALIZATION_TECHNOLOGY_GPS
+from .const import (
+    DOMAIN,
+    LOCALIZATION_TECHNOLOGY_GPS,
+    MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
+    MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
+)
 from .coordinator import (
     ActivityRefreshTimer,
     KippyDataUpdateCoordinator,
@@ -18,9 +24,12 @@ from .coordinator import (
 )
 from .entity import KippyMapEntity, KippyPetEntity
 from .helpers import (
+    DEVICE_UPDATE_INTERVAL_KEY,
     async_update_map_refresh_settings,
     build_device_info,
+    get_device_update_interval,
     is_pet_subscription_active,
+    normalize_device_update_interval,
     normalize_kippy_identifier,
 )
 
@@ -34,7 +43,7 @@ async def async_setup_entry(
     base_coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     map_coordinators = hass.data[DOMAIN][entry.entry_id]["map_coordinators"]
     activity_timers = hass.data[DOMAIN][entry.entry_id]["activity_timers"]
-    entities: list[NumberEntity] = []
+    entities: list[NumberEntity] = [KippyDeviceUpdateFrequencyNumber(base_coordinator)]
     for pet in base_coordinator.data.get("pets", []):
         if is_pet_subscription_active(pet):
             entities.append(KippyUpdateFrequencyNumber(base_coordinator, pet))
@@ -48,6 +57,85 @@ async def async_setup_entry(
         if timer:
             entities.append(KippyActivityRefreshDelayNumber(timer, pet))
     async_add_entities(entities)
+
+
+class KippyDeviceUpdateFrequencyNumber(
+    CoordinatorEntity[KippyDataUpdateCoordinator], NumberEntity
+):
+    """Number entity for the config entry device refresh interval."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_has_entity_name = True
+    _attr_mode = NumberMode.BOX
+    _attr_native_max_value = MAX_DEVICE_UPDATE_INTERVAL_MINUTES
+    _attr_native_min_value = MIN_DEVICE_UPDATE_INTERVAL_MINUTES
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = "min"
+    _attr_translation_key = "device_update_frequency"
+
+    def __init__(self, coordinator: KippyDataUpdateCoordinator) -> None:
+        """Initialize the device update frequency number."""
+
+        super().__init__(coordinator)
+        self._config_entry = coordinator.config_entry
+        self._attr_unique_id = f"{self._config_entry.entry_id}_device_update_frequency"
+        self._unsub_options: Callable[[], None] | None = None
+
+    @property
+    def native_value(self) -> int:
+        """Return the configured update interval in minutes."""
+
+        return get_device_update_interval(self._config_entry)
+
+    async def async_added_to_hass(self) -> None:
+        """Register listeners when added to Home Assistant."""
+
+        await super().async_added_to_hass()
+        self._unsub_options = self._config_entry.add_update_listener(
+            self._async_options_updated
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up callbacks when the entity is removed."""
+
+        await super().async_will_remove_from_hass()
+        if self._unsub_options is not None:
+            self._unsub_options()
+            self._unsub_options = None
+
+    async def _async_options_updated(
+        self, _hass: HomeAssistant, entry: ConfigEntry
+    ) -> None:
+        """Handle config entry option updates."""
+
+        if entry is self._config_entry:
+            self.async_write_ha_state()
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Persist the configured update interval."""
+
+        normalized = normalize_device_update_interval(int(value))
+        if normalized is None:
+            raise ValueError(
+                "Device update frequency must be between "
+                f"{MIN_DEVICE_UPDATE_INTERVAL_MINUTES} and "
+                f"{MAX_DEVICE_UPDATE_INTERVAL_MINUTES} minutes."
+            )
+
+        if normalized == self.native_value:
+            return
+
+        options = dict(self._config_entry.options)
+        options[DEVICE_UPDATE_INTERVAL_KEY] = normalized
+        self.hass.config_entries.async_update_entry(
+            self._config_entry,
+            options=options,
+        )
+        self.coordinator.set_update_interval_minutes(normalized)
+        self.async_write_ha_state()
+
+    def set_native_value(self, value: float) -> None:
+        raise NotImplementedError(SYNC_VALUE_ERROR)
 
 
 class KippyUpdateFrequencyNumber(KippyPetEntity, NumberEntity):

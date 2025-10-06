@@ -6,8 +6,18 @@ import pytest
 from aiohttp import ClientError, ClientResponseError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import selector
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy.config_flow import KippyConfigFlow
+from custom_components.kippy.const import (
+    DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES,
+    DOMAIN,
+    MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
+    MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
+)
+from custom_components.kippy.helpers import DEVICE_UPDATE_INTERVAL_KEY
 
 
 @pytest.mark.asyncio
@@ -81,3 +91,49 @@ def test_config_flow_is_matching() -> None:
             return False
 
     assert not flow.is_matching(DummyFlow())
+
+
+@pytest.mark.asyncio
+async def test_options_flow_success(hass: HomeAssistant) -> None:
+    """Options flow stores the configured update interval."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    entry.add_to_hass(hass)
+    flow = KippyConfigFlow.async_get_options_flow(entry)
+    assert flow is not None
+    flow.hass = hass
+    result = await flow.async_step_init()
+    assert result["type"].value == "form"
+    required_field = next(iter(result["data_schema"].schema))
+    assert required_field.schema == DEVICE_UPDATE_INTERVAL_KEY
+    assert callable(required_field.default)
+    assert required_field.default() == DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES
+
+    number_selector = result["data_schema"].schema[required_field]
+    assert isinstance(number_selector, selector.NumberSelector)
+    assert number_selector.config["unit_of_measurement"] == "min"
+    assert number_selector.config["min"] == MIN_DEVICE_UPDATE_INTERVAL_MINUTES
+    assert number_selector.config["max"] == MAX_DEVICE_UPDATE_INTERVAL_MINUTES
+    assert number_selector.config["step"] == 1
+
+    result = await flow.async_step_init({DEVICE_UPDATE_INTERVAL_KEY: 30})
+    assert result["type"].value == "create_entry"
+    assert result["data"][DEVICE_UPDATE_INTERVAL_KEY] == 30
+
+
+@pytest.mark.asyncio
+async def test_options_flow_validates_interval(hass: HomeAssistant) -> None:
+    """Invalid intervals return the form with an error."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options={})
+    entry.add_to_hass(hass)
+    flow = KippyConfigFlow.async_get_options_flow(entry)
+    flow.hass = hass
+
+    result = await flow.async_step_init({DEVICE_UPDATE_INTERVAL_KEY: 0})
+    assert result["type"].value == "form"
+    assert result["errors"]["base"] == "invalid_device_update_interval"
+
+    result = await flow.async_step_init({DEVICE_UPDATE_INTERVAL_KEY: "abc"})
+    assert result["type"].value == "form"
+    assert result["errors"]["base"] == "invalid_device_update_interval"

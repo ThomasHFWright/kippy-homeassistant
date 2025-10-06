@@ -7,6 +7,9 @@ from types import SimpleNamespace
 DOMAIN = "kippy"
 
 DEFAULT_ACTIVITY_REFRESH_DELAY = 2
+DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES = 15
+MIN_DEVICE_UPDATE_INTERVAL_MINUTES = 1
+MAX_DEVICE_UPDATE_INTERVAL_MINUTES = 24 * 60
 
 # The integration exposes multiple entity types. The list is kept
 # separate so ``async_forward_entry_setups`` can be used in ``__init__``.
