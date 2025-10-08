@@ -108,7 +108,8 @@ LABEL_EXPIRED = _TRANSLATIONS["exceptions"]["expired"]["message"]
 # Mapping of operating status codes returned by the API.
 OPERATING_STATUS = SimpleNamespace(
     IDLE=1,
-    LIVE=5,
+    LIVE=2,
+    STARTING_LIVE=5,
     ENERGY_SAVING=18,
 )
 
@@ -116,6 +117,7 @@ OPERATING_STATUS = SimpleNamespace(
 OPERATING_STATUS_MAP: dict[int, str] = {
     OPERATING_STATUS.IDLE: "idle",
     OPERATING_STATUS.LIVE: "live",
+    OPERATING_STATUS.STARTING_LIVE: "starting_live",
     OPERATING_STATUS.ENERGY_SAVING: "energy_saving",
 }
 
@@ -123,6 +125,19 @@ OPERATING_STATUS_MAP: dict[int, str] = {
 OPERATING_STATUS_REVERSE_MAP: dict[str, int] = {
     value: key for key, value in OPERATING_STATUS_MAP.items()
 }
+
+# Operating status values that represent a live tracking session.
+OPERATING_STATUS_LIVE_STATES: frozenset[str] = frozenset(
+    {
+        OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE],
+        OPERATING_STATUS_MAP[OPERATING_STATUS.STARTING_LIVE],
+    }
+)
+
+# Operating status codes that represent a live tracking session.
+OPERATING_STATUS_LIVE_CODES: frozenset[int] = frozenset(
+    {OPERATING_STATUS.LIVE, OPERATING_STATUS.STARTING_LIVE}
+)
 
 # App action identifiers used by the API.
 APP_ACTION = SimpleNamespace(

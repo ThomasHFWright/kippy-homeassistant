@@ -285,6 +285,11 @@ async def test_map_coordinator_set_refresh_updates_interval() -> None:
     await coord.async_set_live_refresh(20)
     assert coord.update_interval == timedelta(seconds=20)
     coord.data = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.STARTING_LIVE]
+    }
+    await coord.async_set_live_refresh(30)
+    assert coord.update_interval == timedelta(seconds=30)
+    coord.data = {
         "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
     }
     await coord.async_set_idle_refresh(600)
@@ -338,10 +343,12 @@ async def test_process_data_without_existing_location_accepts_lbs() -> None:
 
 @pytest.mark.asyncio
 async def test_process_data_live_sets_interval() -> None:
-    """Live status updates refresh interval."""
+    """Live statuses update refresh interval."""
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
+    coord._process_data({"operating_status": OPERATING_STATUS.STARTING_LIVE})
+    assert coord.update_interval == timedelta(seconds=coord.live_refresh)
     coord._process_data({"operating_status": OPERATING_STATUS.LIVE})
     assert coord.update_interval == timedelta(seconds=coord.live_refresh)
 

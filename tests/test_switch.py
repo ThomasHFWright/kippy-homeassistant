@@ -83,7 +83,9 @@ def test_live_tracking_switch_operating_status() -> None:
     """Live tracking switch follows operating status and availability."""
     pet = {"petID": 1}
     coordinator = MagicMock()
-    coordinator.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
+    coordinator.data = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.STARTING_LIVE]
+    }
     coordinator.async_add_listener = MagicMock()
     coordinator.last_update_success = True
     switch = KippyLiveTrackingSwitch(coordinator, pet)
@@ -93,6 +95,10 @@ def test_live_tracking_switch_operating_status() -> None:
 
     assert switch.is_on
     assert switch.available
+
+    coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+    switch._handle_coordinator_update()
+    assert switch.is_on
 
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
     switch._handle_coordinator_update()
@@ -172,7 +178,11 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     coordinator.api.kippymap_action = AsyncMock(
         return_value={"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
     )
-    coordinator.process_new_data = MagicMock()
+
+    def _process_new_data(data: dict) -> None:
+        coordinator.data.update(data)
+
+    coordinator.process_new_data = MagicMock(side_effect=_process_new_data)
     coordinator.async_add_listener = MagicMock()
     switch = KippyLiveTrackingSwitch(coordinator, pet)
     switch.hass = MagicMock()
@@ -194,6 +204,68 @@ async def test_live_tracking_switch_turns_on_off() -> None:
     }
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
     await switch.async_turn_off()
+    coordinator.api.kippymap_action.assert_called_once_with(
+        1, app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF
+    )
+    coordinator.process_new_data.assert_called_once()
+    assert (
+        coordinator.data.get("operating_status")
+        == OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
+    )
+
+
+@pytest.mark.asyncio
+async def test_live_tracking_switch_turn_on_sets_starting_live() -> None:
+    """Live tracking switch falls back to starting live when API returns idle."""
+    pet = {"petID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]}
+    coordinator.kippy_id = 1
+    coordinator.api.kippymap_action = AsyncMock(
+        return_value={"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]}
+    )
+    coordinator.process_new_data = MagicMock()
+    coordinator.async_add_listener = MagicMock()
+    switch = KippyLiveTrackingSwitch(coordinator, pet)
+    switch.hass = MagicMock()
+    switch.entity_id = "switch.live"
+    switch.async_write_ha_state = MagicMock()
+
+    await switch.async_turn_on()
+
+    coordinator.api.kippymap_action.assert_called_once_with(
+        1, app_action=APP_ACTION.TURN_LIVE_TRACKING_ON
+    )
+    coordinator.process_new_data.assert_called_once()
+    assert (
+        coordinator.data.get("operating_status")
+        == OPERATING_STATUS_MAP[OPERATING_STATUS.STARTING_LIVE]
+    )
+
+
+@pytest.mark.asyncio
+async def test_live_tracking_switch_turn_off_from_starting_live() -> None:
+    """Turning off live tracking clears starting live status."""
+    pet = {"petID": 1}
+    coordinator = MagicMock()
+    coordinator.data = {
+        "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.STARTING_LIVE]
+    }
+    coordinator.kippy_id = 1
+    coordinator.api.kippymap_action = AsyncMock(
+        return_value={
+            "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.STARTING_LIVE]
+        }
+    )
+    coordinator.process_new_data = MagicMock()
+    coordinator.async_add_listener = MagicMock()
+    switch = KippyLiveTrackingSwitch(coordinator, pet)
+    switch.hass = MagicMock()
+    switch.entity_id = "switch.live"
+    switch.async_write_ha_state = MagicMock()
+
+    await switch.async_turn_off()
+
     coordinator.api.kippymap_action.assert_called_once_with(
         1, app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF
     )

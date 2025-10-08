@@ -21,7 +21,8 @@ from .const import (
     DEFAULT_ACTIVITY_REFRESH_DELAY,
     DOMAIN,
     LOCALIZATION_TECHNOLOGY_LBS,
-    OPERATING_STATUS,
+    OPERATING_STATUS_LIVE_CODES,
+    OPERATING_STATUS_LIVE_STATES,
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_REVERSE_MAP,
 )
@@ -239,7 +240,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
             data.get("operating_status")
         )
 
-        if operating_status_int == OPERATING_STATUS.LIVE:
+        if operating_status_int in OPERATING_STATUS_LIVE_CODES:
             self.update_interval = timedelta(seconds=self.live_refresh)
         else:
             self.update_interval = timedelta(seconds=self.idle_refresh)
@@ -256,7 +257,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.idle_refresh = value
         if self.data:
             operating_status = self.data.get("operating_status")
-            if operating_status != OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
+            if operating_status not in OPERATING_STATUS_LIVE_STATES:
                 self.update_interval = timedelta(seconds=self.idle_refresh)
 
     async def async_set_live_refresh(self, value: int) -> None:
@@ -264,7 +265,7 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.live_refresh = value
         if self.data:
             operating_status = self.data.get("operating_status")
-            if operating_status == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
+            if operating_status in OPERATING_STATUS_LIVE_STATES:
                 self.update_interval = timedelta(seconds=self.live_refresh)
 
 

@@ -15,6 +15,7 @@ from .const import (
     DOMAIN,
     LOCALIZATION_TECHNOLOGY_LBS,
     OPERATING_STATUS,
+    OPERATING_STATUS_LIVE_STATES,
     OPERATING_STATUS_MAP,
 )
 from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
@@ -191,7 +192,7 @@ class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
     def is_on(self) -> bool:
         return bool(
             self.coordinator.data.get("operating_status")
-            == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+            in OPERATING_STATUS_LIVE_STATES
         )
 
     @property
@@ -218,7 +219,7 @@ class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
             == OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
         ):
             self.coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
-                OPERATING_STATUS.LIVE
+                OPERATING_STATUS.STARTING_LIVE
             ]
         self.async_write_ha_state()
 
@@ -240,7 +241,7 @@ class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
         self.coordinator.process_new_data(data)
         if (
             self.coordinator.data.get("operating_status")
-            == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+            in OPERATING_STATUS_LIVE_STATES
         ):
             self.coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
                 OPERATING_STATUS.IDLE
