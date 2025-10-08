@@ -16,6 +16,7 @@ from .const import (
     LOCALIZATION_TECHNOLOGY_LBS,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
+    OPERATING_STATUS_STARTING_LIVE,
 )
 from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
 from .entity import KippyMapEntity, KippyPetEntity
@@ -191,7 +192,10 @@ class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
     def is_on(self) -> bool:
         return bool(
             self.coordinator.data.get("operating_status")
-            == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+            in (
+                OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE],
+                OPERATING_STATUS_STARTING_LIVE,
+            )
         )
 
     @property

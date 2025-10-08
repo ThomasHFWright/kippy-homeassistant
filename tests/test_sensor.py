@@ -15,6 +15,7 @@ from custom_components.kippy.const import (
     LABEL_EXPIRED,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
+    OPERATING_STATUS_STARTING_LIVE,
     PET_KIND_TO_TYPE,
 )
 from custom_components.kippy.sensor import (
@@ -126,6 +127,9 @@ async def test_operating_status_sensor_returns_string() -> None:
 
     assert sensor.native_value == OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
     assert sensor.device_info["name"] == "Kippy"
+
+    coordinator.data["operating_status"] = OPERATING_STATUS_STARTING_LIVE
+    assert sensor.native_value == OPERATING_STATUS_STARTING_LIVE
 
 
 @pytest.mark.asyncio

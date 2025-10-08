@@ -13,6 +13,7 @@ from custom_components.kippy.const import (
     DOMAIN,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
+    OPERATING_STATUS_STARTING_LIVE,
 )
 from custom_components.kippy.switch import (
     KippyEnergySavingSwitch,
@@ -97,6 +98,11 @@ def test_live_tracking_switch_operating_status() -> None:
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
     switch._handle_coordinator_update()
     assert not switch.is_on
+    assert switch.available
+
+    coordinator.data["operating_status"] = OPERATING_STATUS_STARTING_LIVE
+    switch._handle_coordinator_update()
+    assert switch.is_on
     assert switch.available
 
     coordinator.data["operating_status"] = OPERATING_STATUS_MAP[
