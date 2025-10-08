@@ -24,8 +24,14 @@ from .const import (
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_REVERSE_MAP,
+    OPERATING_STATUS_STARTING_LIVE,
 )
-from .helpers import API_EXCEPTIONS, MapRefreshSettings, get_device_update_interval
+from .helpers import (
+    API_EXCEPTIONS,
+    MapRefreshSettings,
+    coerce_int,
+    get_device_update_interval,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -174,6 +180,55 @@ def _normalize_operating_status(value: Any) -> tuple[int | None, str | None]:
     return code, OPERATING_STATUS_MAP.get(code)
 
 
+def _normalize_timestamp(value: Any) -> int | None:
+    """Normalize timestamp values returned by the API."""
+
+    return coerce_int(value)
+
+
+def _derive_operating_status(
+    operating_status_int: int | None,
+    operating_status_str: str | None,
+    previous_status: str | None,
+    previous_status_code: int | None,
+    timestamps: tuple[int | None, int | None],
+) -> tuple[str | None, bool]:
+    """Return the normalized status and whether live refresh should be used."""
+
+    contact_time, fix_time = timestamps
+    has_both_times = contact_time is not None and fix_time is not None
+    status = operating_status_str
+    use_live_interval = False
+
+    if operating_status_int == OPERATING_STATUS.LIVE:
+        use_live_interval = True
+        if previous_status == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
+            status = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+        elif has_both_times and contact_time == fix_time:
+            status = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+        elif previous_status == OPERATING_STATUS_STARTING_LIVE:
+            status = OPERATING_STATUS_STARTING_LIVE
+        elif (
+            has_both_times
+            and contact_time != fix_time
+            and previous_status_code
+            in (OPERATING_STATUS.IDLE, OPERATING_STATUS.ENERGY_SAVING)
+        ):
+            status = OPERATING_STATUS_STARTING_LIVE
+        else:
+            status = OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+    elif operating_status_int in (
+        OPERATING_STATUS.IDLE,
+        OPERATING_STATUS.ENERGY_SAVING,
+    ):
+        status = OPERATING_STATUS_MAP.get(operating_status_int)
+    elif operating_status_str == OPERATING_STATUS_STARTING_LIVE:
+        status = OPERATING_STATUS_STARTING_LIVE
+        use_live_interval = True
+
+    return status, use_live_interval
+
+
 class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator for periodic ``kippymap_action`` calls."""
 
@@ -235,16 +290,36 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                     self.kippy_id,
                 )
 
+        previous_status = self.data.get("operating_status") if self.data else None
+        previous_status_code = OPERATING_STATUS_REVERSE_MAP.get(previous_status)
+
         operating_status_int, operating_status_str = _normalize_operating_status(
             data.get("operating_status")
         )
 
-        if operating_status_int == OPERATING_STATUS.LIVE:
+        if operating_status_int == OPERATING_STATUS.UNKNOWN:
+            if previous_status is None:
+                data.pop("operating_status", None)
+            else:
+                data["operating_status"] = previous_status
+            return data
+
+        contact_time = _normalize_timestamp(data.get("contact_time"))
+        fix_time = _normalize_timestamp(data.get("fix_time"))
+        final_status, use_live_interval = _derive_operating_status(
+            operating_status_int,
+            operating_status_str,
+            previous_status,
+            previous_status_code,
+            (contact_time, fix_time),
+        )
+
+        if use_live_interval:
             self.update_interval = timedelta(seconds=self.live_refresh)
         else:
             self.update_interval = timedelta(seconds=self.idle_refresh)
 
-        data["operating_status"] = operating_status_str
+        data["operating_status"] = final_status
         return data
 
     def process_new_data(self, data: dict[str, Any]) -> None:
@@ -256,7 +331,10 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.idle_refresh = value
         if self.data:
             operating_status = self.data.get("operating_status")
-            if operating_status != OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
+            if operating_status not in (
+                OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE],
+                OPERATING_STATUS_STARTING_LIVE,
+            ):
                 self.update_interval = timedelta(seconds=self.idle_refresh)
 
     async def async_set_live_refresh(self, value: int) -> None:
@@ -264,7 +342,10 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         self.live_refresh = value
         if self.data:
             operating_status = self.data.get("operating_status")
-            if operating_status == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]:
+            if operating_status in (
+                OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE],
+                OPERATING_STATUS_STARTING_LIVE,
+            ):
                 self.update_interval = timedelta(seconds=self.live_refresh)
 
 
