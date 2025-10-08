@@ -108,9 +108,13 @@ LABEL_EXPIRED = _TRANSLATIONS["exceptions"]["expired"]["message"]
 # Mapping of operating status codes returned by the API.
 OPERATING_STATUS = SimpleNamespace(
     IDLE=1,
+    UNKNOWN=2,
     LIVE=5,
     ENERGY_SAVING=18,
 )
+
+# Transient operating status used while live tracking is starting.
+OPERATING_STATUS_STARTING_LIVE = "starting_live"
 
 # Mapping of operating status codes to their human readable string.
 OPERATING_STATUS_MAP: dict[int, str] = {

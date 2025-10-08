@@ -43,16 +43,24 @@ class MapRefreshSettings:
     live_seconds: int = 10
 
 
-def normalize_device_update_interval(value: Any) -> int | None:
-    """Return a sanitized minutes value for the device update interval."""
+def coerce_int(value: Any) -> int | None:
+    """Return ``value`` as an int when possible."""
 
     if isinstance(value, str):
         value = value.strip()
         if not value:
             return None
     try:
-        minutes = int(value)
+        return int(value)
     except (TypeError, ValueError):
+        return None
+
+
+def normalize_device_update_interval(value: Any) -> int | None:
+    """Return a sanitized minutes value for the device update interval."""
+
+    minutes = coerce_int(value)
+    if minutes is None:
         return None
     if not (
         MIN_DEVICE_UPDATE_INTERVAL_MINUTES

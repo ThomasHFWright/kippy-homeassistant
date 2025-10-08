@@ -14,6 +14,7 @@ from custom_components.kippy.const import (
     LOCALIZATION_TECHNOLOGY_LBS,
     OPERATING_STATUS,
     OPERATING_STATUS_MAP,
+    OPERATING_STATUS_STARTING_LIVE,
 )
 from custom_components.kippy.coordinator import (
     ActivityRefreshContext,
@@ -81,6 +82,10 @@ async def test_process_new_data_accepts_string_operating_status() -> None:
         coordinator.data["operating_status"]
         == OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]
     )
+
+    coordinator.process_new_data({"operating_status": "starting_live"})
+
+    assert coordinator.data["operating_status"] == OPERATING_STATUS_STARTING_LIVE
 
 
 @pytest.mark.asyncio
@@ -284,6 +289,11 @@ async def test_map_coordinator_set_refresh_updates_interval() -> None:
     coord.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
     await coord.async_set_live_refresh(20)
     assert coord.update_interval == timedelta(seconds=20)
+    coord.data = {"operating_status": OPERATING_STATUS_STARTING_LIVE}
+    await coord.async_set_live_refresh(30)
+    assert coord.update_interval == timedelta(seconds=30)
+    await coord.async_set_idle_refresh(400)
+    assert coord.update_interval == timedelta(seconds=30)
     coord.data = {
         "operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.ENERGY_SAVING]
     }
@@ -344,6 +354,90 @@ async def test_process_data_live_sets_interval() -> None:
     coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
     coord._process_data({"operating_status": OPERATING_STATUS.LIVE})
     assert coord.update_interval == timedelta(seconds=coord.live_refresh)
+
+
+@pytest.mark.asyncio
+async def test_process_data_ignores_operating_status_two() -> None:
+    """Status value 2 should not overwrite the existing operating status."""
+
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
+    coord.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]}
+    initial_interval = coord.update_interval
+
+    processed = coord._process_data({"operating_status": str(OPERATING_STATUS.UNKNOWN)})
+
+    assert processed["operating_status"] == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+    assert coord.update_interval == initial_interval
+
+
+@pytest.mark.asyncio
+async def test_process_data_operating_status_two_without_previous() -> None:
+    """Status value 2 without a previous state leaves the value unset."""
+
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
+
+    processed = coord._process_data({"operating_status": str(OPERATING_STATUS.UNKNOWN)})
+
+    assert "operating_status" not in processed
+    assert coord.update_interval == timedelta(seconds=coord.idle_refresh)
+
+
+@pytest.mark.asyncio
+async def test_process_data_manages_starting_live_state() -> None:
+    """Transition into live tracking should expose a starting state."""
+
+    hass = MagicMock()
+    hass.loop = asyncio.get_running_loop()
+    coord = KippyMapDataUpdateCoordinator(make_context(hass), 1)
+    coord.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]}
+
+    first = coord._process_data(
+        {
+            "operating_status": OPERATING_STATUS.LIVE,
+            "contact_time": "10",
+            "fix_time": "20",
+        }
+    )
+
+    assert first["operating_status"] == OPERATING_STATUS_STARTING_LIVE
+    assert coord.update_interval == timedelta(seconds=coord.live_refresh)
+
+    coord.data = first
+    still_starting = coord._process_data(
+        {
+            "operating_status": OPERATING_STATUS.LIVE,
+            "contact_time": "15",
+            "fix_time": "25",
+        }
+    )
+
+    assert still_starting["operating_status"] == OPERATING_STATUS_STARTING_LIVE
+
+    coord.data = still_starting
+    ready = coord._process_data(
+        {
+            "operating_status": OPERATING_STATUS.LIVE,
+            "contact_time": "30",
+            "fix_time": "30",
+        }
+    )
+
+    assert ready["operating_status"] == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
+
+    coord.data = ready
+    stay_live = coord._process_data(
+        {
+            "operating_status": OPERATING_STATUS.LIVE,
+            "contact_time": "40",
+            "fix_time": "50",
+        }
+    )
+
+    assert stay_live["operating_status"] == OPERATING_STATUS_MAP[OPERATING_STATUS.LIVE]
 
 
 @pytest.mark.asyncio

@@ -60,6 +60,7 @@
         "name": "Operating status",
         "state": {
           "live": "Live",
+          "starting_live": "Starting live",
           "idle": "Idle",
           "energy_saving": "Energy saving"
         }
