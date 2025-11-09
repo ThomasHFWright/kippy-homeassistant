@@ -16,7 +16,7 @@ This integration has been built to support Kippy Cat. It'll probably work with K
 ## Features
 
 1. Creates a device tracker per Kippy in your account.
-2. Retrieve location updates as per
+2. Retrieve location updates with different rates for idle/live tracking.
 3. Enable/disable live tracking
 4. Enable/disable energy saving mode
 5. Fetch activity stats
