@@ -7,3 +7,16 @@ __pycache__/
 .idea/
 dev-config/
 .secrets/
+
+.venv-dev/
+.venv-baseline/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage*
+coverage.xml
+htmlcov/
+.env
+.env.*
+.api-source/
+state.lock

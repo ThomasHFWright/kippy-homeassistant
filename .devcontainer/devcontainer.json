@@ -1,75 +1,17 @@
 {
-  "name": "Kippy Home Assistant HACS Dev",
-  "image": "mcr.microsoft.com/devcontainers/python:3.13",
+  "name": "Kippy integration",
+  "build": {"dockerfile": "Dockerfile"},
   "postCreateCommand": "./script/setup",
-  "postStartCommand": "./script/bootstrap",
-  "containerEnv": {
-    "PYTHONASYNCIODEBUG": "1"
-  },
-  "features": {
-    "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
-  },
-  // Port 5683 udp is used by Shelly integration
-  "appPort": ["8123:8123", "5683:5683/udp"],
-  "runArgs": [
-    "-e",
-    "GIT_EDITOR=code --wait",
-    "--security-opt",
-    "label=disable"
-  ],
+  "forwardPorts": [8123],
+  "portsAttributes": {"8123": {"label": "Home Assistant"}},
   "customizations": {
     "vscode": {
-      "extensions": [
-        "charliermarsh.ruff",
-        "ms-python.pylint",
-        "ms-python.vscode-pylance",
-        "visualstudioexptteam.vscodeintellicode",
-        "redhat.vscode-yaml",
-        "esbenp.prettier-vscode",
-        "GitHub.vscode-pull-request-github",
-        "GitHub.copilot"
-      ],
-      // Please keep this file in sync with settings in .vscode/settings.default.json
+      "extensions": ["charliermarsh.ruff", "ms-python.python", "redhat.vscode-yaml"],
       "settings": {
-        "python.experiments.optOutFrom": ["pythonTestAdapter"],
-        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
-        "python.testing.cwd": "${containerWorkspaceFolder}",
-        "pylint.importStrategy": "fromEnvironment",
-        "pylint.path": ["${containerWorkspaceFolder}/.venv/bin/pylint"],
-        "python.terminal.activateEnvInCurrentTerminal": true,
-        "python.testing.pytestArgs": ["--no-cov", "tests"],
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv-dev/bin/python",
         "python.testing.pytestEnabled": true,
-        "python.testing.unittestEnabled": false,
-        "python-envs.pythonProjects": [],
-        "editor.formatOnPaste": false,
-        "editor.formatOnSave": true,
-        "editor.formatOnType": true,
-        "files.trimTrailingWhitespace": true,
-        "terminal.integrated.profiles.linux": {
-          "zsh": {
-            "path": "/usr/bin/zsh"
-          }
-        },
-        "terminal.integrated.defaultProfile.linux": "zsh",
-        "yaml.customTags": [
-          "!input scalar",
-          "!secret scalar",
-          "!include_dir_named scalar",
-          "!include_dir_list scalar",
-          "!include_dir_merge_list scalar",
-          "!include_dir_merge_named scalar"
-        ],
-        "[python]": {
-          "editor.defaultFormatter": "charliermarsh.ruff"
-        },
-        "json.schemas": [
-          {
-            "fileMatch": ["homeassistant/components/*/manifest.json"],
-            "url": "${containerWorkspaceFolder}/script/json_schemas/manifest_schema.json"
-          }
-        ]
+        "python.testing.pytestArgs": ["tests"],
+        "[python]": {"editor.defaultFormatter": "charliermarsh.ruff"}
       }
     }
   }

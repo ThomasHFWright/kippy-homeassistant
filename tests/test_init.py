@@ -6,10 +6,10 @@ from collections.abc import Awaitable, Callable
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from aiohttp import ClientResponseError
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from kippy_api import KippyAuthError, KippyConnectionError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy import async_setup_entry, async_unload_entry
@@ -41,7 +41,7 @@ async def test_async_setup_entry_login_failure(hass: HomeAssistant) -> None:
     )
     entry.add_to_hass(hass)
     api = AsyncMock()
-    api.login.side_effect = RuntimeError
+    api.login.side_effect = KippyConnectionError("Offline")
     with (
         patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),
         patch("custom_components.kippy.KippyApi.async_create", return_value=api),
@@ -60,7 +60,7 @@ async def test_async_setup_entry_login_auth_failure(hass: HomeAssistant) -> None
     )
     entry.add_to_hass(hass)
     api = AsyncMock()
-    api.login.side_effect = ClientResponseError(None, (), status=401)
+    api.login.side_effect = KippyAuthError("Rejected", status=401)
 
     with (
         patch("custom_components.kippy.aiohttp_client.async_get_clientsession"),

@@ -7,12 +7,15 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from kippy_api import KippyAuthError, KippyConnectionError
+from kippy_api.const import LOCALIZATION_TECHNOLOGY_LBS, OPERATING_STATUS
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy.const import (
     DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES,
-    LOCALIZATION_TECHNOLOGY_LBS,
-    OPERATING_STATUS,
+    DOMAIN,
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_STARTING_LIVE,
 )
@@ -111,7 +114,7 @@ async def test_data_coordinator_update_failure() -> None:
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     api = MagicMock()
-    api.get_pet_kippy_list = AsyncMock(side_effect=RuntimeError)
+    api.get_pet_kippy_list = AsyncMock(side_effect=KippyConnectionError("Offline"))
     coordinator = KippyDataUpdateCoordinator(hass, make_config_entry(), api)
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
@@ -307,7 +310,7 @@ async def test_map_coordinator_update_failure() -> None:
     hass = MagicMock()
     hass.loop = asyncio.get_running_loop()
     api = MagicMock()
-    api.kippymap_action = AsyncMock(side_effect=RuntimeError)
+    api.kippymap_action = AsyncMock(side_effect=KippyConnectionError("Offline"))
     coord = KippyMapDataUpdateCoordinator(make_context(hass, api), 1)
     with pytest.raises(UpdateFailed):
         await coord._async_update_data()
@@ -458,10 +461,10 @@ async def test_activity_coordinator_update_and_refresh() -> None:
         assert coord.update_interval is None
         data = await coord._async_update_data()
         api.get_activity_categories.assert_awaited_with(
-            1, "2020-01-02", "2020-01-03", 2, 1
+            1, "2020-01-02", "2020-01-03", 2, 1, timezone=timezone.utc
         )
         assert data[1]["avg"] == 2
-        api.get_activity_categories.side_effect = RuntimeError
+        api.get_activity_categories.side_effect = KippyConnectionError("Offline")
         with pytest.raises(UpdateFailed):
             await coord._async_update_data()
         api.get_activity_categories.side_effect = None
@@ -626,3 +629,56 @@ def test_activity_refresh_timer_clamps_to_future() -> None:
         )
 
     assert scheduled["when"] == now + timedelta(minutes=5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["pets", "map", "activity"])
+@pytest.mark.parametrize(
+    "error,expected",
+    [
+        (KippyAuthError("Expired"), ConfigEntryAuthFailed),
+        (KippyConnectionError("Offline"), UpdateFailed),
+    ],
+)
+async def test_polling_classifies_library_errors(hass, endpoint, error, expected):
+    """Every polling coordinator distinguishes expired auth from outages."""
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    entry.add_to_hass(hass)
+    api = AsyncMock()
+    context = CoordinatorContext(hass, entry, api)
+    if endpoint == "pets":
+        api.get_pet_kippy_list.side_effect = error
+        coordinator = KippyDataUpdateCoordinator(hass, entry, api)
+    elif endpoint == "map":
+        api.kippymap_action.side_effect = error
+        coordinator = KippyMapDataUpdateCoordinator(context, 123)
+    else:
+        api.get_activity_categories.side_effect = error
+        coordinator = KippyActivityCategoriesDataUpdateCoordinator(context, [1])
+    with pytest.raises(expected):
+        await coordinator._async_update_data()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("auth_failure", [True, False])
+async def test_manual_activity_refresh_preserves_data_on_failure(hass, auth_failure):
+    """Timer and button refresh failures preserve data and request reauth if needed."""
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    entry.add_to_hass(hass)
+    api = AsyncMock()
+    api.get_activity_categories.side_effect = (
+        KippyAuthError("Expired") if auth_failure else KippyConnectionError("Offline")
+    )
+    coordinator = KippyActivityCategoriesDataUpdateCoordinator(
+        CoordinatorContext(hass, entry, api), [1]
+    )
+    previous = {1: {"activities": [{"steps": 100}]}}
+    coordinator.data = previous
+    with patch.object(entry, "async_start_reauth") as reauth:
+        with pytest.raises(HomeAssistantError):
+            await coordinator.async_refresh_pet(1)
+        if auth_failure:
+            reauth.assert_called_once_with(hass)
+        else:
+            reauth.assert_not_called()
+    assert coordinator.data is previous

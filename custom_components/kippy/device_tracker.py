@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN, LABEL_EXPIRED, PET_KIND_TO_TYPE
 from .coordinator import KippyMapDataUpdateCoordinator
 from .entity import KippyMapEntity
+from .helpers import coerce_int
 
 
 async def async_setup_entry(
@@ -111,12 +112,12 @@ class KippyPetTracker(KippyMapEntity, TrackerEntity):
         return float(lon) if lon is not None else None
 
     @property
-    def location_accuracy(self) -> float | None:
-        """Return accuracy radius if available."""
+    def location_accuracy(self) -> float:
+        """Return the accuracy radius, using HA's default when absent."""
         acc = (
             self.coordinator.data.get("gps_accuracy") if self.coordinator.data else None
         )
-        return float(acc) if acc is not None else None
+        return float(acc) if acc is not None else 0
 
     @property
     def altitude(self) -> float | None:
@@ -132,7 +133,4 @@ class KippyPetTracker(KippyMapEntity, TrackerEntity):
         val = self.coordinator.data.get("battery") if self.coordinator.data else None
         if val is None:
             val = self._pet_data.get("batteryLevel") or self._pet_data.get("battery")
-        try:
-            return int(val)
-        except (TypeError, ValueError):
-            return None
+        return coerce_int(val)

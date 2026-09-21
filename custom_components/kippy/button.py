@@ -18,7 +18,7 @@ from .coordinator import (
     KippyMapDataUpdateCoordinator,
 )
 from .entity import KippyMapEntity
-from .helpers import build_device_info
+from .helpers import api_action_errors, build_device_info
 
 
 async def async_setup_entry(
@@ -63,7 +63,8 @@ class KippyRefreshMapAttributesButton(KippyMapEntity, ButtonEntity):
         self._attr_translation_key = "refresh_map_attributes"
 
     async def async_press(self) -> None:
-        data = await self.coordinator.api.kippymap_action(self.coordinator.kippy_id)
+        with api_action_errors(self.hass, self.coordinator.config_entry):
+            data = await self.coordinator.api.kippymap_action(self.coordinator.kippy_id)
         self.coordinator.process_new_data(data)
 
     def press(self) -> None:

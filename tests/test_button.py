@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.exceptions import HomeAssistantError
+from kippy_api import KippyConnectionError
 
 from custom_components.kippy.button import (
     KippyActivityCategoriesButton,
@@ -40,12 +41,14 @@ async def test_refresh_map_attributes_button_calls_api_and_processes_data() -> N
 async def test_refresh_map_attributes_button_propagates_error() -> None:
     """Exceptions from API are not swallowed."""
     coordinator = MagicMock()
-    coordinator.api.kippymap_action = AsyncMock(side_effect=RuntimeError)
+    coordinator.api.kippymap_action = AsyncMock(
+        side_effect=KippyConnectionError("Offline")
+    )
     coordinator.process_new_data = MagicMock()
     coordinator.kippy_id = 5
     pet = {"petID": 5}
     button = KippyRefreshMapAttributesButton(coordinator, pet)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(HomeAssistantError):
         await button.async_press()
 
 
@@ -64,10 +67,10 @@ async def test_activity_button_refreshes_pet() -> None:
 async def test_activity_button_propagates_error() -> None:
     """Errors from refresh are raised."""
     coordinator = MagicMock()
-    coordinator.async_refresh_pet = AsyncMock(side_effect=RuntimeError)
+    coordinator.async_refresh_pet = AsyncMock(side_effect=HomeAssistantError("Offline"))
     pet = {"petID": 3}
     button = KippyActivityCategoriesButton(coordinator, pet)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(HomeAssistantError):
         await button.async_press()
 
 

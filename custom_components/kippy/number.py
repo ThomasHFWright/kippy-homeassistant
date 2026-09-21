@@ -10,10 +10,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from kippy_api.const import LOCALIZATION_TECHNOLOGY_GPS
 
 from .const import (
     DOMAIN,
-    LOCALIZATION_TECHNOLOGY_GPS,
     MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
     MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
 )
@@ -24,9 +24,11 @@ from .coordinator import (
 )
 from .entity import KippyMapEntity, KippyPetEntity
 from .helpers import (
+    api_action_errors,
     async_update_device_update_interval,
     async_update_map_refresh_settings,
     build_device_info,
+    coerce_int,
     get_device_update_interval,
     is_pet_subscription_active,
     normalize_device_update_interval,
@@ -176,17 +178,16 @@ class KippyUpdateFrequencyNumber(KippyPetEntity, NumberEntity):
         gps_val = self._pet_data.get("gpsOnDefault")
         if gps_val is None:
             gps_val = self._pet_data.get("gps_on_default")
-        try:
-            gps_on_default = bool(int(gps_val))
-        except (TypeError, ValueError):
-            gps_on_default = bool(gps_val)
+        numeric = coerce_int(gps_val)
+        gps_on_default = bool(gps_val if numeric is None else numeric)
 
         if kippy_id is not None:
-            data = await self.coordinator.api.modify_kippy_settings(
-                kippy_id,
-                update_frequency=int_value,
-                gps_on_default=gps_on_default,
-            )
+            with api_action_errors(self.hass, self.coordinator.config_entry):
+                data = await self.coordinator.api.modify_kippy_settings(
+                    kippy_id,
+                    update_frequency=int_value,
+                    gps_on_default=gps_on_default,
+                )
             new_value = data.get("update_frequency", int_value)
             self._pet_data["updateFrequency"] = int(new_value)
         else:

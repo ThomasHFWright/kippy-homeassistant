@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec "${KIPPY_VENV:-$PWD/.venv-dev}/bin/python" -m pytest "$@"

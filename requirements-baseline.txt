@@ -1,0 +1,13 @@
+# Historical compatibility tuple; use Python 3.13.15 in a separate environment.
+-c https://raw.githubusercontent.com/home-assistant/core/2025.9.1/homeassistant/package_constraints.txt
+homeassistant==2025.9.1
+pytest-homeassistant-custom-component==0.13.278
+pytest==8.4.1
+pytest-asyncio==1.1.0
+pytest-cov==6.2.1
+python-dotenv==1.1.1
+josepy==2.1.0
+# aiodns 3.5 uses the pycares 4 API.
+pycares<5
+go2rtc-client==0.2.1
+PyTurboJPEG==1.8.0

@@ -9,11 +9,11 @@ import pytest
 from homeassistant.const import UnitOfLength, UnitOfTime
 from homeassistant.util.location import distance as location_distance
 from homeassistant.util.unit_conversion import DistanceConverter, DurationConverter
+from kippy_api.const import OPERATING_STATUS
 
 from custom_components.kippy.const import (
     DOMAIN,
     LABEL_EXPIRED,
-    OPERATING_STATUS,
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_STARTING_LIVE,
     PET_KIND_TO_TYPE,

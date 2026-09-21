@@ -7,28 +7,28 @@ import inspect
 import logging
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Iterable
+from datetime import datetime, timedelta, timezone, tzinfo
+from typing import Any, Awaitable, Callable, Iterable, cast
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
+from kippy_api import KippyApi, KippyAuthError, KippyError
+from kippy_api.const import LOCALIZATION_TECHNOLOGY_LBS, OPERATING_STATUS
 
-from .api import KippyApi
 from .const import (
     DEFAULT_ACTIVITY_REFRESH_DELAY,
     DOMAIN,
-    LOCALIZATION_TECHNOLOGY_LBS,
-    OPERATING_STATUS,
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_REVERSE_MAP,
     OPERATING_STATUS_STARTING_LIVE,
 )
 from .helpers import (
-    API_EXCEPTIONS,
     MapRefreshSettings,
+    api_action_errors,
     coerce_int,
     get_device_update_interval,
 )
@@ -49,8 +49,10 @@ class CoordinatorContext:
     api: KippyApi
 
 
-class KippyDataUpdateCoordinator(DataUpdateCoordinator):
+class KippyDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Class to manage fetching data from the Kippy API."""
+
+    config_entry: ConfigEntry
 
     def __init__(
         self,
@@ -119,10 +121,11 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
             return
 
         self._pending_reload = True
+        on_new_pets = self._on_new_pets
 
         async def _reload_wrapper() -> None:
             try:
-                await self._on_new_pets()
+                await on_new_pets()
             finally:
                 self._pending_reload = False
 
@@ -140,7 +143,9 @@ class KippyDataUpdateCoordinator(DataUpdateCoordinator):
         # ``get_pet_kippy_list`` internally ensures a valid login session.
         try:
             pets = await self.api.get_pet_kippy_list()
-        except API_EXCEPTIONS as err:
+        except KippyAuthError as err:
+            raise ConfigEntryAuthFailed from err
+        except KippyError as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         self._handle_new_pets(pets)
         return {"pets": pets}
@@ -221,7 +226,7 @@ def _derive_operating_status(
         OPERATING_STATUS.IDLE,
         OPERATING_STATUS.ENERGY_SAVING,
     ):
-        status = OPERATING_STATUS_MAP.get(operating_status_int)
+        status = OPERATING_STATUS_MAP.get(cast(int, operating_status_int))
     elif operating_status_str == OPERATING_STATUS_STARTING_LIVE:
         status = OPERATING_STATUS_STARTING_LIVE
         use_live_interval = True
@@ -229,8 +234,10 @@ def _derive_operating_status(
     return status, use_live_interval
 
 
-class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
+class KippyMapDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator for periodic ``kippymap_action`` calls."""
+
+    config_entry: ConfigEntry
 
     def __init__(
         self,
@@ -258,7 +265,9 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch location data and adjust the refresh interval."""
         try:
             data = await self.api.kippymap_action(self.kippy_id)
-        except API_EXCEPTIONS as err:
+        except KippyAuthError as err:
+            raise ConfigEntryAuthFailed from err
+        except KippyError as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         return self._process_data(data)
 
@@ -291,7 +300,11 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                 )
 
         previous_status = self.data.get("operating_status") if self.data else None
-        previous_status_code = OPERATING_STATUS_REVERSE_MAP.get(previous_status)
+        previous_status_code = (
+            OPERATING_STATUS_REVERSE_MAP.get(previous_status)
+            if previous_status is not None
+            else None
+        )
 
         operating_status_int, operating_status_str = _normalize_operating_status(
             data.get("operating_status")
@@ -349,8 +362,12 @@ class KippyMapDataUpdateCoordinator(DataUpdateCoordinator):
                 self.update_interval = timedelta(seconds=self.live_refresh)
 
 
-class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
+class KippyActivityCategoriesDataUpdateCoordinator(
+    DataUpdateCoordinator[dict[int | str, dict[str, Any]]]
+):
     """Coordinator to fetch activity category information."""
+
+    config_entry: ConfigEntry
 
     def __init__(
         self,
@@ -369,18 +386,20 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
             kwargs["config_entry"] = context.config_entry
         super().__init__(context.hass, _LOGGER, **kwargs)
 
-    async def _async_update_data(self) -> dict[int, dict[str, Any]]:
+    async def _async_update_data(self) -> dict[int | str, dict[str, Any]]:
         """Fetch activity categories for all configured pets."""
         now = dt_util.now()
         from_date = now.strftime("%Y-%m-%d")
         to_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
-        data: dict[int, dict[str, Any]] = {}
+        data: dict[int | str, dict[str, Any]] = {}
         try:
             for pet_id in self.pet_ids:
                 data[pet_id] = await self.api.get_activity_categories(
-                    pet_id, from_date, to_date, 2, 1
+                    pet_id, from_date, to_date, 2, 1, timezone=cast(tzinfo, now.tzinfo)
                 )
-        except API_EXCEPTIONS as err:
+        except KippyAuthError as err:
+            raise ConfigEntryAuthFailed from err
+        except KippyError as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         return data
 
@@ -389,9 +408,10 @@ class KippyActivityCategoriesDataUpdateCoordinator(DataUpdateCoordinator):
         now = dt_util.now()
         from_date = now.strftime("%Y-%m-%d")
         to_date = (now + timedelta(days=1)).strftime("%Y-%m-%d")
-        result = await self.api.get_activity_categories(
-            pet_id, from_date, to_date, 2, 1
-        )
+        with api_action_errors(self.hass, self.config_entry):
+            result = await self.api.get_activity_categories(
+                pet_id, from_date, to_date, 2, 1, timezone=cast(tzinfo, now.tzinfo)
+            )
         new_data = dict(self.data or {})
         new_data[pet_id] = result
         self.async_set_updated_data(new_data)

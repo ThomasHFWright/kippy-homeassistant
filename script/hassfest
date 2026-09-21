@@ -7,10 +7,11 @@ and executes ``script.hassfest`` from that checkout. Keeping the
 checkout in sync with the pinned Home Assistant version ensures the
 validation rules match the runtime environment.
 """
+
 from __future__ import annotations
 
 import io
-import ssl
+import os
 import subprocess
 import sys
 import tarfile
@@ -32,11 +33,10 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Download and extract the specified version of the Home Assistant repo
-        context = ssl._create_unverified_context()
-        with urllib.request.urlopen(url, context=context) as response:
+        with urllib.request.urlopen(url, timeout=60) as response:
             archive = io.BytesIO(response.read())
         with tarfile.open(fileobj=archive, mode="r:gz") as tar:
-            tar.extractall(tmpdir)
+            tar.extractall(tmpdir, filter="data")
         repo_dir = Path(tmpdir) / f"core-{version}"
 
         args = sys.argv[1:]
@@ -49,7 +49,11 @@ def main() -> int:
                 args[index] = f"--integration-path={Path(path).resolve()}"
 
         cmd = [sys.executable, "-m", "script.hassfest", *args]
-        return subprocess.call(cmd, cwd=repo_dir)
+        env = dict(os.environ)
+        env["PATH"] = (
+            str(Path(sys.executable).parent) + os.pathsep + env.get("PATH", "")
+        )
+        return subprocess.call(cmd, cwd=repo_dir, env=env)
 
 
 if __name__ == "__main__":  # pragma: no cover - script entry point

@@ -66,3 +66,5 @@ Running `python script/hassfest --integration-path custom_components/kippy` and 
 [stars]: https://github.com/ThomasHFWright/kippy-homeassistant/stargazers
 [bmc-shield]: https://img.shields.io/badge/Buy%20Me%20a%20Coffee-donate-yellow.svg?logo=buy-me-a-coffee
 [bmc]: https://buymeacoffee.com/thomashfwright
+
+Development setup, local API installs and testing are documented in [Development](docs/development/development.md).
