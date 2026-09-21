@@ -9,18 +9,21 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
+from kippy_api.const import APP_ACTION, LOCALIZATION_TECHNOLOGY_LBS, OPERATING_STATUS
 
 from .const import (
-    APP_ACTION,
     DOMAIN,
-    LOCALIZATION_TECHNOLOGY_LBS,
-    OPERATING_STATUS,
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_STARTING_LIVE,
 )
 from .coordinator import KippyDataUpdateCoordinator, KippyMapDataUpdateCoordinator
 from .entity import KippyMapEntity, KippyPetEntity
-from .helpers import is_pet_subscription_active, normalize_kippy_identifier
+from .helpers import (
+    api_action_errors,
+    coerce_int,
+    is_pet_subscription_active,
+    normalize_kippy_identifier,
+)
 
 
 async def async_setup_entry(
@@ -60,16 +63,15 @@ class KippyGpsDefaultSwitch(KippyPetEntity, SwitchEntity):
         value = self._pet_data.get("gpsOnDefault")
         if value is None:
             value = self._pet_data.get("gps_on_default")
-        try:
-            return bool(int(value))
-        except (TypeError, ValueError):
-            return bool(value)
+        numeric = coerce_int(value)
+        return bool(value if numeric is None else numeric)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
-            await self.coordinator.api.modify_kippy_settings(
-                kippy_id, gps_on_default=True
-            )
+            with api_action_errors(self.hass, self.coordinator.config_entry):
+                await self.coordinator.api.modify_kippy_settings(
+                    kippy_id, gps_on_default=True
+                )
         self._pet_data["gpsOnDefault"] = 1
         self.async_write_ha_state()
 
@@ -80,9 +82,10 @@ class KippyGpsDefaultSwitch(KippyPetEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
-            await self.coordinator.api.modify_kippy_settings(
-                kippy_id, gps_on_default=False
-            )
+            with api_action_errors(self.hass, self.coordinator.config_entry):
+                await self.coordinator.api.modify_kippy_settings(
+                    kippy_id, gps_on_default=False
+                )
         self._pet_data["gpsOnDefault"] = 0
         self.async_write_ha_state()
 
@@ -118,9 +121,10 @@ class KippyEnergySavingSwitch(KippyPetEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
-            await self.coordinator.api.modify_kippy_settings(
-                kippy_id, energy_saving_mode=True
-            )
+            with api_action_errors(self.hass, self.coordinator.config_entry):
+                await self.coordinator.api.modify_kippy_settings(
+                    kippy_id, energy_saving_mode=True
+                )
         self._pet_data["energySavingMode"] = 1
         if self._pet_data.get("energySavingModePending"):
             self._pet_data["energySavingModePending"] = False
@@ -136,9 +140,10 @@ class KippyEnergySavingSwitch(KippyPetEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         if (kippy_id := normalize_kippy_identifier(self._pet_data)) is not None:
-            await self.coordinator.api.modify_kippy_settings(
-                kippy_id, energy_saving_mode=False
-            )
+            with api_action_errors(self.hass, self.coordinator.config_entry):
+                await self.coordinator.api.modify_kippy_settings(
+                    kippy_id, energy_saving_mode=False
+                )
         self._pet_data["energySavingMode"] = 0
         if self._pet_data.get("energySavingModePending"):
             self._pet_data["energySavingModePending"] = False
@@ -212,10 +217,11 @@ class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
             raise HomeAssistantError(
                 "Live tracking cannot be enabled in energy saving mode"
             )
-        data = await self.coordinator.api.kippymap_action(
-            self.coordinator.kippy_id,
-            app_action=APP_ACTION.TURN_LIVE_TRACKING_ON,
-        )
+        with api_action_errors(self.hass, self.coordinator.config_entry):
+            data = await self.coordinator.api.kippymap_action(
+                self.coordinator.kippy_id,
+                app_action=APP_ACTION.TURN_LIVE_TRACKING_ON,
+            )
         self.coordinator.process_new_data(data)
         if (
             self.coordinator.data.get("operating_status")
@@ -237,10 +243,11 @@ class KippyLiveTrackingSwitch(KippyMapEntity, SwitchEntity):
             raise HomeAssistantError(
                 "Live tracking cannot be disabled in energy saving mode"
             )
-        data = await self.coordinator.api.kippymap_action(
-            self.coordinator.kippy_id,
-            app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF,
-        )
+        with api_action_errors(self.hass, self.coordinator.config_entry):
+            data = await self.coordinator.api.kippymap_action(
+                self.coordinator.kippy_id,
+                app_action=APP_ACTION.TURN_LIVE_TRACKING_OFF,
+            )
         self.coordinator.process_new_data(data)
         if (
             self.coordinator.data.get("operating_status")

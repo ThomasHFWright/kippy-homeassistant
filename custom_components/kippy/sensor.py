@@ -20,15 +20,21 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util.location import distance as location_distance
 from homeassistant.util.unit_conversion import DistanceConverter, DurationConverter
+from kippy_api.const import LOCALIZATION_TECHNOLOGY_GPS
 
-from .const import DOMAIN, LABEL_EXPIRED, LOCALIZATION_TECHNOLOGY_GPS, PET_KIND_TO_TYPE
+from .const import DOMAIN, LABEL_EXPIRED, PET_KIND_TO_TYPE
 from .coordinator import (
     KippyActivityCategoriesDataUpdateCoordinator,
     KippyDataUpdateCoordinator,
     KippyMapDataUpdateCoordinator,
 )
 from .entity import KippyMapEntity, KippyPetEntity
-from .helpers import build_device_info, is_pet_subscription_active, update_pet_data
+from .helpers import (
+    build_device_info,
+    coerce_int,
+    is_pet_subscription_active,
+    update_pet_data,
+)
 
 _TIME_UNITS = {
     UnitOfTime.MICROSECONDS,
@@ -114,13 +120,9 @@ class KippyExpiredDaysSensor(_KippyBaseEntity):
         self._source_unit = UnitOfTime.DAYS
 
     @property
-    def native_unit_of_measurement(self) -> str:
-        days = self._pet_data.get("expired_days")
-        try:
-            days = int(days)
-        except (TypeError, ValueError):
-            return None
-        if days >= 0:
+    def native_unit_of_measurement(self) -> str | None:
+        days = coerce_int(self._pet_data.get("expired_days"))
+        if days is None or days >= 0:
             return None
         if self.hass:
             unit = self.hass.config.units.get_converted_unit(
@@ -207,7 +209,7 @@ class ActivitySensorDescription:
     metric: str
     name: str
     unit: str | None = None
-    device_class: SensorDeviceClass | str | None = None
+    device_class: SensorDeviceClass | None = None
 
 
 class _KippyActivitySensor(
@@ -613,9 +615,11 @@ class _KippyBaseMapEntity(KippyMapEntity, SensorEntity):
     def _get_datetime(self, key: str) -> datetime | None:
         if not self.coordinator.data:
             return None
-        ts = self.coordinator.data.get(key)
+        ts = coerce_int(self.coordinator.data.get(key))
+        if ts is None:
+            return None
         try:
-            return datetime.fromtimestamp(int(ts), timezone.utc)
+            return datetime.fromtimestamp(ts, timezone.utc)
         except (TypeError, ValueError, OSError):
             return None
 
@@ -641,10 +645,7 @@ class KippyBatterySensor(_KippyBaseMapEntity):
         val = self.coordinator.data.get("battery") if self.coordinator.data else None
         if val is None:
             val = self._pet_data.get("battery") or self._pet_data.get("batteryLevel")
-        try:
-            return int(val)
-        except (TypeError, ValueError):
-            return None
+        return coerce_int(val)
 
 
 class KippyLocalizationTechnologySensor(_KippyBaseMapEntity):
@@ -839,10 +840,8 @@ class KippyEnergySavingStatusSensor(_KippyBaseEntity):
     def native_value(self) -> str:
         pending = bool(self._pet_data.get("energySavingModePending"))
         value = self._pet_data.get("energySavingMode")
-        try:
-            is_on = bool(int(value))
-        except (TypeError, ValueError):
-            is_on = bool(value)
+        numeric = coerce_int(value)
+        is_on = bool(value if numeric is None else numeric)
         if pending:
             return "on_pending" if is_on else "off_pending"
         return "on" if is_on else "off"
@@ -866,7 +865,7 @@ class KippyHomeDistanceSensor(_KippyBaseMapEntity):
         self._attr_unique_id = f"{self._pet_id}_distance_from_home"
 
     @property
-    def native_unit_of_measurement(self) -> str:
+    def native_unit_of_measurement(self) -> str | None:
         unit = self.hass.config.units.length_unit
         return UnitOfLength.METERS if unit == UnitOfLength.KILOMETERS else unit
 

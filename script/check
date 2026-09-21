@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+python="${KIPPY_VENV:-$PWD/.venv-dev}/bin/python"
+"$python" -m ruff check custom_components tests script
+"$python" -m ruff format --check custom_components tests script
+"$python" script/test-scaffold
+"$python" -m mypy

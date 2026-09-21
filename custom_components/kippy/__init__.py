@@ -5,14 +5,13 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Awaitable
 
-from aiohttp import ClientResponseError
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client
+from kippy_api import KippyApi, KippyAuthError, KippyError
 
-from .api import KippyApi
 from .const import DOMAIN, PLATFORMS
 from .coordinator import (
     ActivityRefreshContext,
@@ -23,7 +22,6 @@ from .coordinator import (
     KippyMapDataUpdateCoordinator,
 )
 from .helpers import (
-    API_EXCEPTIONS,
     get_device_update_interval,
     get_map_refresh_settings,
     is_pet_subscription_active,
@@ -40,9 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
     session = aiohttp_client.async_get_clientsession(hass)
-    api = await KippyApi.async_create(session)
-
     try:
+        api = await KippyApi.async_create(session)
         await api.login(email, password)
 
         async def _async_reload_entry() -> None:
@@ -67,12 +64,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         activity_timers = _build_activity_timers(
             hass, coordinator, map_coordinators, activity_coordinator
         )
-    except API_EXCEPTIONS as err:
-        if isinstance(err, ClientResponseError) and getattr(err, "status", None) in (
-            401,
-            403,
-        ):
-            raise ConfigEntryAuthFailed from err
+    except KippyAuthError as err:
+        raise ConfigEntryAuthFailed from err
+    except KippyError as err:
         raise ConfigEntryNotReady from err
 
     hass.data[DOMAIN][entry.entry_id] = {

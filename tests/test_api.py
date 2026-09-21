@@ -1,324 +1,148 @@
-"""Integration tests for the real Kippy API.
+"""Opt-in, read-only checks against Kippy's real service.
 
-These tests require valid credentials defined in environment variables or the
-``.secrets/kippy.env`` file. When credentials are missing or use placeholder
-values like ``"<REDACTED>"``, the tests are skipped. Tests for the in-memory
-fake API live in ``test_api_fake.py``.
+Run with KIPPY_LIVE_TESTS=1 and credentials in .secrets/kippy.env or the
+process environment. Authentication and connection failures fail the check.
 """
 
-from __future__ import annotations
-
-import asyncio
+import logging
 import os
 import socket
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from unittest.mock import patch
 
 import aiohttp
 import pytest
-import pytest_asyncio
-
-try:
-    from pytest_socket import SocketBlockedError
-except ImportError:  # pragma: no cover - fallback when pytest-socket is unavailable
-    SocketBlockedError = RuntimeError
 from dotenv import load_dotenv
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from kippy_api import KippyApi
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_socket import socket_allow_hosts
 
-from custom_components.kippy.api import KippyApi
-from custom_components.kippy.const import MISSING_CREDENTIAL_PLACEHOLDERS
+from custom_components.kippy.const import DOMAIN
 
-SECRETS_FILE = Path(__file__).resolve().parents[1] / ".secrets" / "kippy.env"
-
-if SECRETS_FILE.exists():
-    load_dotenv(SECRETS_FILE)
-
-EMAIL = os.getenv("KIPPY_EMAIL")
-PASSWORD = os.getenv("KIPPY_PASSWORD")
-
-if (
-    not EMAIL
-    or not PASSWORD
-    or any(value in MISSING_CREDENTIAL_PLACEHOLDERS for value in (EMAIL, PASSWORD))
-):
-    pytest.skip(
-        "Kippy credentials are missing or redacted; skipping real API tests",
-        allow_module_level=True,
-    )
+pytestmark = [pytest.mark.live, pytest.mark.enable_socket, pytest.mark.asyncio]
+_REAL_GETADDRINFO = socket.getaddrinfo
 
 
-def _active(pet: dict[str, Any]) -> bool:
-    """Return True if the subscription is active for the given pet."""
-
-    days = pet.get("expired_days")
+@pytest.fixture(autouse=True)
+def live_network(monkeypatch, socket_enabled):
+    """Allow only the vendor and localhost after HA installs its socket guard."""
+    if os.getenv("KIPPY_LIVE_TESTS") != "1":
+        pytest.skip("Set KIPPY_LIVE_TESTS=1 to enable live checks")
+    load_dotenv(Path(__file__).resolve().parents[1] / ".secrets" / "kippy.env")
+    if not os.getenv("KIPPY_EMAIL") or not os.getenv("KIPPY_PASSWORD"):
+        pytest.skip("Populate KIPPY_EMAIL and KIPPY_PASSWORD for live checks")
+    monkeypatch.setattr(socket, "getaddrinfo", _REAL_GETADDRINFO)
+    socket_allow_hosts(["prod.kippyapi.eu", "127.0.0.1"], allow_unix_socket=True)
     try:
-        return int(days) < 0
-    except (TypeError, ValueError):
-        return True
-
-
-@pytest_asyncio.fixture(name="api")
-async def _real_api():
-    """Return an authenticated Kippy API instance."""
-
-    try:
-        probe = socket.socket()
-    except SocketBlockedError:
-        pytest.skip(
-            "Sockets are disabled; skipping real API tests",
-            allow_module_level=False,
-        )
-    else:
-        probe.close()
-
-    session = aiohttp.ClientSession()
-    api = await KippyApi.async_create(session)
-    try:
-        await api.login(EMAIL, PASSWORD, force=True)
-    except SocketBlockedError:
-        await session.close()
-        pytest.skip(
-            "Sockets are disabled; skipping real API tests",
-            allow_module_level=False,
-        )
-    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as err:
-        await session.close()
-        pytest.skip(
-            f"Unable to reach the Kippy API: {err}",
-            allow_module_level=False,
-        )
-    try:
-        yield api
+        yield
     finally:
-        await api.close()
+        socket_allow_hosts(["127.0.0.1"], allow_unix_socket=True)
 
 
-@pytest.mark.asyncio
-async def test_login_succeeds(api) -> None:
-    """Ensure login provides the expected codes."""
+async def test_live_read_only() -> None:
+    """Authenticate and read every active pet without sending device commands."""
+    if os.getenv("KIPPY_LIVE_TESTS") != "1":
+        pytest.skip("Set KIPPY_LIVE_TESTS=1 to enable live checks")
+    load_dotenv(Path(__file__).resolve().parents[1] / ".secrets" / "kippy.env")
+    email = os.getenv("KIPPY_EMAIL")
+    password = os.getenv("KIPPY_PASSWORD")
+    if not email or not password:
+        pytest.skip("Populate KIPPY_EMAIL and KIPPY_PASSWORD for live checks")
 
-    assert api.app_code is not None
-    assert api.app_verification_code is not None
-
-
-@pytest.mark.asyncio
-async def test_get_pet_kippy_list_returns_list(api) -> None:
-    """The pet list should always be a list."""
-
-    pets = await api.get_pet_kippy_list()
-    assert isinstance(pets, list)
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories(api) -> None:
-    """Exercise Kippy Map and activity endpoints when possible."""
-
-    pets = await api.get_pet_kippy_list()
-
-    if not pets:
-        pytest.skip("No pets returned; skipping location and activity tests")
-
-    pet = next(
-        (
-            p
-            for p in pets
-            if _active(p)
-            and (
-                (
-                    p.get("kippy_id")
-                    or p.get("kippyID")
-                    or p.get("device_kippy_id")
-                    or p.get("deviceID")
-                    or p.get("deviceId")
-                )
-                and (p.get("petID") or p.get("id"))
+    async with aiohttp.ClientSession() as session:
+        api = await KippyApi.async_create(session)
+        await api.login(email, password)
+        assert api.app_code is not None
+        assert api.app_verification_code is not None
+        pets = await api.get_pet_kippy_list()
+        assert isinstance(pets, list)
+        today = datetime.now(timezone.utc).date()
+        for pet in pets:
+            days = pet.get("expired_days")
+            if days is not None and int(days) >= 0:
+                continue
+            pet_id = pet.get("petID")
+            kippy_id = pet.get("kippyID")
+            if pet_id is None or kippy_id is None:
+                continue
+            location = await api.kippymap_action(int(kippy_id), do_sms=False)
+            assert isinstance(location, dict)
+            activity = await api.get_activity_categories(
+                int(pet_id),
+                (today - timedelta(days=7)).isoformat(),
+                today.isoformat(),
+                2,
+                1,
+                timezone=timezone.utc,
             )
-        ),
-        None,
+            assert isinstance(activity, dict)
+
+
+async def test_live_home_assistant_lifecycle(
+    hass, entity_registry, device_registry, disable_mock_zeroconf_resolver
+):
+    """Load real pets through HA using cached map reads, then unload cleanly."""
+    if os.getenv("KIPPY_LIVE_TESTS") != "1":
+        pytest.skip("Set KIPPY_LIVE_TESTS=1 to enable live checks")
+    load_dotenv(Path(__file__).resolve().parents[1] / ".secrets" / "kippy.env")
+    email = os.getenv("KIPPY_EMAIL")
+    password = os.getenv("KIPPY_PASSWORD")
+    if not email or not password:
+        pytest.skip("Populate KIPPY_EMAIL and KIPPY_PASSWORD for live checks")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=email,
+        data={CONF_EMAIL: email, CONF_PASSWORD: password},
     )
-    if pet is None:
-        pytest.skip(
-            "No pet with kippy_id, pet_id and active subscription; "
-            "skipping location and activity tests",
-        )
+    entry.add_to_hass(hass)
+    session = async_get_clientsession(hass)
+    original_map = KippyApi.kippymap_action
 
-    kippy_id = (
-        pet.get("kippy_id")
-        or pet.get("kippyID")
-        or pet.get("device_kippy_id")
-        or pet.get("deviceID")
-        or pet.get("deviceId")
-    )
-    location = await api.kippymap_action(int(kippy_id), do_sms=False)
-    assert isinstance(location, dict)
+    async def cached_map(api, *args, **kwargs):
+        """Read cached coordinates without requesting a device refresh."""
+        kwargs["do_sms"] = False
+        return await original_map(api, *args, **kwargs)
 
-    pet_id = pet.get("petID") or pet.get("id")
-    today = datetime.now(timezone.utc).date()
-    from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
-    to_date = today.strftime("%Y-%m-%d")
-    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 2, 1)
-    assert isinstance(activity, dict)
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories_inactive_subscription(
-    api,
-) -> None:
-    """Exercise endpoints for a pet with an inactive subscription."""
-
-    pets = await api.get_pet_kippy_list()
-
-    inactive = next(
-        (
-            p
-            for p in pets
-            if not _active(p)
-            and (
-                (
-                    p.get("kippy_id")
-                    or p.get("kippyID")
-                    or p.get("device_kippy_id")
-                    or p.get("deviceID")
-                    or p.get("deviceId")
-                )
-                and (p.get("petID") or p.get("id"))
+    # HA registry logs contain real pet names; keep account data out of output.
+    logging_disabled = logging.root.manager.disable
+    logging.disable(logging.CRITICAL)
+    try:
+        with patch.object(KippyApi, "kippymap_action", cached_map):
+            assert await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.state is ConfigEntryState.LOADED
+            devices = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+            entities = er.async_entries_for_config_entry(
+                entity_registry, entry.entry_id
             )
-        ),
-        None,
-    )
-
-    if inactive is None:
-        pytest.skip("No pet with inactive subscription; skipping location test")
-
-    kippy_id = (
-        inactive.get("kippy_id")
-        or inactive.get("kippyID")
-        or inactive.get("device_kippy_id")
-        or inactive.get("deviceID")
-        or inactive.get("deviceId")
-    )
-    location = await api.kippymap_action(int(kippy_id), do_sms=False)
-    assert isinstance(location, dict)
-
-    pet_id = inactive.get("petID") or inactive.get("id")
-    today = datetime.now(timezone.utc).date()
-    from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
-    to_date = today.strftime("%Y-%m-%d")
-    activity = await api.get_activity_categories(int(pet_id), from_date, to_date, 2, 1)
-    assert isinstance(activity, dict)
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_handles_inactive_subscription(monkeypatch) -> None:
-    """kippymap_action should surface subscription status."""
-
-    session = aiohttp.ClientSession()
-    api = await KippyApi.async_create(session)
-    api.cache_authentication({"token": 1})
-
-    async def fake_post(_path, _payload, _headers):
-        return {"return": False}
-
-    async def fake_ensure_login():
-        return None
-
-    monkeypatch.setattr(api, "post_with_refresh", fake_post)
-    monkeypatch.setattr(api, "ensure_login", fake_ensure_login)
-
-    result = await api.kippymap_action(12345)
-    await session.close()
-
-    assert result == {"return": False}
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories_no_pets(
-    monkeypatch, api
-) -> None:
-    """The combined test skips when no pets are returned."""
-
-    async def fake_get_pet_kippy_list():
-        return []
-
-    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
-
-    with pytest.raises(pytest.skip.Exception):
-        await test_kippymap_action_and_activity_categories(api)
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories_active_subscription(
-    monkeypatch, api
-) -> None:
-    """The combined test runs when subscription is active."""
-
-    async def fake_get_pet_kippy_list():
-        return [{"kippyID": "1", "petID": "1", "expired_days": -1}]
-
-    called = {"map": 0, "activity": 0}
-
-    async def fake_kippymap_action(*_args, **_kwargs):
-        called["map"] += 1
-        return {}
-
-    async def fake_get_activity_categories(*_args, **_kwargs):
-        called["activity"] += 1
-        return {}
-
-    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
-    monkeypatch.setattr(api, "kippymap_action", fake_kippymap_action)
-    monkeypatch.setattr(api, "get_activity_categories", fake_get_activity_categories)
-
-    await test_kippymap_action_and_activity_categories(api)
-
-    assert called["map"] == 1
-    assert called["activity"] == 1
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories_inactive_subscription_skips(
-    monkeypatch, api
-) -> None:
-    """The combined test skips when subscription inactive."""
-
-    async def fake_get_pet_kippy_list():
-        return [{"kippyID": "1", "petID": "1", "expired_days": 0}]
-
-    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
-
-    with pytest.raises(pytest.skip.Exception):
-        await test_kippymap_action_and_activity_categories(api)
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories_no_kippy_id(
-    monkeypatch, api
-) -> None:
-    """The combined test skips when pet lacks a kippy id."""
-
-    async def fake_get_pet_kippy_list():
-        return [{"petID": "123"}]
-
-    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
-
-    with pytest.raises(pytest.skip.Exception):
-        await test_kippymap_action_and_activity_categories(api)
-
-
-@pytest.mark.asyncio
-async def test_kippymap_action_and_activity_categories_no_pet_id(
-    monkeypatch, api
-) -> None:
-    """The combined test skips when pet lacks a pet id."""
-
-    async def fake_get_pet_kippy_list():
-        return [{"device_kippy_id": "456"}]
-
-    async def fake_kippymap_action(*_args, **_kwargs):
-        return {}
-
-    monkeypatch.setattr(api, "get_pet_kippy_list", fake_get_pet_kippy_list)
-    monkeypatch.setattr(api, "kippymap_action", fake_kippymap_action)
-
-    with pytest.raises(pytest.skip.Exception):
-        await test_kippymap_action_and_activity_categories(api)
+            assert len(devices) > 0, "No devices were registered"
+            assert len(entities) > 0, "No entities were registered"
+            trackers = [
+                entity for entity in entities if entity.domain == "device_tracker"
+            ]
+            assert len(trackers) > 0, "No active pet trackers were registered"
+            device_ids = {device.id for device in devices}
+            for tracker in trackers:
+                assert tracker.device_id in device_ids, (
+                    "Tracker has no linked pet device"
+                )
+                state = hass.states.get(tracker.entity_id)
+                assert state is not None, "Tracker state was not created"
+                assert state.state != "unavailable", "Tracker is unavailable"
+            assert await hass.config_entries.async_unload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert not session.closed, (
+                "Integration closed Home Assistant's shared session"
+            )
+    finally:
+        if entry.state is ConfigEntryState.LOADED:
+            await hass.config_entries.async_unload(entry.entry_id)
+            await hass.async_block_till_done()
+        logging.disable(logging_disabled)

@@ -5,6 +5,7 @@ Reads the ``homeassistant.const`` module from the version pinned in
 ``requirements.txt`` and prints requested constant values. If no names are
 provided, it lists all available constant names.
 """
+
 from __future__ import annotations
 
 import sys

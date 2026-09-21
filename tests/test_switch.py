@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
+from kippy_api import KippyAuthError, KippyConnectionError
+from kippy_api.const import APP_ACTION, OPERATING_STATUS
 
 from custom_components.kippy.const import (
-    APP_ACTION,
     DOMAIN,
-    OPERATING_STATUS,
     OPERATING_STATUS_MAP,
     OPERATING_STATUS_STARTING_LIVE,
 )
@@ -217,13 +217,15 @@ async def test_live_tracking_switch_propagates_error() -> None:
     coordinator = MagicMock()
     coordinator.data = {}
     coordinator.kippy_id = 1
-    coordinator.api.kippymap_action = AsyncMock(side_effect=RuntimeError)
+    coordinator.api.kippymap_action = AsyncMock(
+        side_effect=KippyConnectionError("Offline")
+    )
     coordinator.async_add_listener = MagicMock()
     switch = KippyLiveTrackingSwitch(coordinator, pet)
     switch.hass = MagicMock()
     switch.entity_id = "switch.live"
     switch.async_write_ha_state = MagicMock()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(HomeAssistantError):
         await switch.async_turn_on()
 
 
@@ -274,12 +276,14 @@ async def test_energy_saving_switch_api_error() -> None:
     coordinator = MagicMock()
     coordinator.data = {"pets": [pet]}
     coordinator.async_add_listener = MagicMock(return_value=MagicMock())
-    coordinator.api.modify_kippy_settings = AsyncMock(side_effect=RuntimeError)
+    coordinator.api.modify_kippy_settings = AsyncMock(
+        side_effect=KippyConnectionError("Offline")
+    )
     map_coordinator = MagicMock()
     map_coordinator.async_add_listener = MagicMock(return_value=MagicMock())
     switch = KippyEnergySavingSwitch(coordinator, pet, map_coordinator)
     switch.async_write_ha_state = MagicMock()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(HomeAssistantError):
         await switch.async_turn_on()
     assert pet["energySavingMode"] == 0
     switch.async_write_ha_state.assert_not_called()
@@ -293,10 +297,12 @@ async def test_gps_switch_api_error() -> None:
     coordinator = MagicMock()
     coordinator.data = {"pets": [pet]}
     coordinator.async_add_listener = MagicMock(return_value=MagicMock())
-    coordinator.api.modify_kippy_settings = AsyncMock(side_effect=RuntimeError)
+    coordinator.api.modify_kippy_settings = AsyncMock(
+        side_effect=KippyConnectionError("Offline")
+    )
     switch = KippyGpsDefaultSwitch(coordinator, pet)
     switch.async_write_ha_state = MagicMock()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(HomeAssistantError):
         await switch.async_turn_off()
     assert pet["gpsOnDefault"] == 1
     switch.async_write_ha_state.assert_not_called()
@@ -530,3 +536,29 @@ def test_switches_raise_for_sync_methods() -> None:
         ignore.turn_on()
     with pytest.raises(NotImplementedError):
         ignore.turn_off()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("auth_failure", [True, False])
+async def test_command_failure_preserves_state_and_requests_reauth(hass, auth_failure):
+    """Failed commands cannot optimistically update state or hide expired auth."""
+    coordinator = MagicMock()
+    coordinator.data = {"operating_status": OPERATING_STATUS_MAP[OPERATING_STATUS.IDLE]}
+    coordinator.kippy_id = 123
+    coordinator.last_update_success = True
+    error = (
+        KippyAuthError("Expired") if auth_failure else KippyConnectionError("Offline")
+    )
+    coordinator.api.kippymap_action = AsyncMock(side_effect=error)
+    switch = KippyLiveTrackingSwitch(coordinator, {"petID": 1})
+    switch.hass = hass
+    switch.async_write_ha_state = MagicMock()
+    with pytest.raises(HomeAssistantError):
+        await switch.async_turn_on()
+    assert not switch.is_on
+    coordinator.process_new_data.assert_not_called()
+    switch.async_write_ha_state.assert_not_called()
+    if auth_failure:
+        coordinator.config_entry.async_start_reauth.assert_called_once_with(hass)
+    else:
+        coordinator.config_entry.async_start_reauth.assert_not_called()

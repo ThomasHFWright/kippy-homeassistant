@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.components.number import NumberMode
+from homeassistant.exceptions import HomeAssistantError
+from kippy_api import KippyConnectionError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kippy.const import DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES, DOMAIN
@@ -166,10 +168,12 @@ async def test_update_frequency_number_api_error() -> None:
     coordinator = MagicMock()
     coordinator.data = {"pets": [pet]}
     coordinator.async_add_listener = MagicMock()
-    coordinator.api.modify_kippy_settings = AsyncMock(side_effect=RuntimeError)
+    coordinator.api.modify_kippy_settings = AsyncMock(
+        side_effect=KippyConnectionError("Offline")
+    )
     number = KippyUpdateFrequencyNumber(coordinator, pet)
     number.async_write_ha_state = MagicMock()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(HomeAssistantError):
         await number.async_set_native_value(10)
     assert pet["updateFrequency"] == 5
     number.async_write_ha_state.assert_not_called()

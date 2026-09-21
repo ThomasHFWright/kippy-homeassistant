@@ -3,7 +3,8 @@
   "config": {
     "error": {
       "cannot_connect": "Failed to connect",
-      "invalid_auth": "Invalid authentication"
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
     },
     "step": {
       "user": {
@@ -13,7 +14,18 @@
           "email": "Email",
           "password": "Password"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect your Kippy account",
+        "description": "Enter the password for the Kippy account already configured.",
+        "data": {
+          "password": "Password"
+        }
       }
+    },
+    "abort": {
+      "already_configured": "This account is already configured",
+      "reauth_successful": "Reauthentication was successful"
     }
   },
   "options": {
@@ -31,15 +43,6 @@
     }
   },
   "exceptions": {
-    "no_credentials": {
-      "message": "No stored credentials; call login() first"
-    },
-    "auth_failure": {
-      "message": "Unexpected authentication failure"
-    },
-    "no_auth_data": {
-      "message": "No authentication data available"
-    },
     "expired": {
       "message": "Expired"
     }

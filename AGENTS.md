@@ -5,7 +5,7 @@ This repository provides the Kippy integration for the Home Assistant home autom
 ## General Instructions
 
 - Always read this entire AGENTS.md file before making changes; do not skip any sections.
-- If Python 3.13 is not installed, install it before running any other commands.
+- Use Python >=3.14.2 for development; the historical compatibility suite uses Python 3.13.15.
 
 ## Integration Quality Scale
 
@@ -62,7 +62,7 @@ rules:
 
 ## Python Requirements
 
-- **Compatibility**: Python 3.13+
+- **Compatibility**: Keep integration code compatible with Python 3.13; development uses Python >=3.14.2
 - **Language Features**: Use the newest features when possible:
   - Pattern matching
   - Type hints
@@ -82,7 +82,7 @@ rules:
 ## Code Quality Standards
 
 - **Formatting**: Ruff
-- **Linting**: PyLint and Ruff
+- **Linting**: Ruff
 - **Type Checking**: MyPy
 - **Testing**: pytest with plain functions and fixtures
 - **Language**: American English for all code, comments, and documentation (use sentence case, including titles)
@@ -115,7 +115,9 @@ rules:
 - **coordinator.py**: Centralize data fetching logic
   ```python
   class MyCoordinator(DataUpdateCoordinator[MyData]):
-      def __init__(self, hass: HomeAssistant, client: MyClient, config_entry: ConfigEntry) -> None:
+      def __init__(
+          self, hass: HomeAssistant, client: MyClient, config_entry: ConfigEntry
+      ) -> None:
           super().__init__(
               hass,
               logger=LOGGER,
@@ -137,7 +139,10 @@ rules:
   ```python
   type MyIntegrationConfigEntry = ConfigEntry[MyClient]
 
-  async def async_setup_entry(hass: HomeAssistant, entry: MyIntegrationConfigEntry) -> bool:
+
+  async def async_setup_entry(
+      hass: HomeAssistant, entry: MyIntegrationConfigEntry
+  ) -> bool:
       client = MyClient(entry.data[CONF_HOST])
       entry.runtime_data = client
   ```
@@ -240,7 +245,9 @@ rules:
 
   ```python
   class MyCoordinator(DataUpdateCoordinator):
-      def __init__(self, hass: HomeAssistant, client: MyClient, config_entry: ConfigEntry) -> None:
+      def __init__(
+          self, hass: HomeAssistant, client: MyClient, config_entry: ConfigEntry
+      ) -> None:
           super().__init__(
               hass,
               logger=LOGGER,
@@ -301,8 +308,7 @@ rules:
   await self.async_set_unique_id(user_id)
   self._abort_if_unique_id_mismatch(reason="wrong_account")
   return self.async_update_reload_and_abort(
-      self._get_reauth_entry(),
-      data_updates={CONF_API_TOKEN: user_input[CONF_API_TOKEN]}
+      self._get_reauth_entry(), data_updates={CONF_API_TOKEN: user_input[CONF_API_TOKEN]}
   )
   ```
 
@@ -339,8 +345,9 @@ rules:
   ```python
   entry.async_on_unload(
       ssdp.async_register_callback(
-          hass, _async_discovered_device,
-          {"st": "urn:schemas-upnp-org:device:ZonePlayer:1"}
+          hass,
+          _async_discovered_device,
+          {"st": "urn:schemas-upnp-org:device:ZonePlayer:1"},
       )
   )
   ```
@@ -354,9 +361,10 @@ rules:
   scanner = bluetooth.async_get_scanner()
   entry.async_on_unload(
       bluetooth.async_register_callback(
-          hass, _async_discovered_device,
+          hass,
+          _async_discovered_device,
           {"service_uuid": "example_uuid"},
-          bluetooth.BluetoothScanningMode.ACTIVE
+          bluetooth.BluetoothScanningMode.ACTIVE,
       )
   )
   ```
@@ -390,7 +398,11 @@ rules:
   ```python
   async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
       async def service_action(call: ServiceCall) -> ServiceResponse:
-          if not (entry := hass.config_entries.async_get_entry(call.data[ATTR_CONFIG_ENTRY_ID])):
+          if not (
+              entry := hass.config_entries.async_get_entry(
+                  call.data[ATTR_CONFIG_ENTRY_ID]
+              )
+          ):
               raise ServiceValidationError("Entry not found")
           if entry.state is not ConfigEntryState.LOADED:
               raise ServiceValidationError("Entry not loaded")
@@ -414,18 +426,18 @@ rules:
 - **Entity Services**: Register on platform setup
   ```python
   platform.async_register_entity_service(
-      "my_entity_service",
-      {vol.Required("parameter"): cv.string},
-      "handle_service_method"
+      "my_entity_service", {vol.Required("parameter"): cv.string}, "handle_service_method"
   )
   ```
 - **Service Schema**: Always validate input
   ```python
-  SERVICE_SCHEMA = vol.Schema({
-      vol.Required("entity_id"): cv.entity_ids,
-      vol.Required("parameter"): cv.string,
-      vol.Optional("timeout", default=30): cv.positive_int,
-  })
+  SERVICE_SCHEMA = vol.Schema(
+      {
+          vol.Required("entity_id"): cv.entity_ids,
+          vol.Required("parameter"): cv.string,
+          vol.Optional("timeout", default=30): cv.positive_int,
+      }
+  )
   ```
 - **Services File**: Create `services.yaml` with descriptions and field definitions
 
@@ -493,12 +505,14 @@ rules:
   except Exception:  # Too broad
       _LOGGER.error("Failed")
 
+
   # ✅ Allowed in config flow for robustness
   async def async_step_user(self, user_input=None):
       try:
           await self._test_connection(user_input)
       except Exception:  # Allowed here
           errors["base"] = "unknown"
+
 
   # ✅ Allowed in background tasks
   async def _background_refresh():
@@ -584,7 +598,11 @@ rules:
   SensorEntityDescription(
       key="temperature",
       name="Temperature",
-      value_fn=lambda data: round(data["temp_value"] * 1.8 + 32, 1) if data.get("temp_value") is not None else None,  # ❌ Too long
+      value_fn=lambda data: (
+          round(data["temp_value"] * 1.8 + 32, 1)
+          if data.get("temp_value") is not None
+          else None
+      ),  # ❌ Too long
   )
   ```
 - **Good pattern**:
@@ -607,6 +625,7 @@ rules:
   ```python
   class MySensor(SensorEntity):
       _attr_has_entity_name = True
+
       def __init__(self, device: Device, field: str) -> None:
           self._attr_device_info = DeviceInfo(
               identifiers={(DOMAIN, device.id)},
@@ -622,9 +641,7 @@ rules:
   ```python
   async def async_added_to_hass(self) -> None:
       """Subscribe to events."""
-      self.async_on_remove(
-          self.client.events.subscribe("my_event", self._handle_event)
-      )
+      self.async_on_remove(self.client.events.subscribe("my_event", self._handle_event))
   ```
 - **Unsubscribe in `async_will_remove_from_hass`** if not using `async_on_remove`
 - Never subscribe in `__init__` or other methods
@@ -692,7 +709,10 @@ rules:
       new_devices = current_devices - known_devices
       if new_devices:
           known_devices.update(new_devices)
-          async_add_entities([MySensor(coordinator, device_id) for device_id in new_devices])
+          async_add_entities(
+              [MySensor(coordinator, device_id) for device_id in new_devices]
+          )
+
 
   entry.async_on_unload(coordinator.async_add_listener(_check_device))
   ```
@@ -718,6 +738,7 @@ rules:
 
   ```python
   TO_REDACT = [CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE]
+
 
   async def async_get_config_entry_diagnostics(
       hass: HomeAssistant, entry: MyConfigEntry
@@ -775,7 +796,9 @@ rules:
 - **Additional Attributes**:
   ```python
   ir.async_create_issue(
-      hass, DOMAIN, "issue_id",
+      hass,
+      DOMAIN,
+      "issue_id",
       breaks_in_ha_version="2024.1.0",
       is_fixable=True,
       is_persistent=True,
@@ -912,63 +935,19 @@ rules:
   - Prevention of duplicate entries
   - Flow completion after errors
 
-## Development Commands
+## Development commands
 
-### Code Quality & Linting
-
-- **Required before submission**: Run `pylint custom_components/kippy` to lint the entire integration
-- **Run all linters on all files**: `pre-commit run --all-files`
-- **Run linters on staged files only**: `pre-commit run`
-- **MyPy type checking (whole project)**: `mypy custom_components/`
-- **MyPy on specific integration**: `mypy custom_components/kippy`
-
-### Testing
-
-- **Integration-specific tests** (recommended):
-  ```bash
-  pytest ./tests \
-    --cov=custom_components.kippy \
-    --cov-report term-missing \
-    --durations-min=1 \
-    --durations=0 \
-    --numprocesses=auto
-  ```
-- **Quick test of changed files**: `pytest --timeout=10 --picked`
-- **Update test snapshots**: Add `--snapshot-update` to pytest command
-  - ⚠️ Omit test results after using `--snapshot-update`
-  - Always run tests again without the flag to verify snapshots
-- **Full test suite** (AVOID - very slow): `pytest ./tests`
-
-### Dependencies & Requirements
-
-- **Update generated files after dependency changes**: `python -m script.gen_requirements_all`
-- **Install all Python requirements**:
-  ```bash
-  uv pip install -r requirements_all.txt -r requirements.txt -r requirements_test.txt
-  ```
-- **Install test requirements only**:
-  ```bash
-  uv pip install -r requirements_test_all.txt -r requirements.txt
-  ```
-
-### Translations
-
-- **Update translations after strings.json changes**:
-  ```bash
-  python -m script.translations develop --all
-  ```
-
-### Project Validation
-
-- **Run hassfest** (checks project structure and updates generated files):
-  ```bash
-  python -m script.hassfest
-  ```
-
-### File Locations
-
-- **Integration code**: `./custom_components/kippy/`
-- **Integration tests**: `./tests/`
+- Install tools and the local API: `KIPPY_API_PATH=../kippy-api script/setup`.
+- Lint, formatting and typing: `script/check`.
+- Tests: `script/test --cov --cov-report=term-missing`.
+- Pre-commit: `.venv-dev/bin/pre-commit run --all-files`.
+- Runtime: `script/develop` (localhost port 8123, isolated `dev-config`).
+- Validation: `.venv-dev/bin/python script/hassfest --integration-path custom_components/kippy`.
+- All configuration lives in `pyproject.toml`; Ruff replaces Black, isort,
+  Flake8 and Pylint. Do not run competing formatters.
+- This is a custom integration repository, not a Core checkout: Core's
+  `script.gen_requirements_all` and translation generators are not available here.
+- See `docs/development/development.md` for setup, baseline and release requirements.
 
 ## Integration Templates
 
@@ -1080,17 +1059,22 @@ except ApiException as err:
 # Redacted diagnostics data
 return async_redact_data(data, {"api_key", "password"})  # ✅ Safe
 
+
 # Test through proper integration setup and fixtures
 @pytest.fixture
 async def init_integration(hass, mock_config_entry, mock_api):
     mock_config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(mock_config_entry.entry_id)  # ✅ Proper setup
 
+
 # Integration-determined polling intervals (not user-configurable)
 SCAN_INTERVAL = timedelta(minutes=5)  # ✅ Common pattern: constant in const.py
 
+
 class MyCoordinator(DataUpdateCoordinator[MyData]):
-    def __init__(self, hass: HomeAssistant, client: MyClient, config_entry: ConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, client: MyClient, config_entry: ConfigEntry
+    ) -> None:
         # ✅ Integration determines interval based on device capabilities, connection type, etc.
         interval = timedelta(minutes=1) if client.is_local else SCAN_INTERVAL
         super().__init__(
@@ -1144,6 +1128,7 @@ async def test_user_flow_success(hass, mock_api):
     assert result["title"] == "My Device"
     assert result["data"] == TEST_USER_INPUT
 
+
 async def test_flow_connection_error(hass, mock_api_error):
     """Test connection error handling."""
     result = await hass.config_entries.flow.async_init(
@@ -1163,6 +1148,7 @@ async def test_flow_connection_error(hass, mock_api_error):
 def platforms() -> list[Platform]:
     """Overridden fixture to specify platforms to test."""
     return [Platform.SENSOR]  # Or another specific platform as needed.
+
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default", "init_integration")
 async def test_entities(
@@ -1201,6 +1187,7 @@ def mock_config_entry() -> MockConfigEntry:
         unique_id="device_unique_id",
     )
 
+
 @pytest.fixture
 def mock_device_api() -> Generator[MagicMock]:
     """Return a mocked device API."""
@@ -1211,10 +1198,12 @@ def mock_device_api() -> Generator[MagicMock]:
         )
         yield api
 
+
 @pytest.fixture
 def platforms() -> list[Platform]:
     """Fixture to specify platforms to test."""
     return PLATFORMS
+
 
 @pytest.fixture
 async def init_integration(
@@ -1254,51 +1243,12 @@ _LOGGER = logging.getLogger(__name__)
 _LOGGER.debug("Processing data: %s", data)  # Use lazy logging
 ```
 
-### Validation Commands
+### Validation commands
 
-Always run the full suite of formatting, linting, and validation commands
-before finishing any change. Ruff formatting and linting, isort, flake8, and
-pylint are mandatory for every update.
-
-```bash
-# Sort imports with isort (required for every change)
-isort .
-
-# Format and lint with Ruff (required for every change, including the entire tests suite)
-ruff format
-ruff check
-
-# Lint with Flake8 (required for every change; lint the integration and every test module)
-python -m flake8 custom_components/kippy tests
-
-# Lint with pylint (required for every change; lint the integration and every test module)
-python -m pylint custom_components/kippy tests
-
-# Check specific integration (uses HA version from requirements.txt)
-python script/hassfest --integration-path custom_components/kippy
-
-# Validate quality scale
-# Check quality_scale.yaml against current rules
-
-# Run integration tests with coverage
-pytest ./tests \
-  --cov=custom_components.kippy \
-  --cov-report term-missing
-```
-
-The `script/hassfest` wrapper downloads the Home Assistant Core repository
-matching the `homeassistant` version pinned in `requirements.txt` to keep the
-validation rules in sync with the runtime environment.
-
-### Known hassfest Ruff error
-
-If `python script/hassfest --integration-path custom_components/kippy` fails with
-`Rule S320 removed and cannot be selected`, reinstall the pinned Ruff version to
-align with the Home Assistant Core release:
-
-```bash
-python -m pip install --force-reinstall ruff==0.2.1
-```
+Run `script/check`, `script/test --cov --cov-report=term-missing`, and
+`.venv-dev/bin/python script/hassfest --integration-path custom_components/kippy`.
+Report actual failures; do not suppress existing failures or claim unchecked gates.
+The hassfest wrapper uses the installed Home Assistant version and verified TLS.
 
 ### Home Assistant Constants
 
@@ -1320,17 +1270,12 @@ The script reads the same `homeassistant` version specified in
   `strings.json`/`translations/*` to keep them translatable while complying
   with hassfest.
 
-### SSL Certificate Failures
+### TLS certificate failures
 
-- If a command fails with `urllib.error.URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Missing Authority Key Identifier>`,
-  network access is unavailable in this environment.
-- In that case, execute the offline fake API tests instead:
-
-```bash
-pytest tests/test_api_fake.py tests/test_api_unit.py
-```
+Fix the certificate trust configuration; never disable certificate verification.
+Offline tests remain useful, but do not establish live API compatibility.
 
 ## General Instructions
 
 - If you are only reading the end of this file, restart and read the entire file and take note of all instructions; do not skip any sections.
-- If Python 3.13 is not installed, install it before running any other commands.
+- Use Python >=3.14.2 for development; the historical compatibility suite uses Python 3.13.15.

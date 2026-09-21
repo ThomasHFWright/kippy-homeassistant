@@ -8,16 +8,19 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.unit_conversion import DurationConverter
+from kippy_api.const import OPERATING_STATUS
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.kippy.const import DOMAIN, OPERATING_STATUS, PET_KIND_TO_TYPE
+from custom_components.kippy.const import DOMAIN, PET_KIND_TO_TYPE
+from custom_components.kippy.helpers import DEVICE_UPDATE_INTERVAL_KEY
 
 
 @pytest.mark.asyncio
-async def test_pet_setup_end_to_end(
-    hass: HomeAssistant, enable_custom_integrations
-) -> None:
+async def test_pet_setup_end_to_end(hass: HomeAssistant, entity_registry) -> None:
     """Test full integration setup and sensor values for a pet."""
     today = datetime.now(timezone.utc)
     today_str = today.strftime("%Y-%m-%d")
@@ -100,11 +103,13 @@ async def test_pet_setup_end_to_end(
     api.get_pet_kippy_list.assert_awaited_once()
     api.kippymap_action.assert_awaited_once_with(123)
     api.get_activity_categories.assert_awaited_once_with(
-        1, today_str, (today + timedelta(days=1)).strftime("%Y-%m-%d"), 2, 1
+        1,
+        today_str,
+        (today + timedelta(days=1)).strftime("%Y-%m-%d"),
+        2,
+        1,
+        timezone=timezone.utc,
     )
-
-    data = hass.data[DOMAIN][entry.entry_id]
-    assert set(data["map_coordinators"].keys()) == {1}
 
     run = DurationConverter.convert(10, UnitOfTime.MINUTES, UnitOfTime.HOURS)
     walk = DurationConverter.convert(20, UnitOfTime.MINUTES, UnitOfTime.HOURS)
@@ -138,8 +143,19 @@ async def test_pet_setup_end_to_end(
         "sensor.rex_jumps": "70",
     }
 
+    def sensor_state(entity_id):
+        """Find state by stable unique ID across HA's naming changes."""
+        name = entity_id.removeprefix("sensor.rex_")
+        suffix = {"days_until_expiry": "expired_days", "battery_level": "battery"}.get(
+            name, name
+        )
+        registered_id = entity_registry.async_get_entity_id(
+            "sensor", DOMAIN, f"1_{suffix}"
+        )
+        return hass.states.get(registered_id) if registered_id else None
+
     for entity_id, value in expected_states.items():
-        state = hass.states.get(entity_id)
+        state = sensor_state(entity_id)
         assert state is not None, f"Missing entity {entity_id}"
         assert state.state == value
 
@@ -157,10 +173,103 @@ async def test_pet_setup_end_to_end(
     }
 
     for entity_id, value in time_states.items():
-        state = hass.states.get(entity_id)
+        state = sensor_state(entity_id)
         assert state is not None, f"Missing entity {entity_id}"
         assert float(state.state) == pytest.approx(value)
 
-    assert hass.states.get("sensor.old_days_until_expiry").state == "Expired"
-    assert hass.states.get("sensor.old_battery_level") is None
-    assert hass.states.get("sensor.old_steps") is None
+    expired_id = entity_registry.async_get_entity_id("sensor", DOMAIN, "2_expired_days")
+    assert hass.states.get(expired_id).state == "Expired"
+    assert entity_registry.async_get_entity_id("sensor", DOMAIN, "2_battery") is None
+    assert entity_registry.async_get_entity_id("sensor", DOMAIN, "2_steps") is None
+
+
+@pytest.mark.asyncio
+async def test_multiple_active_pets_keep_registry_ids_after_reload(
+    hass, entity_registry, device_registry
+):
+    """Both active pets retain devices, entities and options across reload."""
+    api = AsyncMock()
+    api.get_pet_kippy_list.return_value = [
+        {"petID": pet_id, "petName": name, "kippyID": pet_id * 100, "expired_days": -5}
+        for pet_id, name in [(1, "Rex"), (2, "Mia")]
+    ]
+    api.kippymap_action.return_value = {
+        "battery": 80,
+        "gps_latitude": 1.0,
+        "gps_longitude": 2.0,
+        "operating_status": OPERATING_STATUS.IDLE,
+    }
+    api.get_activity_categories.return_value = {"activities": []}
+    options = {
+        DEVICE_UPDATE_INTERVAL_KEY: 30,
+        "map_refresh_settings": {"1": {"idle_seconds": 480, "live_seconds": 12}},
+    }
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="user",
+        data={CONF_EMAIL: "user", CONF_PASSWORD: "pass"},
+        options=options,
+    )
+    entry.add_to_hass(hass)
+    for pet_id, name in [(1, "rex"), (2, "mia")]:
+        entity_registry.async_get_or_create(
+            "sensor",
+            DOMAIN,
+            f"{pet_id}_battery",
+            suggested_object_id=f"{name}_battery_level",
+            config_entry=entry,
+        )
+        entity_registry.async_get_or_create(
+            "device_tracker",
+            DOMAIN,
+            pet_id,
+            suggested_object_id=f"kippy_{name}",
+            config_entry=entry,
+        )
+    session = async_get_clientsession(hass)
+    with patch("custom_components.kippy.KippyApi.async_create", return_value=api):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        device_ids = {}
+        for pet_id, name in [(1, "rex"), (2, "mia")]:
+            device = next(
+                device
+                for device in dr.async_entries_for_config_entry(
+                    device_registry, entry.entry_id
+                )
+                if (DOMAIN, str(pet_id)) in device.identifiers
+            )
+            assert device is not None
+            device_ids[pet_id] = device.id
+            battery = entity_registry.async_get(f"sensor.{name}_battery_level")
+            assert battery.unique_id == f"{pet_id}_battery"
+            assert battery.device_id == device.id
+            assert hass.states.get(battery.entity_id).state == "80"
+            tracker = entity_registry.async_get(f"device_tracker.kippy_{name}")
+            assert tracker is not None
+            assert str(tracker.unique_id) == str(pet_id)
+            assert tracker.device_id == device.id
+            assert hass.states.get(tracker.entity_id).state == "not_home"
+        original = {
+            entity.entity_id: (entity.unique_id, entity.device_id)
+            for entity in er.async_entries_for_config_entry(
+                entity_registry, entry.entry_id
+            )
+        }
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        assert {
+            entity.entity_id: (entity.unique_id, entity.device_id)
+            for entity in er.async_entries_for_config_entry(
+                entity_registry, entry.entry_id
+            )
+        } == original
+        assert entry.options == options
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+    assert not session.closed
+    for entity_id in original:
+        state = hass.states.get(entity_id)
+        assert state is None or state.state == "unavailable"
+    for pet_id, device_id in device_ids.items():
+        assert (DOMAIN, str(pet_id)) in device_registry.async_get(device_id).identifiers

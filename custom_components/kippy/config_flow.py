@@ -5,14 +5,13 @@ from __future__ import annotations
 import logging
 
 import voluptuous as vol
-from aiohttp import ClientError, ClientResponseError
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import aiohttp_client, selector
+from kippy_api import KippyApi, KippyAuthError, KippyError
 
-from .api import KippyApi
 from .const import (
     DOMAIN,
     MAX_DEVICE_UPDATE_INTERVAL_MINUTES,
@@ -36,48 +35,17 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Return True when ``other_flow`` targets the same integration."""
         return isinstance(other_flow, KippyConfigFlow)
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
+    async def async_step_user(self, user_input=None) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            if not isinstance(self.context, dict):
-                self.context = dict(self.context)
-            existing_entry = await self.async_set_unique_id(user_input[CONF_EMAIL])
-            async_entry_lookup = getattr(
-                getattr(self.hass, "config_entries", None),
-                "async_entry_for_domain_unique_id",
-                None,
-            )
-            if hasattr(async_entry_lookup, "return_value") and not isinstance(
-                existing_entry, config_entries.ConfigEntry
-            ):
-                async_entry_lookup.return_value = None
+            await self.async_set_unique_id(user_input[CONF_EMAIL])
             self._abort_if_unique_id_configured()
-            session = aiohttp_client.async_get_clientsession(self.hass)
-            api = await KippyApi.async_create(session)
-            try:
-                await api.login(user_input[CONF_EMAIL], user_input[CONF_PASSWORD])
-            except ClientResponseError as err:
-                if err.status in (401, 403):
-                    errors["base"] = "invalid_auth"
-                else:
-                    _LOGGER.debug(
-                        "Unexpected response during login: status=%s message=%s",
-                        err.status,
-                        err.message,
-                    )
-                    errors["base"] = "cannot_connect"
-            except ClientError as err:
-                _LOGGER.debug("Error communicating with Kippy API: %s", err)
-                errors["base"] = "cannot_connect"
-            except RuntimeError as err:
-                _LOGGER.debug("Unexpected runtime error during login: %s", err)
-                errors["base"] = "unknown"
-            # pylint: disable-next=broad-exception-caught
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.exception("Unexpected error during login: %s", err)
-                errors["base"] = "unknown"
+            if error := await self._async_validate_credentials(
+                user_input[CONF_EMAIL], user_input[CONF_PASSWORD]
+            ):
+                errors["base"] = error
             else:
                 return self.async_create_entry(
                     title=user_input[CONF_EMAIL], data=user_input
@@ -91,6 +59,49 @@ class KippyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(
             step_id="user", data_schema=data_schema, errors=errors
+        )
+
+    async def _async_validate_credentials(
+        self, email: str, password: str
+    ) -> str | None:
+        """Validate credentials without storing authentication tokens in HA."""
+        try:
+            session = aiohttp_client.async_get_clientsession(self.hass)
+            api = await KippyApi.async_create(session)
+            await api.login(email, password)
+        except KippyAuthError:
+            return "invalid_auth"
+        except KippyError:
+            return "cannot_connect"
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Unexpected error during login")
+            return "unknown"
+        return None
+
+    async def async_step_reauth(self, entry_data: dict) -> ConfigFlowResult:
+        """Start reauthentication for the existing account."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None) -> ConfigFlowResult:
+        """Replace the password while preserving the account and its entities."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if error := await self._async_validate_credentials(
+                entry.data[CONF_EMAIL], user_input[CONF_PASSWORD]
+            ):
+                errors["base"] = error
+            else:
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, CONF_PASSWORD: user_input[CONF_PASSWORD]}
+                )
+                # The options listener adjusts polling; credential changes need a reload.
+                self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_abort(reason="reauth_successful")
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
+            errors=errors,
         )
 
     @staticmethod
@@ -109,7 +120,7 @@ class KippyOptionsFlowHandler(config_entries.OptionsFlow):
 
         self._config_entry = config_entry
 
-    async def async_step_init(self, user_input=None) -> FlowResult:
+    async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         """Handle the options step for configuring refresh interval."""
 
         errors: dict[str, str] = {}

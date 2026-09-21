@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from asyncio import TimeoutError as AsyncioTimeoutError
-from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from inspect import isawaitable
-from json import JSONDecodeError
-from typing import Any, cast
+from typing import Any
 
-from aiohttp import ClientError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
+from kippy_api import KippyAuthError, KippyError
 
 from .const import (
     DEFAULT_DEVICE_UPDATE_INTERVAL_MINUTES,
@@ -21,18 +21,23 @@ from .const import (
     MIN_DEVICE_UPDATE_INTERVAL_MINUTES,
 )
 
-API_EXCEPTIONS: tuple[type[Exception], ...] = (
-    ClientError,
-    AsyncioTimeoutError,
-    RuntimeError,
-    JSONDecodeError,
-)
-
 MAP_REFRESH_OPTIONS_KEY = "map_refresh_settings"
 MAP_REFRESH_IDLE_KEY = "idle_seconds"
 MAP_REFRESH_LIVE_KEY = "live_seconds"
 
 DEVICE_UPDATE_INTERVAL_KEY = "device_update_interval"
+
+
+@contextmanager
+def api_action_errors(hass: HomeAssistant, entry: ConfigEntry) -> Iterator[None]:
+    """Translate API action failures and request reauthentication when needed."""
+    try:
+        yield
+    except KippyAuthError as err:
+        entry.async_start_reauth(hass)
+        raise HomeAssistantError("Kippy authentication expired; sign in again") from err
+    except KippyError as err:
+        raise HomeAssistantError("Unable to complete the Kippy action") from err
 
 
 @dataclass(slots=True)
@@ -125,25 +130,24 @@ def build_device_info(
     if kippy_serial:
         connections.add(("serial", str(kippy_serial)))
 
-    return DeviceInfo(
+    info = DeviceInfo(
         identifiers=identifiers,
-        connections=connections or None,
         name=name or build_device_name(pet),
         manufacturer="Kippy",
         model=pet.get("kippyType"),
         sw_version=pet.get("kippyFirmware"),
         serial_number=kippy_serial,
     )
+    if connections:
+        info["connections"] = connections
+    return info
 
 
 def is_pet_subscription_active(pet: Mapping[str, Any]) -> bool:
     """Return ``True`` if the pet's subscription is active."""
 
-    expired_days = pet.get("expired_days")
-    try:
-        return int(expired_days) < 0
-    except (TypeError, ValueError):
-        return True
+    expired_days = coerce_int(pet.get("expired_days"))
+    return expired_days is None or expired_days < 0
 
 
 def normalize_kippy_identifier(
@@ -163,11 +167,11 @@ def normalize_kippy_identifier(
 
 
 def update_pet_data(
-    pets: Iterable[Mapping[str, Any]],
+    pets: Iterable[dict[str, Any]],
     pet_id: int | str,
-    current: MutableMapping[str, Any],
+    current: dict[str, Any],
     preserve: Sequence[str] | None = None,
-) -> MutableMapping[str, Any]:
+) -> dict[str, Any]:
     """Return the latest pet data from ``pets`` preserving ``preserve`` keys."""
 
     preserve = tuple(preserve or ())
@@ -178,7 +182,7 @@ def update_pet_data(
             for field in preserve:
                 if field in current and field not in pet:
                     pet[field] = current[field]
-        return cast(MutableMapping[str, Any], pet)
+        return pet
     return current
 
 

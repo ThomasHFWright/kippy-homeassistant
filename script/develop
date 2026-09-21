@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# exec lets Home Assistant receive shutdown signals and clean up its own resources.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+venv="${KIPPY_VENV:-$PWD/.venv-dev}"
+config="${KIPPY_DEV_CONFIG:-$PWD/dev-config}"
+export KIPPY_DEV_PORT="${KIPPY_DEV_PORT:-8123}"
+"$venv/bin/python" -c 'import os; port = int(os.environ["KIPPY_DEV_PORT"]); assert 1 <= port <= 65535, "Invalid port"'
+mkdir -p "$config/custom_components"
+if [[ ! -e "$config/configuration.yaml" ]]; then
+  cat > "$config/configuration.yaml" <<'YAML'
+frontend:
+config:
+http:
+  server_host: 127.0.0.1
+  server_port: !env_var KIPPY_DEV_PORT
+logger:
+  default: info
+YAML
+fi
+if [[ ! -e "$config/custom_components/kippy" ]]; then
+  ln -s "$PWD/custom_components/kippy" "$config/custom_components/kippy"
+fi
+exec "$venv/bin/python" -m homeassistant --config "$config" --skip-pip-packages kippy-api "$@"
