@@ -1,30 +1,24 @@
 # Kippy API separation and development tooling plan
 
-Prepared 21 September 2026; updated after local implementation and validation.
+Prepared 21 September 2026; updated after implementation and validation.
 
-The API extraction and development tooling are implemented locally. The new
-[`kippy-api` repository](https://github.com/ThomasHFWright/kippy-api) has been created;
-uploading its workflows requires refreshing this machine's GitHub CLI authorization
-with the `workflow` scope. No package or integration release has been published.
-The assessment and original sequencing below explain the design; tooling and
-integration changes are being reviewed together on `refactor/standalone-api`.
+The API is now a standalone [kippy-api repository](https://github.com/ThomasHFWright/kippy-api)
+and [PyPI package, version 1.0.0](https://pypi.org/project/kippy-api/1.0.0/).
+The integration pins that release. Its extraction and PetSafe-style tooling changes
+are together in [draft PR #181](https://github.com/ThomasHFWright/kippy-homeassistant/pull/181).
 See [development instructions](development.md) for runnable commands.
 
-The recommended end state is a standalone `kippy-api` Python distribution in a new
-`ThomasHFWright/kippy-api` repository, with the existing `kippy-homeassistant`
-repository consuming a pinned release. Upgrade the integration's development and
-test scaffolding using the blueprint adopted for PetSafe.
-`kippy-api` is the chosen spelling, matching the product name; the PyPI name remains
-unreserved until publication.
+The assessment and original sequencing below record the design and repository
+state before implementation. The integration itself has not been merged or released.
 
-## What already exists
+## What existed at the initial assessment
 
 Authenticated GitHub discovery enumerated all 48 repositories under
 `ThomasHFWright`. The Kippy-related results were:
 
 | Repository | Finding |
 | --- | --- |
-| [kippy-homeassistant](https://github.com/ThomasHFWright/kippy-homeassistant) | Current integration, version 1.0.4. Reviewed main at `66e890e`. Its only current branch is main. |
+| [kippy-homeassistant](https://github.com/ThomasHFWright/kippy-homeassistant) | Current integration, version 1.0.4. Reviewed main at `66e890e`. Only main existed at the initial assessment. |
 | [kippyAPIs](https://github.com/ThomasHFWright/kippyAPIs) | API reference inferred from Android traffic captures. Main contains only README.md and LICENSE; no package, workflows, tags, or pull requests. Keep as reference material. |
 | [hass-kippy](https://github.com/ThomasHFWright/hass-kippy) | Fork of `hacs/default`, not another integration or API implementation. |
 
@@ -223,7 +217,7 @@ Use PetSafe's tagged-release model, strengthened with validation before publishi
    filename and any chosen GitHub environment. This is a one-time account-side
    setup; no long-lived PyPI token belongs in an env file or the repository.
 6. Confirm installation of the published version from PyPI, then pin it in Kippy's
-   `manifest.json`, for example `kippy-api==0.1.0` if that is the chosen first release.
+   `manifest.json` (implemented as `kippy-api==1.0.0`).
 7. Run integration CI and clean-install testing using that published package, then
    release the integration through its existing HACS repository.
 
@@ -259,15 +253,17 @@ Publishing reference: [PyPI Trusted Publishing](https://docs.pypi.org/trusted-pu
   0600. Live tests are excluded from ordinary CI and fail on real auth/network
   errors when explicitly enabled with supplied credentials.
 
-## Remaining release steps
+## Release status and remaining work
 
-1. Refresh GitHub CLI authorization with `gh auth refresh -h github.com -s workflow`,
-   push the library and integration branch, and validate hosted CI.
-2. Configure a PyPI pending Trusted Publisher: project `kippy-api`, owner
-   `ThomasHFWright`, repository `kippy-api`, workflow `publish.yml`, environment
-   `pypi`. No PyPI API token is required.
-3. Tag and publish the validated library as `v0.1.0`. Verify installation from PyPI.
-4. Clear the temporary integration CI variables `KIPPY_API_REPOSITORY` and
-   `KIPPY_API_REF`, rerun CI against the published dependency and release the
-   integration only after review. The manifest already pins `kippy-api==0.1.0`;
-   the integration version remains unchanged until its release.
+- API 1.0.0 passed GitHub CI on Python 3.13 and 3.14, including tests, package
+  builds, metadata checks and installation without Home Assistant.
+- Before publishing, the CI-built wheel passed real login, pet listing, cached
+  map and activity reads for all three active devices. The packaged client also
+  passed 167 HA tests and both live HA checks before the version-only 1.0.0 change.
+- The tagged publishing workflow passed and published 1.0.0 through PyPI Trusted
+  Publishing. Installation and import from PyPI were verified. The earlier 0.1.0
+  publishing job completed before the version decision; 1.0.0 is the integration pin.
+- GitHub authorization and PyPI publisher configuration are complete. Temporary
+  source-checkout CI variables were removed so integration CI uses PyPI.
+- Review PR #181 and choose the integration release version before merging and
+  releasing it. Its existing version remains unchanged until that release.

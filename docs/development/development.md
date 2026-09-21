@@ -30,8 +30,7 @@ KIPPY_API_PATH=../kippy-api ./script/setup
 
 `script/setup` creates `.venv-dev` and installs the adjacent API package editable
 only when `KIPPY_API_PATH` is explicitly supplied. Without it, setup installs the
-requirements from the integration manifest using PyPI. Until the first API release
-is published, supply the local checkout. `KIPPY_PYTHON` selects the interpreter and
+requirements from the integration manifest using PyPI (`kippy-api==1.0.0`). `KIPPY_PYTHON` selects the interpreter and
 `KIPPY_VENV` selects an alternate virtual environment. Scripts do not uninstall
 editable packages or modify system trust settings. Install hooks optionally with
 `.venv-dev/bin/pre-commit install`. `script/check` includes the standalone
@@ -75,16 +74,13 @@ location data or account payloads in fixtures/logs.
 ## Two-repository CI and release order
 
 CI runs the same `script/setup`, `script/check` and `script/test` commands. By
-default it installs the pinned API release from PyPI. Before that release exists,
-use the sibling checkout locally. For combined CI once the API source has been
-pushed, set repository variables `KIPPY_API_REPOSITORY` (`owner/repo`) and
+default it installs the pinned API release from PyPI. To test future API changes
+before publishing them, set repository variables `KIPPY_API_REPOSITORY` (`owner/repo`) and
 `KIPPY_API_REF` (the full reviewed 40-character commit SHA). The workflow checks
 out that exact source and installs it editable. You can override these values
 with the corresponding manual workflow inputs. No nonexistent remote is assumed,
 no credentials are embedded and dependency failures remain failures.
 
-Until an API remote or PyPI release exists, a clean remote CI run cannot test the
-extracted integration. Local two-repository checks are the review baseline.
 Source-based CI establishes integration compatibility but does not validate PyPI
 availability. After publishing the API, clear those repository variables, run CI
 against the exact manifest pin from PyPI, and only then release the integration.
